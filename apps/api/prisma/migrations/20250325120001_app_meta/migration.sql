@@ -1,0 +1,8 @@
+-- CreateTable
+CREATE TABLE "AppMeta" (
+    "id" INTEGER NOT NULL DEFAULT 1,
+    "schemaVersion" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AppMeta_pkey" PRIMARY KEY ("id")
+);

@@ -1,0 +1,129 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import styles from "./page.module.css";
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [passwordResetOk, setPasswordResetOk] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("reset") === "1") setPasswordResetOk(true);
+  }, []);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      let data: { error?: string; token?: string; refreshToken?: string };
+      try {
+        data = (await res.json()) as { error?: string; token?: string };
+      } catch {
+        setError("Invalid response from server (is the API running?)");
+        return;
+      }
+      if (!res.ok) {
+        setError(data.error ?? "Login failed");
+        return;
+      }
+      if (data.token) {
+        localStorage.setItem("kp_access_token", data.token);
+      }
+      if (data.refreshToken) {
+        localStorage.setItem("kp_refresh_token", data.refreshToken);
+      }
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setError("Could not reach the API");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <main className={styles.shell} data-auth-fullscreen="true">
+      <section className={styles.frame}>
+        <aside className={styles.left}>
+          <a className={styles.brand} href="/">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className={styles.brandMark} src="/logo.svg" alt="Knowledge Platform" />
+          </a>
+
+          <div>
+            <p className={styles.quote}>
+              “Find answers across your organization’s documents in seconds. Secure access, strong search foundations, and
+              a clean user experience — built for teams.”
+            </p>
+            <div className={styles.attribution}>— Platform demo environment</div>
+          </div>
+        </aside>
+
+        <section className={styles.right}>
+          <div className={styles.card}>
+            <h1 className={styles.title}>Sign in</h1>
+            <p className={styles.subtitle}>Use the account your administrator created for you.</p>
+
+            {passwordResetOk ? <p className={styles.status}>Password updated successfully. Sign in below.</p> : null}
+
+            <form onSubmit={onSubmit} className={styles.form}>
+              <label className={styles.label}>
+                <span>Email</span>
+                <input
+                  className={styles.input}
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="name@example.com"
+                  suppressHydrationWarning
+                />
+              </label>
+              <label className={styles.label}>
+                <span>Password</span>
+                <input
+                  className={styles.input}
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  suppressHydrationWarning
+                />
+              </label>
+              {error ? (
+                <p role="alert" className={styles.error}>
+                  {error}
+                </p>
+              ) : null}
+              <button type="submit" disabled={loading} className={styles.primary} suppressHydrationWarning>
+                {loading ? "Signing in…" : "Sign in"}
+              </button>
+            </form>
+
+            <nav className={styles.footerLinks} aria-label="Help links">
+              <Link href="/forgot-password">Forgot password?</Link>
+            </nav>
+          </div>
+        </section>
+      </section>
+    </main>
+  );
+}

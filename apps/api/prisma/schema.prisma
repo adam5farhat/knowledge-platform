@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleName {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum DocumentVisibility {
+  ALL
+  DEPARTMENT
+  PRIVATE
+}
+
+enum DocumentProcessingStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+model Department {
+  id                 String   @id @default(uuid())
+  name               String
+  parentDepartmentId String?
+  parent             Department?  @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id], onDelete: SetNull)
+  children           Department[] @relation("DepartmentHierarchy")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  users     User[]
+  documents Document[]
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        RoleName @unique
+  description String?
+  users       User[]
+}
+
+model User {
+  id                  String   @id @default(uuid())
+  employeeBadgeNumber String?  @unique
+  name                String
+  email               String   @unique
+  passwordHash        String
+  phoneNumber         String?
+  position            String?
+  profilePictureUrl   String?
+  roleId              String
+  role                Role     @relation(fields: [roleId], references: [id])
+  departmentId        String
+  department          Department @relation(fields: [departmentId], references: [id])
+  isActive            Boolean  @default(true)
+  authVersion         Int      @default(0)
+  failedLoginAttempts Int      @default(0)
+  loginLockedUntil    DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  documentsCreated        Document[]        @relation("DocumentCreatedBy")
+  documentVersionsCreated DocumentVersion[] @relation("DocumentVersionCreatedBy")
+  passwordResetTokens     PasswordResetToken[]
+  refreshSessions         RefreshSession[]
+  authEvents              AuthEvent[]
+
+  @@index([email])
+  @@index([departmentId])
+}
+
+enum AuthEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGIN_LOCKED
+  REFRESH_SUCCESS
+  REFRESH_FAILURE
+  LOGOUT
+  LOGOUT_ALL
+  PASSWORD_CHANGE
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model RefreshSession {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash     String   @unique
+  authVersion   Int
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  replacedById  String?
+  userAgent     String?
+  ipAddress     String?
+  lastUsedAt    DateTime?
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model AuthEvent {
+  id        String        @id @default(uuid())
+  userId    String?
+  user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  eventType AuthEventType
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime      @default(now())
+
+  @@index([userId])
+  @@index([eventType, createdAt])
+}
+
+model Document {
+  id          String             @id @default(uuid())
+  title       String
+  createdById String
+  createdBy   User               @relation("DocumentCreatedBy", fields: [createdById], references: [id])
+  departmentId String?
+  department   Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  visibility   DocumentVisibility @default(ALL)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  versions     DocumentVersion[]
+
+  @@index([createdById])
+  @@index([departmentId])
+}
+
+model DocumentVersion {
+  id               String                   @id @default(uuid())
+  documentId       String
+  document         Document                 @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  versionNumber    Int
+  fileName         String
+  mimeType         String
+  storageKey       String                   @unique
+  sizeBytes        Int
+  sha256           String
+  processingStatus DocumentProcessingStatus @default(PENDING)
+  processingError  String?
+  createdById      String
+  createdBy        User                     @relation("DocumentVersionCreatedBy", fields: [createdById], references: [id])
+  createdAt        DateTime                 @default(now())
+  chunks           DocumentChunk[]
+
+  @@unique([documentId, versionNumber])
+  @@index([documentId])
+}
+
+model DocumentChunk {
+  id                String          @id @default(uuid())
+  documentVersionId String
+  documentVersion   DocumentVersion @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
+  chunkIndex        Int
+  content           String          @db.Text
+  embedding         Unsupported("vector(1536)")
+
+  @@unique([documentVersionId, chunkIndex])
+  @@index([documentVersionId])
+}

@@ -1,0 +1,70 @@
+:root {
+  --bg: #f2f3f5;
+  --text: #020202;
+  --interactive: #006ba6;
+  --error: #ff0035;
+  --success: #139a43;
+
+  --card-bg: #ffffff;
+  --border: #e4e4e7;
+  --muted: #52525b;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 2rem;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-inter), system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+body:has([data-auth-fullscreen="true"]) {
+  padding: 0;
+}
+
+body:has([data-dashboard-fullscreen="true"]) {
+  padding: 0;
+}
+
+body:has([data-documents-fullscreen="true"]) {
+  padding: 0;
+  overflow: hidden;
+}
+
+a.logoLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+a.logoLink:hover {
+  text-decoration: none;
+}
+
+.logoMark {
+  display: inline-block;
+  height: 32px;
+  width: auto;
+  vertical-align: middle;
+}
+
+a {
+  color: var(--interactive);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.logo {
+  font-family: var(--font-gelasio), Georgia, "Times New Roman", Times, serif;
+  letter-spacing: -0.2px;
+}
