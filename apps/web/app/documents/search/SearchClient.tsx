@@ -123,7 +123,7 @@ export default function SearchClient() {
       </form>
 
       {error ? (
-        <p role="alert" style={{ color: "var(--error)", marginTop: "1rem" }}>
+        <p role="alert" style={{ color: "#b91c1c", marginTop: "1rem" }}>
           {error}
         </p>
       ) : null}

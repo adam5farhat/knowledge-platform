@@ -7,7 +7,6 @@ import mime from "mime-types";
 import * as XLSX from "xlsx";
 
 const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse") as (b: Buffer) => Promise<{ text: string }>;
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const WordExtractor = require("word-extractor") as { new (): { extract: (b: Buffer) => Promise<{ getBody: () => string }> } };
 
@@ -52,8 +51,14 @@ export async function extractPlainText(buffer: Buffer, mimeType: string, fileNam
   const mt = mimeType.toLowerCase();
 
   if (mt === "application/pdf") {
-    const data = await pdfParse(buffer);
-    return normalizeText(data.text);
+    const { PDFParse } = await import("pdf-parse");
+    const parser = new PDFParse({ data: new Uint8Array(buffer) });
+    try {
+      const data = await parser.getText();
+      return normalizeText(data.text);
+    } finally {
+      await parser.destroy();
+    }
   }
 
   if (mt === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {

@@ -1,0 +1,11 @@
+---
+description: Use c:\dev\finalproject as the only codebase for edits (not OneDrive or other copies).
+alwaysApply: true
+---
+
+# Canonical project root
+
+- **All code edits, new files, and fixes MUST be made under:** `c:\dev\finalproject`
+- **Do not** modify duplicate or synced copies of this repo (for example under OneDrive `Documents\finalproject` or other paths), unless the user explicitly asks to sync the other way.
+- When running terminal commands (install, build, dev servers), use `c:\dev\finalproject` as the working directory unless the user specifies otherwise.
+- If the workspace root is not `c:\dev\finalproject`, still apply changes by using absolute paths under `c:\dev\finalproject` when the user identifies that as their main project.

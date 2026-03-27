@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { Router } from "express";
 import multer from "multer";
-import { DocumentVisibility } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+import { DocumentProcessingStatus, DocumentVisibility } from "@prisma/client";
 import { z } from "zod";
 import { authenticateToken } from "../middleware/auth.js";
 import { canManageDocument, canReadDocument } from "../lib/documentAccess.js";
@@ -35,13 +36,6 @@ const uploadMeta = z.object({
   title: z.string().min(1).max(500),
   visibility: z.nativeEnum(DocumentVisibility).optional(),
   departmentId: z.string().uuid().optional().nullable(),
-});
-
-const listQuery = z.object({
-  q: z.string().trim().optional(),
-  visibility: z.nativeEnum(DocumentVisibility).optional(),
-  status: z.enum(["PENDING", "PROCESSING", "READY", "FAILED"]).optional(),
-  sort: z.enum(["updatedAt_desc", "updatedAt_asc", "title_asc", "title_desc"]).optional(),
 });
 
 documentsRouter.post(
@@ -151,6 +145,21 @@ documentsRouter.post(
   },
 );
 
+function parseListSort(raw: unknown): Prisma.DocumentOrderByWithRelationInput {
+  const s = typeof raw === "string" ? raw : "updatedAt_desc";
+  switch (s) {
+    case "updatedAt_asc":
+      return { updatedAt: "asc" };
+    case "title_asc":
+      return { title: "asc" };
+    case "title_desc":
+      return { title: "desc" };
+    case "updatedAt_desc":
+    default:
+      return { updatedAt: "desc" };
+  }
+}
+
 documentsRouter.get("/", authenticateToken, async (req, res) => {
   const user = req.authUser;
   if (!user) {
@@ -158,70 +167,59 @@ documentsRouter.get("/", authenticateToken, async (req, res) => {
     return;
   }
 
-  const parsedQuery = listQuery.safeParse(req.query);
-  if (!parsedQuery.success) {
-    res.status(400).json({ error: "Validation failed", details: parsedQuery.error.flatten() });
-    return;
+  const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  const visibilityRaw = typeof req.query.visibility === "string" ? req.query.visibility : "ALL";
+  const statusRaw = typeof req.query.status === "string" ? req.query.status : "ALL";
+  const orderBy = parseListSort(req.query.sort);
+
+  const andParts: Prisma.DocumentWhereInput[] = [];
+
+  if (user.role !== "ADMIN") {
+    andParts.push({
+      OR: [
+        { visibility: DocumentVisibility.ALL },
+        {
+          visibility: DocumentVisibility.DEPARTMENT,
+          departmentId: user.departmentId,
+        },
+        {
+          visibility: DocumentVisibility.PRIVATE,
+          createdById: user.id,
+        },
+      ],
+    });
   }
-  const { q, visibility, status, sort } = parsedQuery.data;
 
-  const where =
-    user.role === "ADMIN"
-      ? {}
-      : {
-          OR: [
-            { visibility: DocumentVisibility.ALL },
-            {
-              visibility: DocumentVisibility.DEPARTMENT,
-              departmentId: user.departmentId,
-            },
-            {
-              visibility: DocumentVisibility.PRIVATE,
-              createdById: user.id,
-            },
-          ],
-        };
+  if (q.length > 0) {
+    andParts.push({ title: { contains: q, mode: "insensitive" } });
+  }
 
-  const whereWithFilters = {
-    ...where,
-    ...(q
-      ? {
-          title: {
-            contains: q,
-            mode: "insensitive" as const,
-          },
-        }
-      : {}),
-    ...(visibility ? { visibility } : {}),
-    ...(status
-      ? {
-          versions: {
-            some: {
-              processingStatus: status,
-            },
-          },
-        }
-      : {}),
-  };
+  if (visibilityRaw !== "ALL") {
+    const v = Object.values(DocumentVisibility).find((x) => x === visibilityRaw);
+    if (v) {
+      andParts.push({ visibility: v });
+    }
+  }
 
-  const orderBy =
-    sort === "updatedAt_asc"
-      ? { updatedAt: "asc" as const }
-      : sort === "title_asc"
-        ? { title: "asc" as const }
-        : sort === "title_desc"
-          ? { title: "desc" as const }
-          : { updatedAt: "desc" as const };
+  const where: Prisma.DocumentWhereInput =
+    andParts.length === 0 ? {} : andParts.length === 1 ? andParts[0]! : { AND: andParts };
 
-  const docs = await prisma.document.findMany({
-    where: whereWithFilters,
+  let docs = await prisma.document.findMany({
+    where,
     orderBy,
     include: {
       versions: { orderBy: { versionNumber: "desc" }, take: 1 },
       createdBy: { select: { id: true, name: true, email: true } },
-      department: { select: { id: true, name: true } },
+      department: { select: { name: true } },
     },
   });
+
+  if (statusRaw !== "ALL") {
+    const st = Object.values(DocumentProcessingStatus).find((x) => x === statusRaw);
+    if (st) {
+      docs = docs.filter((d) => d.versions[0]?.processingStatus === st);
+    }
+  }
 
   res.json({
     documents: docs.map((d) => ({
@@ -297,6 +295,93 @@ documentsRouter.get("/:documentId", authenticateToken, async (req, res) => {
   });
 });
 
+documentsRouter.post(
+  "/:documentId/versions",
+  authenticateToken,
+  (req, res, next) => {
+    upload.single("file")(req, res, (err: unknown) => {
+      if (err) {
+        const msg = err instanceof Error ? err.message : "Upload failed";
+        res.status(400).json({ error: msg });
+        return;
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    const user = req.authUser;
+    if (!user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: "Missing file field (multipart name: file)" });
+      return;
+    }
+
+    const documentId = req.params.documentId;
+    const doc = await prisma.document.findUnique({ where: { id: documentId } });
+
+    if (!doc) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    if (!canReadDocument(user, doc)) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
+    const mimeType = resolveMimeType(file.originalname, file.mimetype);
+    const sha256 = createHash("sha256").update(file.buffer).digest("hex");
+    const storageKey = allocateStorageKey(user.departmentId, file.originalname);
+
+    await saveUploadedFile(storageKey, file.buffer);
+
+    try {
+      const agg = await prisma.documentVersion.aggregate({
+        where: { documentId },
+        _max: { versionNumber: true },
+      });
+      const nextNum = (agg._max.versionNumber ?? 0) + 1;
+
+      const version = await prisma.documentVersion.create({
+        data: {
+          documentId,
+          versionNumber: nextNum,
+          fileName: file.originalname,
+          mimeType,
+          storageKey,
+          sizeBytes: file.size,
+          sha256,
+          createdById: user.id,
+        },
+      });
+
+      await prisma.document.update({
+        where: { id: documentId },
+        data: { updatedAt: new Date() },
+      });
+
+      await enqueueDocumentIngest(version.id);
+
+      res.status(201).json({
+        version: {
+          id: version.id,
+          versionNumber: version.versionNumber,
+          processingStatus: version.processingStatus,
+          fileName: version.fileName,
+        },
+      });
+    } catch (e) {
+      await deleteFileIfExists(storageKey);
+      throw e;
+    }
+  },
+);
+
 documentsRouter.get("/:documentId/versions/:versionId/file", authenticateToken, async (req, res) => {
   const user = req.authUser;
   if (!user) {
@@ -354,121 +439,4 @@ documentsRouter.delete("/:documentId", authenticateToken, async (req, res) => {
   await prisma.document.delete({ where: { id: doc.id } });
 
   res.status(204).send();
-});
-
-documentsRouter.post(
-  "/:documentId/versions",
-  authenticateToken,
-  (req, res, next) => {
-    upload.single("file")(req, res, (err: unknown) => {
-      if (err) {
-        const msg = err instanceof Error ? err.message : "Upload failed";
-        res.status(400).json({ error: msg });
-        return;
-      }
-      next();
-    });
-  },
-  async (req, res) => {
-    const user = req.authUser;
-    if (!user) {
-      res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
-
-    const file = req.file;
-    if (!file) {
-      res.status(400).json({ error: "Missing file field (multipart name: file)" });
-      return;
-    }
-
-    const doc = await prisma.document.findUnique({
-      where: { id: req.params.documentId },
-      include: {
-        versions: { select: { versionNumber: true } },
-      },
-    });
-    if (!doc) {
-      res.status(404).json({ error: "Document not found" });
-      return;
-    }
-    if (!canManageDocument(user, doc)) {
-      res.status(403).json({ error: "Forbidden" });
-      return;
-    }
-
-    const mimeType = resolveMimeType(file.originalname, file.mimetype);
-    const sha256 = createHash("sha256").update(file.buffer).digest("hex");
-    const storageKey = allocateStorageKey(doc.departmentId ?? user.departmentId, file.originalname);
-    const nextVersion = Math.max(0, ...doc.versions.map((v) => v.versionNumber)) + 1;
-
-    await saveUploadedFile(storageKey, file.buffer);
-
-    try {
-      const version = await prisma.documentVersion.create({
-        data: {
-          documentId: doc.id,
-          versionNumber: nextVersion,
-          fileName: file.originalname,
-          mimeType,
-          storageKey,
-          sizeBytes: file.size,
-          sha256,
-          createdById: user.id,
-        },
-      });
-
-      await enqueueDocumentIngest(version.id);
-
-      res.status(201).json({
-        version: {
-          id: version.id,
-          documentId: version.documentId,
-          versionNumber: version.versionNumber,
-          fileName: version.fileName,
-          processingStatus: version.processingStatus,
-          createdAt: version.createdAt,
-        },
-      });
-    } catch (e) {
-      await deleteFileIfExists(storageKey);
-      throw e;
-    }
-  },
-);
-
-documentsRouter.post("/:documentId/versions/:versionId/reprocess", authenticateToken, async (req, res) => {
-  const user = req.authUser;
-  if (!user) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  const version = await prisma.documentVersion.findUnique({
-    where: { id: req.params.versionId },
-    include: { document: true },
-  });
-  if (!version || version.documentId !== req.params.documentId) {
-    res.status(404).json({ error: "Version not found" });
-    return;
-  }
-  if (!canManageDocument(user, version.document)) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
-  if (version.processingStatus === "PROCESSING") {
-    res.status(409).json({ error: "Version is already processing" });
-    return;
-  }
-
-  await prisma.documentVersion.update({
-    where: { id: version.id },
-    data: {
-      processingStatus: "PENDING",
-      processingError: null,
-    },
-  });
-  await enqueueDocumentIngest(version.id);
-
-  res.status(202).json({ ok: true });
 });

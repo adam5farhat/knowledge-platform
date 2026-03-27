@@ -58,8 +58,23 @@ export default function DocumentsClient() {
   const [tagFilter, setTagFilter] = useState("");
   const [sort, setSort] = useState("updatedAt_desc");
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadStep, setUploadStep] = useState<1 | 2>(1);
+  const [uploadDragActive, setUploadDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; title: string; documentId: string } | null>(null);
+  const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
+  const [pdfPreviewError, setPdfPreviewError] = useState<string | null>(null);
+
+  const closePdfPreview = useCallback(() => {
+    setPdfPreview((prev) => {
+      if (prev?.url) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    setPdfPreviewError(null);
+    setPdfPreviewLoading(false);
+  }, []);
 
   const loadDocuments = useCallback(async () => {
     const params = new URLSearchParams();
@@ -122,6 +137,57 @@ export default function DocumentsClient() {
       cancelled = true;
     };
   }, [loadDocuments, router]);
+
+  async function openDocumentFromPanel(doc: DocRow) {
+    const v = doc.latestVersion;
+    if (!v || v.processingStatus !== "READY") {
+      router.push(`/documents/${doc.id}`);
+      return;
+    }
+    const isPdf = v.mimeType === "application/pdf" || /\.pdf$/i.test(v.fileName);
+    if (!isPdf) {
+      router.push(`/documents/${doc.id}`);
+      return;
+    }
+    setPdfPreview((prev) => {
+      if (prev?.url) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    setPdfPreviewLoading(true);
+    setPdfPreviewError(null);
+    try {
+      const res = await fetchWithAuth(`${API}/documents/${doc.id}/versions/${v.id}/file`);
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        setPdfPreviewError(body.error ?? "Could not load PDF");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setPdfPreview({ url, title: doc.title, documentId: doc.id });
+    } catch {
+      setPdfPreviewError("Could not load PDF");
+    } finally {
+      setPdfPreviewLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!pdfPreview && !pdfPreviewLoading) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") closePdfPreview();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [pdfPreview, pdfPreviewLoading, closePdfPreview]);
+
+  useEffect(() => {
+    if (!uploadModalOpen) return;
+    setUploadStep(1);
+    setUploadDragActive(false);
+    setUploadError(null);
+    setUploadOk(null);
+  }, [uploadModalOpen]);
 
   useEffect(() => {
     if (!uploadModalOpen) return;
@@ -191,6 +257,7 @@ export default function DocumentsClient() {
       setUploadOk("Uploaded. Processing for search runs in the background.");
       setTitle("");
       setFile(null);
+      setUploadStep(1);
       setUploadModalOpen(false);
       await loadDocuments();
     } catch {
@@ -347,55 +414,63 @@ export default function DocumentsClient() {
           <span className={styles.sideBrandText}>Library</span>
         </div>
         <div className={styles.sideScroll}>
-          <nav className={styles.sideNav} aria-label="Browse folders">
-            <p className={styles.sideTitle}>Browse</p>
-            <button
-              type="button"
-              className={`${styles.sideBtn} ${selectedDepartment === "__all" ? styles.activeSideBtn : ""}`}
-              onClick={() => setSelectedDepartment("__all")}
-            >
-              <span className={styles.sideIcon} aria-hidden>
-                <SideIconHome />
-              </span>
-              <span>All departments</span>
-            </button>
-            {departmentItems.map((dep) => (
+          <section className={styles.sideSection} aria-labelledby="lib-browse-heading">
+            <h2 id="lib-browse-heading" className={styles.sideTitle}>
+              Browse
+            </h2>
+            <nav className={styles.sideNav} aria-labelledby="lib-browse-heading">
               <button
-                key={dep.id}
                 type="button"
-                className={`${styles.sideBtn} ${selectedDepartment === dep.id ? styles.activeSideBtn : ""}`}
-                onClick={() => setSelectedDepartment(dep.id)}
+                className={`${styles.sideBtn} ${selectedDepartment === "__all" ? styles.activeSideBtn : ""}`}
+                onClick={() => setSelectedDepartment("__all")}
               >
                 <span className={styles.sideIcon} aria-hidden>
-                  <SideIconFolder />
+                  <SideIconHome />
                 </span>
-                <span>
-                  {dep.name} <span className={styles.detailMeta}>({dep.count})</span>
-                </span>
+                <span>All departments</span>
               </button>
-            ))}
-          </nav>
-          <div className={styles.sideNav}>
-            <p className={styles.sideTitle}>Coming soon</p>
-            <button type="button" className={styles.sideBtn} disabled>
-              <span className={styles.sideIcon} aria-hidden>
-                <SideIconClock />
-              </span>
-              <span>Recent</span>
-            </button>
-            <button type="button" className={styles.sideBtn} disabled>
-              <span className={styles.sideIcon} aria-hidden>
-                <SideIconStar />
-              </span>
-              <span>Favorites</span>
-            </button>
-            <button type="button" className={styles.sideBtn} disabled>
-              <span className={styles.sideIcon} aria-hidden>
-                <SideIconArchive />
-              </span>
-              <span>Archived</span>
-            </button>
-          </div>
+              {departmentItems.map((dep) => (
+                <button
+                  key={dep.id}
+                  type="button"
+                  className={`${styles.sideBtn} ${selectedDepartment === dep.id ? styles.activeSideBtn : ""}`}
+                  onClick={() => setSelectedDepartment(dep.id)}
+                >
+                  <span className={styles.sideIcon} aria-hidden>
+                    <SideIconFolder />
+                  </span>
+                  <span>
+                    {dep.name} <span className={styles.detailMeta}>({dep.count})</span>
+                  </span>
+                </button>
+              ))}
+            </nav>
+          </section>
+          <section className={styles.sideSection} aria-labelledby="lib-soon-heading">
+            <h2 id="lib-soon-heading" className={styles.sideTitle}>
+              Coming soon
+            </h2>
+            <div className={styles.sideNav} role="group" aria-label="Coming soon">
+              <button type="button" className={styles.sideBtn} disabled>
+                <span className={styles.sideIcon} aria-hidden>
+                  <SideIconClock />
+                </span>
+                <span>Recent</span>
+              </button>
+              <button type="button" className={styles.sideBtn} disabled>
+                <span className={styles.sideIcon} aria-hidden>
+                  <SideIconStar />
+                </span>
+                <span>Favorites</span>
+              </button>
+              <button type="button" className={styles.sideBtn} disabled>
+                <span className={styles.sideIcon} aria-hidden>
+                  <SideIconArchive />
+                </span>
+                <span>Archived</span>
+              </button>
+            </div>
+          </section>
         </div>
         <div className={styles.sideFooter}>
           <button type="button" className={styles.sideBackBtn} onClick={() => router.back()} aria-label="Go back">
@@ -532,9 +607,10 @@ export default function DocumentsClient() {
                   {filteredDocs.map((d) => (
                     <article
                       key={d.id}
-                      className={`${styles.fileCard} ${selectedFileId === d.id ? styles.selected : ""}`}
+                      className={`${styles.fileCard} ${selectedFileId === d.id ? styles.fileCardSelected : ""}`}
                       onClick={() => setSelectedFileId(d.id)}
                       onDoubleClick={() => router.push(`/documents/${d.id}`)}
+                      aria-selected={selectedFileId === d.id}
                     >
                       {fileIcon(d.latestVersion?.fileName)}
                       <p className={styles.fileCardPath}>{breadcrumbForFileCards}</p>
@@ -561,10 +637,10 @@ export default function DocumentsClient() {
                     {filteredDocs.map((d) => (
                       <tr
                         key={d.id}
-                        className={styles.tableRow}
+                        className={`${styles.tableRow} ${selectedFileId === d.id ? styles.tableRowSelected : ""}`}
                         onClick={() => setSelectedFileId(d.id)}
                         onDoubleClick={() => router.push(`/documents/${d.id}`)}
-                        style={selectedFileId === d.id ? { background: "#f4f8ff" } : undefined}
+                        aria-selected={selectedFileId === d.id}
                       >
                         <td>
                           <div className={styles.tableCellPath}>{breadcrumbForFileCards}</div>
@@ -611,13 +687,50 @@ export default function DocumentsClient() {
               </section>
 
               <section className={styles.detailsSection}>
+                <h3 className={styles.detailsSectionTitle}>Version</h3>
+                {selectedDoc.latestVersion ? (
+                  <>
+                    <p className={styles.detailMeta} style={{ marginTop: 0 }}>
+                      Latest upload is version {selectedDoc.latestVersion.versionNumber}.
+                    </p>
+                    <div className={styles.versionRow}>
+                      <div className={styles.versionRowMain}>
+                        <span className={styles.versionNumberLabel}>Version {selectedDoc.latestVersion.versionNumber}</span>
+                        <span className={styles.versionLatestBadge}>Current</span>
+                      </div>
+                      <div className={styles.versionFileName}>{selectedDoc.latestVersion.fileName}</div>
+                      <div className={styles.versionMeta}>
+                        <StatusLabel
+                          status={selectedDoc.latestVersion.processingStatus}
+                          error={selectedDoc.latestVersion.processingError}
+                        />
+                        <span className={styles.versionMetaSep}>·</span>
+                        <span>{formatSize(selectedDoc.latestVersion.sizeBytes)}</span>
+                        <span className={styles.versionMetaSep}>·</span>
+                        <span>{new Date(selectedDoc.latestVersion.createdAt).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <p className={styles.detailMeta} style={{ marginTop: 0 }}>
+                    No uploads yet.
+                  </p>
+                )}
+              </section>
+
+              <section className={styles.detailsSection}>
                 <h3 className={styles.detailsSectionTitle}>Action</h3>
                 <div className={styles.actionsRow}>
-                  <button type="button" className={styles.actionItem} onClick={() => router.push(`/documents/${selectedDoc.id}`)}>
+                  <button
+                    type="button"
+                    className={styles.actionItem}
+                    disabled={pdfPreviewLoading}
+                    onClick={() => void openDocumentFromPanel(selectedDoc)}
+                  >
                     <span className={styles.actionIcon} aria-hidden>
                       <ActionIconOpen />
                     </span>
-                    <span className={styles.actionLabel}>Open</span>
+                    <span className={styles.actionLabel}>{pdfPreviewLoading ? "Opening…" : "Open"}</span>
                   </button>
                   {selectedDoc.latestVersion ? (
                     <button
@@ -662,6 +775,9 @@ export default function DocumentsClient() {
         onClick={() => {
           setUploadError(null);
           setUploadOk(null);
+          setUploadStep(1);
+          setFile(null);
+          setTitle("");
           setUploadModalOpen(true);
         }}
         aria-label="Upload file"
@@ -683,12 +799,18 @@ export default function DocumentsClient() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="upload-modal-title"
+            aria-describedby="upload-modal-desc"
             onClick={(e) => e.stopPropagation()}
           >
             <div className={styles.uploadModalHeader}>
-              <h2 id="upload-modal-title" className={styles.uploadModalTitle}>
-                Upload file
-              </h2>
+              <div>
+                <h2 id="upload-modal-title" className={styles.uploadModalTitle}>
+                  Upload document
+                </h2>
+                <p id="upload-modal-desc" className={styles.uploadModalSubtitle}>
+                  {uploadStep === 1 ? "Choose a file, then add document details." : "Review details and publish to the library."}
+                </p>
+              </div>
               <button
                 type="button"
                 className={styles.uploadModalClose}
@@ -698,54 +820,177 @@ export default function DocumentsClient() {
                 ×
               </button>
             </div>
-            <form onSubmit={onUpload} className={styles.uploadForm}>
-              <label className={styles.uploadLabel}>
-                <span>Title</span>
-                <input value={title} onChange={(e) => setTitle(e.target.value)} required className={styles.input} />
-              </label>
-              <label className={styles.uploadLabel}>
-                <span>Visibility</span>
-                <select value={visibility} onChange={(e) => setVisibility(e.target.value)} className={styles.select}>
-                  <option value="ALL">Everyone (all users)</option>
-                  <option value="DEPARTMENT">Department only</option>
-                  <option value="PRIVATE">Private (only you)</option>
-                </select>
-              </label>
-              {visibility === "DEPARTMENT" && me?.role === "ADMIN" && departments.length > 0 ? (
+
+            <div className={styles.uploadStepper} aria-label="Upload progress">
+              <div className={`${styles.uploadStepperTrack} ${uploadStep === 2 ? styles.uploadStepperTrackDone : ""}`} />
+              <div className={styles.uploadStepperSteps}>
+                <div className={`${styles.uploadStepperItem} ${uploadStep >= 1 ? styles.uploadStepperItemActive : ""}`}>
+                  <span className={styles.uploadStepperBadge}>1</span>
+                  <span className={styles.uploadStepperLabel}>File</span>
+                </div>
+                <div className={`${styles.uploadStepperItem} ${uploadStep >= 2 ? styles.uploadStepperItemActive : ""}`}>
+                  <span className={styles.uploadStepperBadge}>2</span>
+                  <span className={styles.uploadStepperLabel}>Details</span>
+                </div>
+              </div>
+            </div>
+
+            {uploadStep === 1 ? (
+              <div className={styles.uploadForm}>
+                <p className={styles.uploadStepIntro}>Drop a file here or browse. Office documents and PDFs are supported.</p>
+                <div
+                  className={`${styles.uploadDropZone} ${uploadDragActive ? styles.uploadDropZoneActive : ""} ${file ? styles.uploadDropZoneHasFile : ""}`}
+                  onDragEnter={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setUploadDragActive(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) setUploadDragActive(false);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setUploadDragActive(false);
+                    const f = e.dataTransfer.files?.[0];
+                    if (f) setFile(f);
+                  }}
+                >
+                  <input
+                    ref={fileInputRef}
+                    id="upload-file-input"
+                    type="file"
+                    className={styles.uploadFileInput}
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  />
+                  <label htmlFor="upload-file-input" className={styles.uploadDropLabel}>
+                    <span className={styles.uploadDropIcon} aria-hidden>
+                      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M12 16V4m0 0 4 4m-4-4L8 8" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                    <span className={styles.uploadDropTitle}>{file ? "Replace file" : "Select or drop file"}</span>
+                    <span className={styles.uploadDropHint}>Click to browse your device</span>
+                  </label>
+                </div>
+                {file ? (
+                  <div className={styles.uploadFilePreview}>
+                    <div className={styles.uploadFilePreviewMain}>
+                      <span className={styles.uploadFilePreviewName}>{file.name}</span>
+                      <span className={styles.uploadFilePreviewMeta}>{formatSize(file.size)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.uploadFileRemove}
+                      onClick={() => {
+                        setFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : null}
+                {uploadError ? (
+                  <p role="alert" className={styles.uploadMsgError}>
+                    {uploadError}
+                  </p>
+                ) : null}
+                <div className={styles.uploadModalActions}>
+                  <button type="button" className={styles.ghost} disabled={uploading} onClick={() => setUploadModalOpen(false)}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.primary}
+                    disabled={!file || uploading}
+                    onClick={() => {
+                      if (!file) return;
+                      setUploadError(null);
+                      if (!title.trim()) {
+                        const stem = file.name.replace(/\.[^/.]+$/, "");
+                        setTitle(stem.length > 0 ? stem : file.name);
+                      }
+                      setUploadStep(2);
+                    }}
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={onUpload} className={styles.uploadForm}>
+                <p className={styles.uploadStepIntro}>Document information stored with this file in the library.</p>
                 <label className={styles.uploadLabel}>
-                  <span>Department</span>
-                  <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} className={styles.select}>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
+                  <span className={styles.uploadFieldLabel}>Title</span>
+                  <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    required
+                    className={styles.uploadFieldInput}
+                    placeholder="Document title"
+                    autoComplete="off"
+                  />
+                </label>
+                <label className={styles.uploadLabel}>
+                  <span className={styles.uploadFieldLabel}>Visibility</span>
+                  <select value={visibility} onChange={(e) => setVisibility(e.target.value)} className={styles.uploadFieldSelect}>
+                    <option value="ALL">Everyone (all users)</option>
+                    <option value="DEPARTMENT">Department only</option>
+                    <option value="PRIVATE">Private (only you)</option>
                   </select>
                 </label>
-              ) : null}
-              <label className={styles.uploadLabel}>
-                <span>File</span>
-                <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} required />
-              </label>
-              {uploadError ? (
-                <p role="alert" className={styles.uploadMsgError}>
-                  {uploadError}
-                </p>
-              ) : null}
-              {uploadOk ? (
-                <p role="status" className={styles.uploadMsgOk}>
-                  {uploadOk}
-                </p>
-              ) : null}
-              <div className={styles.uploadModalActions}>
-                <button type="button" className={styles.ghost} disabled={uploading} onClick={() => setUploadModalOpen(false)}>
-                  Cancel
-                </button>
-                <button type="submit" disabled={uploading} className={styles.primary}>
-                  {uploading ? "Uploading…" : "Upload"}
-                </button>
-              </div>
-            </form>
+                {visibility === "DEPARTMENT" && me?.role === "ADMIN" && departments.length > 0 ? (
+                  <label className={styles.uploadLabel}>
+                    <span className={styles.uploadFieldLabel}>Department</span>
+                    <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} className={styles.uploadFieldSelect}>
+                      {departments.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                <div className={styles.uploadSummary}>
+                  <span className={styles.uploadSummaryLabel}>Attached file</span>
+                  <span className={styles.uploadSummaryValue}>{file?.name ?? "—"}</span>
+                </div>
+                {uploadError ? (
+                  <p role="alert" className={styles.uploadMsgError}>
+                    {uploadError}
+                  </p>
+                ) : null}
+                {uploadOk ? (
+                  <p role="status" className={styles.uploadMsgOk}>
+                    {uploadOk}
+                  </p>
+                ) : null}
+                <div className={styles.uploadModalActions}>
+                  <button
+                    type="button"
+                    className={styles.ghost}
+                    disabled={uploading}
+                    onClick={() => {
+                      setUploadStep(1);
+                      setUploadError(null);
+                    }}
+                  >
+                    Back
+                  </button>
+                  <button type="submit" disabled={uploading} className={styles.primary}>
+                    {uploading ? "Uploading…" : "Upload document"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       ) : null}
