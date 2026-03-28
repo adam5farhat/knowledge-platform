@@ -187,8 +187,11 @@ export default function DashboardClient() {
               ) : null}
               {user.role === "ADMIN" ? (
                 <>
+                  <Link className={styles.menuItem} href="/admin" role="menuitem" onClick={() => setMenuOpen(false)}>
+                    Admin hub
+                  </Link>
                   <Link className={styles.menuItem} href="/admin/users" role="menuitem" onClick={() => setMenuOpen(false)}>
-                    Admin Users
+                    Users
                   </Link>
                   <Link
                     className={styles.menuItem}
@@ -196,7 +199,34 @@ export default function DashboardClient() {
                     role="menuitem"
                     onClick={() => setMenuOpen(false)}
                   >
-                    Admin Departments
+                    Departments
+                  </Link>
+                  <Link
+                    className={styles.menuItem}
+                    href="/admin/documents"
+                    role="menuitem"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Document tools
+                  </Link>
+                  <Link
+                    className={styles.menuItem}
+                    href="/admin/activity"
+                    role="menuitem"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Sign-in activity
+                  </Link>
+                  <Link
+                    className={styles.menuItem}
+                    href="/admin/document-audit"
+                    role="menuitem"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Document audit
+                  </Link>
+                  <Link className={styles.menuItem} href="/admin/system" role="menuitem" onClick={() => setMenuOpen(false)}>
+                    System stats
                   </Link>
                 </>
               ) : null}
@@ -216,7 +246,10 @@ export default function DashboardClient() {
         </div>
       </header>
 
-      <section className={styles.cards} aria-label="Core features">
+      <section
+        className={`${styles.cards} ${user.role === "ADMIN" ? styles.cardsWithAdmin : ""}`}
+        aria-label="Core features"
+      >
         <Link className={`${styles.card} ${styles.cardDocuments}`} href="/documents" aria-label="Go to document management">
           <div className={styles.cardInner}>
             <div className={styles.icon} aria-hidden>
@@ -232,7 +265,11 @@ export default function DashboardClient() {
           </div>
         </Link>
 
-        <Link className={`${styles.card} ${styles.cardQuestions}`} href="/documents/search" aria-label="Go to AI question interface">
+        <Link
+          className={`${styles.card} ${styles.cardQuestions}`}
+          href="/documents/search"
+          aria-label="Go to semantic search over document embeddings"
+        >
           <div className={styles.cardInner}>
             <div className={styles.icon} aria-hidden>
               <svg className={styles.iconGlyph} viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -240,10 +277,30 @@ export default function DashboardClient() {
                 <path d="M9 10.5h6" stroke="currentColor" strokeWidth="1.6" />
               </svg>
             </div>
-            <h2 className={styles.cardTitle}>Questions / AI</h2>
-            <p className={styles.cardHint}>Ask semantic questions over your knowledge base</p>
+            <h2 className={styles.cardTitle}>Semantic search</h2>
+            <p className={styles.cardHint}>Find relevant passages by meaning (embeddings + pgvector)</p>
           </div>
         </Link>
+
+        {user.role === "ADMIN" ? (
+          <Link className={`${styles.card} ${styles.cardAdmin}`} href="/admin" aria-label="Open administrator tools">
+            <div className={styles.cardInner}>
+              <div className={styles.icon} aria-hidden>
+                <svg className={styles.iconGlyph} viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path
+                    d="M12 3.5l1.8 3.6 4 .6-2.9 2.8.7 4L12 16.9 8.4 14.7l.7-4L6.2 7.7l4-.6L12 3.5z"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinejoin="round"
+                  />
+                  <path d="M5 20.5h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </div>
+              <h2 className={styles.cardTitle}>Administration</h2>
+              <p className={styles.cardHint}>Users, departments, exports, and system overview</p>
+            </div>
+          </Link>
+        ) : null}
       </section>
     </main>
   );

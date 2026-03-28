@@ -6,6 +6,14 @@ import { closeRedis, getRedis } from "./lib/redis.js";
 import { ensureStorageLayout } from "./lib/storage.js";
 import { startDocumentIngestWorker, stopDocumentIngestWorker } from "./jobs/documentIngest.js";
 
+if (process.env.NODE_ENV === "production") {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 16) {
+    console.error("[api] FATAL: JWT_SECRET must be set (min 16 characters) in production.");
+    process.exit(1);
+  }
+}
+
 const app = createHttpApp();
 const PORT = Number(process.env.PORT) || 3001;
 
@@ -19,8 +27,10 @@ const server = app.listen(PORT, () => {
   })();
 });
 
-if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 16) {
-  console.warn("[api] JWT_SECRET must be set (min 16 characters) for login and admin routes.");
+if (process.env.NODE_ENV !== "production") {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 16) {
+    console.warn("[api] JWT_SECRET must be set (min 16 characters) for login and admin routes.");
+  }
 }
 
 async function shutdown(): Promise<void> {

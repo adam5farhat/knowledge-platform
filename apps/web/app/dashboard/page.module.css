@@ -99,6 +99,10 @@
   min-height: 0;
 }
 
+.cardsWithAdmin {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 .card {
   --card-accent: var(--interactive);
   position: relative;
@@ -193,6 +197,9 @@
 
 @media (max-width: 900px) {
   .cards {
+    grid-template-columns: 1fr;
+  }
+  .cardsWithAdmin {
     grid-template-columns: 1fr;
   }
   .card + .card {

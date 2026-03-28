@@ -86,7 +86,8 @@ export default function SearchClient() {
     <main style={{ maxWidth: 720 }}>
       <h1>Semantic search</h1>
       <p style={{ color: "#52525b", fontSize: "0.95rem" }}>
-        Queries are embedded with the same model as your documents, then matched with pgvector (cosine distance).
+        Your question is turned into an embedding and matched to document chunks (pgvector cosine distance). Open a result’s
+        title to view the full file. This is not a chatbot—there is no generated answer, only similar passages.
       </p>
       <nav style={{ margin: "1rem 0", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
         <Link href="/documents">Documents</Link>
@@ -102,7 +103,7 @@ export default function SearchClient() {
           style={{
             flex: "1 1 240px",
             padding: "0.5rem 0.6rem",
-            borderRadius: 6,
+            borderRadius: 0,
             border: "1px solid #d4d4d8",
           }}
         />
@@ -111,7 +112,7 @@ export default function SearchClient() {
           disabled={loading}
           style={{
             padding: "0.5rem 1rem",
-            borderRadius: 6,
+            borderRadius: 0,
             border: "none",
             background: "#18181b",
             color: "#fafafa",
@@ -141,11 +142,13 @@ export default function SearchClient() {
                 marginBottom: "1rem",
                 padding: "1rem",
                 background: "#f4f4f5",
-                borderRadius: 8,
+                borderRadius: 0,
               }}
             >
               <p style={{ margin: "0 0 0.35rem", fontSize: "0.85rem", color: "#52525b" }}>
-                <strong>{r.document.title}</strong>
+                <Link href={`/documents/${r.document.id}`} style={{ fontWeight: 600, color: "#18181b" }}>
+                  {r.document.title}
+                </Link>
                 <span style={{ marginLeft: "0.5rem" }}>({r.version.fileName})</span>
                 <span style={{ marginLeft: "0.5rem" }}>· chunk {r.chunkIndex}</span>
                 <span style={{ marginLeft: "0.5rem" }}>· score {r.score.toFixed(4)}</span>

@@ -30,6 +30,10 @@ searchRouter.post("/semantic", authenticateToken, async (req, res) => {
 
   try {
     const embedding = await embedQuery(parsed.data.query);
+    if (embedding.length === 0 || !embedding.every((n) => Number.isFinite(n))) {
+      res.status(503).json({ error: "Embedding provider returned an invalid vector." });
+      return;
+    }
     const vecLiteral = `[${embedding.join(",")}]`;
 
     const isAdmin = user.role === "ADMIN";
@@ -62,6 +66,7 @@ searchRouter.post("/semantic", authenticateToken, async (req, res) => {
       INNER JOIN "DocumentVersion" dv ON dv.id = dc."documentVersionId"
       INNER JOIN "Document" d ON d.id = dv."documentId"
       WHERE dv."processingStatus" = 'READY'
+        AND d."isArchived" = false
         AND (
           $2::boolean = true
           OR d.visibility = 'ALL'::"DocumentVisibility"

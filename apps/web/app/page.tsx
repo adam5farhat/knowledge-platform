@@ -19,7 +19,7 @@ export default function Home() {
         <Link href="/dashboard">Dashboard</Link>
         <Link href="/documents">Documents</Link>
         <Link href="/documents/search">Search</Link>
-        <Link href="/admin/users">Admin: add user</Link>
+        <Link href="/admin">Admin</Link>
       </nav>
       <section style={{ marginTop: "1.5rem" }}>
         <h2>API health</h2>
