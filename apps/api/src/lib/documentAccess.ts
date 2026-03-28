@@ -23,8 +23,21 @@ export function canReadDocument(
 
 export function canManageDocument(
   ctx: AuthContext,
-  doc: { createdById: string },
+  doc: {
+    createdById: string;
+    visibility: DocumentVisibility;
+    departmentId: string | null;
+  },
 ): boolean {
   if (ctx.role === "ADMIN") return true;
-  return doc.createdById === ctx.id;
+  if (doc.createdById === ctx.id) return true;
+  if (
+    ctx.role === "MANAGER" &&
+    doc.visibility === "DEPARTMENT" &&
+    doc.departmentId != null &&
+    doc.departmentId === ctx.departmentId
+  ) {
+    return true;
+  }
+  return false;
 }

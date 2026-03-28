@@ -3,10 +3,12 @@ import { createReadStream } from "node:fs";
 import { Router } from "express";
 import multer from "multer";
 import type { Prisma } from "@prisma/client";
-import { DocumentProcessingStatus, DocumentVisibility } from "@prisma/client";
+import { DocumentAuditAction, DocumentVisibility, RoleName } from "@prisma/client";
 import { z } from "zod";
-import { authenticateToken } from "../middleware/auth.js";
+import { authenticateToken, requireRole } from "../middleware/auth.js";
+import { logDocumentAudit } from "../lib/documentAudit.js";
 import { canManageDocument, canReadDocument } from "../lib/documentAccess.js";
+import { docListInclude, listDocuments, mapDocumentRow, parseLibraryScope } from "../lib/documentQuery.js";
 import { prisma } from "../lib/prisma.js";
 import {
   allocateStorageKey,
@@ -16,6 +18,7 @@ import {
 } from "../lib/storage.js";
 import { resolveMimeType, SUPPORTED_EXTRACTION_MIMES } from "../lib/extractText.js";
 import { enqueueDocumentIngest } from "../jobs/documentIngest.js";
+import { normalizeTagName, parseTagListInput } from "../lib/tags.js";
 
 export const documentsRouter = Router();
 
@@ -36,11 +39,13 @@ const uploadMeta = z.object({
   title: z.string().min(1).max(500),
   visibility: z.nativeEnum(DocumentVisibility).optional(),
   departmentId: z.string().uuid().optional().nullable(),
+  description: z.string().max(20000).optional().nullable(),
 });
 
 documentsRouter.post(
   "/upload",
   authenticateToken,
+  requireRole(RoleName.ADMIN, RoleName.MANAGER),
   (req, res, next) => {
     upload.single("file")(req, res, (err: unknown) => {
       if (err) {
@@ -98,13 +103,26 @@ documentsRouter.post(
 
     await saveUploadedFile(storageKey, file.buffer);
 
+    const tagNames = parseTagListInput(req.body.tags);
+
     try {
       const doc = await prisma.document.create({
         data: {
           title: parsed.data.title.trim(),
+          description: parsed.data.description?.trim() || null,
           createdById: user.id,
           departmentId: visibility === DocumentVisibility.DEPARTMENT ? departmentId : null,
           visibility,
+          ...(tagNames.length > 0
+            ? {
+                tags: {
+                  connectOrCreate: tagNames.map((name) => ({
+                    where: { name },
+                    create: { name },
+                  })),
+                },
+              }
+            : {}),
         },
       });
 
@@ -123,6 +141,13 @@ documentsRouter.post(
 
       await enqueueDocumentIngest(version.id);
 
+      await logDocumentAudit(prisma, {
+        documentId: doc.id,
+        userId: user.id,
+        action: DocumentAuditAction.CREATED,
+        metadata: { title: doc.title },
+      });
+
       res.status(201).json({
         document: {
           id: doc.id,
@@ -130,6 +155,7 @@ documentsRouter.post(
           visibility: doc.visibility,
           departmentId: doc.departmentId,
           createdAt: doc.createdAt,
+          tags: tagNames,
         },
         version: {
           id: version.id,
@@ -145,20 +171,176 @@ documentsRouter.post(
   },
 );
 
-function parseListSort(raw: unknown): Prisma.DocumentOrderByWithRelationInput {
-  const s = typeof raw === "string" ? raw : "updatedAt_desc";
-  switch (s) {
-    case "updatedAt_asc":
-      return { updatedAt: "asc" };
-    case "title_asc":
-      return { title: "asc" };
-    case "title_desc":
-      return { title: "desc" };
-    case "updatedAt_desc":
-    default:
-      return { updatedAt: "desc" };
+documentsRouter.get("/tags/suggestions", authenticateToken, async (req, res) => {
+  const user = req.authUser;
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
   }
+
+  const qRaw = typeof req.query.q === "string" ? req.query.q.trim() : "";
+
+  const visibleDocs: Prisma.DocumentWhereInput =
+    user.role === "ADMIN"
+      ? { isArchived: false }
+      : {
+          AND: [
+            {
+              OR: [
+                { visibility: DocumentVisibility.ALL },
+                {
+                  visibility: DocumentVisibility.DEPARTMENT,
+                  departmentId: user.departmentId,
+                },
+                {
+                  visibility: DocumentVisibility.PRIVATE,
+                  createdById: user.id,
+                },
+              ],
+            },
+            { isArchived: false },
+          ],
+        };
+
+  const tags = await prisma.documentTag.findMany({
+    where: {
+      ...(qRaw.length > 0 ? { name: { contains: qRaw.toLowerCase(), mode: "insensitive" } } : {}),
+      documents: { some: visibleDocs },
+    },
+    select: { name: true },
+    orderBy: { name: "asc" },
+    take: 24,
+  });
+
+  res.json({ tags: tags.map((t) => t.name) });
+});
+
+function parsePageParams(query: Record<string, unknown>): { page: number; pageSize: number } {
+  const page = Math.max(1, Number.parseInt(String(query.page ?? "1"), 10) || 1);
+  const pageSize = Math.min(100, Math.max(1, Number.parseInt(String(query.pageSize ?? "50"), 10) || 50));
+  return { page, pageSize };
 }
+
+async function attachFavoriteFlags(
+  userId: string,
+  docs: Prisma.DocumentGetPayload<{ include: typeof docListInclude }>[],
+): Promise<{ isFavorited: boolean }[]> {
+  if (docs.length === 0) return [];
+  const ids = docs.map((d) => d.id);
+  const favs = await prisma.documentUserFavorite.findMany({
+    where: { userId, documentId: { in: ids } },
+    select: { documentId: true },
+  });
+  const favSet = new Set(favs.map((f) => f.documentId));
+  return docs.map((d) => ({
+    isFavorited: favSet.has(d.id),
+  }));
+}
+
+documentsRouter.get(
+  "/export",
+  authenticateToken,
+  requireRole(RoleName.ADMIN),
+  async (req, res) => {
+    const user = req.authUser;
+    if (!user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const tagRaw = typeof req.query.tag === "string" ? req.query.tag.trim() : "";
+    const visibilityRaw = typeof req.query.visibility === "string" ? req.query.visibility : "ALL";
+    const statusRaw = typeof req.query.status === "string" ? req.query.status : "ALL";
+    const libraryScope = parseLibraryScope(req.query.libraryScope);
+    const departmentKey = typeof req.query.departmentId === "string" ? req.query.departmentId : undefined;
+    const fileType = typeof req.query.fileType === "string" ? req.query.fileType : "ALL";
+    const dateFilter = typeof req.query.dateFilter === "string" ? req.query.dateFilter : "ALL";
+    const allScopeIncludeArchived =
+      req.query.includeArchived === "1" || req.query.includeArchived === "true";
+
+    const { documents: docs } = await listDocuments({
+      user,
+      q,
+      tagRaw,
+      visibilityRaw,
+      statusRaw,
+      sortRaw: req.query.sort,
+      libraryScope,
+      departmentKey,
+      fileType,
+      dateFilter,
+      page: 1,
+      pageSize: 5000,
+      includeDepartmentCounts: false,
+      allScopeIncludeArchived,
+    });
+
+    const lines = [
+      "id,title,visibility,isArchived,department,status,tags,createdAt,updatedAt",
+      ...docs.map((d) => {
+        const st = d.versions[0]?.processingStatus ?? "";
+        const dept = d.department?.name ?? "General";
+        const tags = d.tags.map((t) => t.name).join(";");
+        const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+        return [
+          d.id,
+          esc(d.title),
+          d.visibility,
+          d.isArchived ? "yes" : "no",
+          esc(dept),
+          st,
+          esc(tags),
+          d.createdAt.toISOString(),
+          d.updatedAt.toISOString(),
+        ].join(",");
+      }),
+    ];
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="documents-export.csv"');
+    res.send(lines.join("\n"));
+  },
+);
+
+documentsRouter.post(
+  "/bulk-delete",
+  authenticateToken,
+  requireRole(RoleName.ADMIN),
+  async (req, res) => {
+    const user = req.authUser;
+    if (!user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const body = z.object({ ids: z.array(z.string().uuid()).min(1).max(50) }).safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: "Validation failed", details: body.error.flatten() });
+      return;
+    }
+
+    let deleted = 0;
+    for (const id of body.data.ids) {
+      const doc = await prisma.document.findUnique({
+        where: { id },
+        include: { versions: true },
+      });
+      if (!doc) continue;
+      if (!canManageDocument(user, doc)) continue;
+      await logDocumentAudit(prisma, {
+        documentId: doc.id,
+        userId: user.id,
+        action: DocumentAuditAction.BULK_DELETED,
+        metadata: { bulk: true },
+      });
+      for (const v of doc.versions) {
+        await deleteFileIfExists(v.storageKey);
+      }
+      await prisma.document.delete({ where: { id: doc.id } });
+      deleted += 1;
+    }
+    res.json({ deleted });
+  },
+);
 
 documentsRouter.get("/", authenticateToken, async (req, res) => {
   const user = req.authUser;
@@ -167,84 +349,338 @@ documentsRouter.get("/", authenticateToken, async (req, res) => {
     return;
   }
 
+  const { page, pageSize } = parsePageParams(req.query as Record<string, unknown>);
   const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  const tagRaw = typeof req.query.tag === "string" ? req.query.tag.trim() : "";
   const visibilityRaw = typeof req.query.visibility === "string" ? req.query.visibility : "ALL";
   const statusRaw = typeof req.query.status === "string" ? req.query.status : "ALL";
-  const orderBy = parseListSort(req.query.sort);
+  const libraryScope = parseLibraryScope(req.query.libraryScope);
+  const departmentKey = typeof req.query.departmentId === "string" ? req.query.departmentId : undefined;
+  const fileType = typeof req.query.fileType === "string" ? req.query.fileType : "ALL";
+  const dateFilter = typeof req.query.dateFilter === "string" ? req.query.dateFilter : "ALL";
+  const includeMeta = req.query.includeMeta === "1" || req.query.includeMeta === "true";
 
-  const andParts: Prisma.DocumentWhereInput[] = [];
+  const { documents: docs, total, departmentCounts } = await listDocuments({
+    user,
+    q,
+    tagRaw,
+    visibilityRaw,
+    statusRaw,
+    sortRaw: req.query.sort,
+    libraryScope,
+    departmentKey,
+    fileType,
+    dateFilter,
+    page,
+    pageSize,
+    includeDepartmentCounts: includeMeta && libraryScope === "ALL",
+  });
 
-  if (user.role !== "ADMIN") {
-    andParts.push({
-      OR: [
-        { visibility: DocumentVisibility.ALL },
-        {
-          visibility: DocumentVisibility.DEPARTMENT,
-          departmentId: user.departmentId,
-        },
-        {
-          visibility: DocumentVisibility.PRIVATE,
-          createdById: user.id,
-        },
-      ],
-    });
+  const flags = await attachFavoriteFlags(user.id, docs);
+
+  res.json({
+    documents: docs.map((d, i) => mapDocumentRow(d, flags[i]!)),
+    total,
+    page,
+    pageSize,
+    hasMore: page * pageSize < total,
+    ...(includeMeta && departmentCounts ? { meta: { departmentCounts } } : {}),
+  });
+});
+
+const patchDocumentBody = z
+  .object({
+    title: z.string().min(1).max(500).optional(),
+    description: z.string().max(20000).optional().nullable(),
+    visibility: z.nativeEnum(DocumentVisibility).optional(),
+    departmentId: z.string().uuid().optional().nullable(),
+    tags: z.array(z.string().min(1).max(80)).max(40).optional(),
+  })
+  .refine((o) => Object.keys(o).length > 0, { message: "No fields to update" });
+
+documentsRouter.patch("/:documentId", authenticateToken, async (req, res) => {
+  const user = req.authUser;
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const parsed = patchDocumentBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+    return;
   }
 
-  if (q.length > 0) {
-    andParts.push({ title: { contains: q, mode: "insensitive" } });
+  const doc = await prisma.document.findUnique({
+    where: { id: req.params.documentId },
+    include: { tags: { select: { name: true } } },
+  });
+  if (!doc) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  if (user.role === RoleName.EMPLOYEE || !canManageDocument(user, doc)) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
   }
 
-  if (visibilityRaw !== "ALL") {
-    const v = Object.values(DocumentVisibility).find((x) => x === visibilityRaw);
-    if (v) {
-      andParts.push({ visibility: v });
+  let nextVisibility = parsed.data.visibility ?? doc.visibility;
+  let nextDepartmentId =
+    parsed.data.departmentId !== undefined ? parsed.data.departmentId : doc.departmentId;
+
+  if (parsed.data.visibility === DocumentVisibility.DEPARTMENT && nextDepartmentId == null) {
+    nextDepartmentId = user.departmentId;
+  }
+  if (nextVisibility === DocumentVisibility.DEPARTMENT && nextDepartmentId) {
+    const dept = await prisma.department.findUnique({ where: { id: nextDepartmentId } });
+    if (!dept) {
+      res.status(400).json({ error: "Invalid department" });
+      return;
+    }
+  }
+  if (user.role !== "ADMIN" && nextDepartmentId && nextDepartmentId !== user.departmentId) {
+    res.status(403).json({ error: "You can only assign documents to your own department" });
+    return;
+  }
+  if (nextVisibility !== DocumentVisibility.DEPARTMENT) {
+    nextDepartmentId = null;
+  }
+
+  const tagNames =
+    parsed.data.tags != null ? parsed.data.tags.map((t) => normalizeTagName(t)).filter(Boolean) as string[] : undefined;
+
+  const data: Prisma.DocumentUpdateInput = {};
+  if (parsed.data.title != null) data.title = parsed.data.title.trim();
+  if (parsed.data.description !== undefined) data.description = parsed.data.description?.trim() || null;
+  if (parsed.data.visibility != null) {
+    data.visibility = nextVisibility;
+    if (nextVisibility === DocumentVisibility.DEPARTMENT && nextDepartmentId) {
+      data.department = { connect: { id: nextDepartmentId } };
+    } else {
+      data.department = { disconnect: true };
+    }
+  } else if (parsed.data.departmentId !== undefined && doc.visibility === DocumentVisibility.DEPARTMENT) {
+    data.department = nextDepartmentId ? { connect: { id: nextDepartmentId } } : { disconnect: true };
+  }
+  if (tagNames != null) {
+    if (tagNames.length > 0) {
+      for (const name of tagNames) {
+        await prisma.documentTag.upsert({
+          where: { name },
+          create: { name },
+          update: {},
+        });
+      }
+      data.tags = { set: tagNames.map((name) => ({ name })) };
+    } else {
+      data.tags = { set: [] };
     }
   }
 
-  const where: Prisma.DocumentWhereInput =
-    andParts.length === 0 ? {} : andParts.length === 1 ? andParts[0]! : { AND: andParts };
-
-  let docs = await prisma.document.findMany({
-    where,
-    orderBy,
+  const updated = await prisma.document.update({
+    where: { id: doc.id },
+    data,
     include: {
-      versions: { orderBy: { versionNumber: "desc" }, take: 1 },
+      versions: { orderBy: { versionNumber: "desc" } },
       createdBy: { select: { id: true, name: true, email: true } },
-      department: { select: { name: true } },
+      tags: { select: { name: true } },
     },
   });
 
-  if (statusRaw !== "ALL") {
-    const st = Object.values(DocumentProcessingStatus).find((x) => x === statusRaw);
-    if (st) {
-      docs = docs.filter((d) => d.versions[0]?.processingStatus === st);
-    }
-  }
+  await logDocumentAudit(prisma, {
+    documentId: doc.id,
+    userId: user.id,
+    action: DocumentAuditAction.UPDATED,
+    metadata: { fields: Object.keys(parsed.data) },
+  });
 
   res.json({
-    documents: docs.map((d) => ({
-      id: d.id,
-      title: d.title,
-      visibility: d.visibility,
-      departmentId: d.departmentId,
-      departmentName: d.department?.name ?? null,
-      createdAt: d.createdAt,
-      updatedAt: d.updatedAt,
-      createdBy: d.createdBy,
-      latestVersion: d.versions[0]
-        ? {
-            id: d.versions[0].id,
-            versionNumber: d.versions[0].versionNumber,
-            fileName: d.versions[0].fileName,
-            mimeType: d.versions[0].mimeType,
-            sizeBytes: d.versions[0].sizeBytes,
-            processingStatus: d.versions[0].processingStatus,
-            processingError: d.versions[0].processingError,
-            createdAt: d.versions[0].createdAt,
-          }
-        : null,
-    })),
+    document: {
+      id: updated.id,
+      title: updated.title,
+      description: updated.description,
+      visibility: updated.visibility,
+      departmentId: updated.departmentId,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+      createdBy: updated.createdBy,
+      tags: updated.tags.map((t) => t.name).sort((a, b) => a.localeCompare(b)),
+      versions: updated.versions.map((v) => ({
+        id: v.id,
+        versionNumber: v.versionNumber,
+        fileName: v.fileName,
+        mimeType: v.mimeType,
+        sizeBytes: v.sizeBytes,
+        processingStatus: v.processingStatus,
+        processingError: v.processingError,
+        createdAt: v.createdAt,
+      })),
+    },
   });
+});
+
+documentsRouter.post("/:documentId/view", authenticateToken, async (req, res) => {
+  const user = req.authUser;
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const doc = await prisma.document.findUnique({ where: { id: req.params.documentId } });
+  if (!doc || !canReadDocument(user, doc)) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  await prisma.documentUserRecent.upsert({
+    where: { userId_documentId: { userId: user.id, documentId: doc.id } },
+    create: { userId: user.id, documentId: doc.id },
+    update: { lastViewedAt: new Date() },
+  });
+  await logDocumentAudit(prisma, {
+    documentId: doc.id,
+    userId: user.id,
+    action: DocumentAuditAction.VIEWED,
+    metadata: {},
+  });
+  res.status(204).send();
+});
+
+documentsRouter.post("/:documentId/favorite", authenticateToken, async (req, res) => {
+  const user = req.authUser;
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const doc = await prisma.document.findUnique({ where: { id: req.params.documentId } });
+  if (!doc || !canReadDocument(user, doc)) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  await prisma.documentUserFavorite.upsert({
+    where: { userId_documentId: { userId: user.id, documentId: doc.id } },
+    create: { userId: user.id, documentId: doc.id },
+    update: {},
+  });
+  await logDocumentAudit(prisma, {
+    documentId: doc.id,
+    userId: user.id,
+    action: DocumentAuditAction.FAVORITED,
+    metadata: {},
+  });
+  res.status(204).send();
+});
+
+documentsRouter.delete("/:documentId/favorite", authenticateToken, async (req, res) => {
+  const user = req.authUser;
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  await prisma.documentUserFavorite.deleteMany({
+    where: { userId: user.id, documentId: req.params.documentId },
+  });
+  await logDocumentAudit(prisma, {
+    documentId: req.params.documentId,
+    userId: user.id,
+    action: DocumentAuditAction.UNFAVORITED,
+    metadata: {},
+  });
+  res.status(204).send();
+});
+
+documentsRouter.post(
+  "/:documentId/archive",
+  authenticateToken,
+  requireRole(RoleName.ADMIN, RoleName.MANAGER),
+  async (req, res) => {
+  const user = req.authUser;
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const doc = await prisma.document.findUnique({ where: { id: req.params.documentId } });
+  if (!doc || !canReadDocument(user, doc)) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  if (!canManageDocument(user, doc)) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  await prisma.document.update({
+    where: { id: doc.id },
+    data: { isArchived: true },
+  });
+  await logDocumentAudit(prisma, {
+    documentId: doc.id,
+    userId: user.id,
+    action: DocumentAuditAction.ARCHIVED,
+    metadata: {},
+  });
+  res.status(204).send();
+  },
+);
+
+documentsRouter.delete(
+  "/:documentId/archive",
+  authenticateToken,
+  requireRole(RoleName.ADMIN, RoleName.MANAGER),
+  async (req, res) => {
+  const user = req.authUser;
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const doc = await prisma.document.findUnique({ where: { id: req.params.documentId } });
+  if (!doc || !canReadDocument(user, doc)) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  if (!canManageDocument(user, doc)) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  await prisma.document.update({
+    where: { id: doc.id },
+    data: { isArchived: false },
+  });
+  await logDocumentAudit(prisma, {
+    documentId: req.params.documentId,
+    userId: user.id,
+    action: DocumentAuditAction.UNARCHIVED,
+    metadata: {},
+  });
+  res.status(204).send();
+  },
+);
+
+documentsRouter.get("/:documentId/audit", authenticateToken, async (req, res) => {
+  const user = req.authUser;
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  if (user.role === RoleName.EMPLOYEE) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const doc = await prisma.document.findUnique({ where: { id: req.params.documentId } });
+  if (!doc || !canReadDocument(user, doc)) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const logs = await prisma.documentAuditLog.findMany({
+    where: { documentId: doc.id },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    include: { user: { select: { id: true, name: true, email: true } } },
+  });
+  const entries = logs.map((l) => ({
+    id: l.id,
+    action: l.action,
+    metadata: l.metadata,
+    createdAt: l.createdAt,
+    user: l.user ? { id: l.user.id, name: l.user.name, email: l.user.email } : null,
+  }));
+  res.json({ entries });
 });
 
 documentsRouter.get("/:documentId", authenticateToken, async (req, res) => {
@@ -259,6 +695,7 @@ documentsRouter.get("/:documentId", authenticateToken, async (req, res) => {
     include: {
       versions: { orderBy: { versionNumber: "desc" } },
       createdBy: { select: { id: true, name: true, email: true } },
+      tags: { select: { name: true } },
     },
   });
 
@@ -272,15 +709,21 @@ documentsRouter.get("/:documentId", authenticateToken, async (req, res) => {
     return;
   }
 
+  const canManage = user.role !== RoleName.EMPLOYEE && canManageDocument(user, doc);
+  const canViewAudit = user.role !== RoleName.EMPLOYEE;
+
   res.json({
     document: {
       id: doc.id,
       title: doc.title,
+      description: doc.description,
       visibility: doc.visibility,
       departmentId: doc.departmentId,
+      isArchived: doc.isArchived,
       createdAt: doc.createdAt,
       updatedAt: doc.updatedAt,
       createdBy: doc.createdBy,
+      tags: doc.tags.map((t) => t.name).sort((a, b) => a.localeCompare(b)),
       versions: doc.versions.map((v) => ({
         id: v.id,
         versionNumber: v.versionNumber,
@@ -288,12 +731,51 @@ documentsRouter.get("/:documentId", authenticateToken, async (req, res) => {
         mimeType: v.mimeType,
         sizeBytes: v.sizeBytes,
         processingStatus: v.processingStatus,
-        processingError: v.processingError,
+        processingError: canManage ? v.processingError : null,
         createdAt: v.createdAt,
       })),
     },
+    canManage,
+    canViewAudit,
   });
 });
+
+documentsRouter.post(
+  "/:documentId/versions/:versionId/reprocess",
+  authenticateToken,
+  async (req, res) => {
+    const user = req.authUser;
+    if (!user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const version = await prisma.documentVersion.findUnique({
+      where: { id: req.params.versionId },
+      include: { document: true },
+    });
+    if (!version || version.documentId !== req.params.documentId) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    if (user.role === RoleName.EMPLOYEE || !canManageDocument(user, version.document)) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    await prisma.documentChunk.deleteMany({ where: { documentVersionId: version.id } });
+    await prisma.documentVersion.update({
+      where: { id: version.id },
+      data: { processingStatus: "PENDING", processingError: null },
+    });
+    await enqueueDocumentIngest(version.id);
+    await logDocumentAudit(prisma, {
+      documentId: version.documentId,
+      userId: user.id,
+      action: DocumentAuditAction.REPROCESS_REQUESTED,
+      metadata: { versionId: version.id },
+    });
+    res.json({ ok: true });
+  },
+);
 
 documentsRouter.post(
   "/:documentId/versions",
@@ -329,7 +811,7 @@ documentsRouter.post(
       return;
     }
 
-    if (!canReadDocument(user, doc)) {
+    if (user.role === RoleName.EMPLOYEE || !canManageDocument(user, doc)) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -366,6 +848,13 @@ documentsRouter.post(
       });
 
       await enqueueDocumentIngest(version.id);
+
+      await logDocumentAudit(prisma, {
+        documentId,
+        userId: user.id,
+        action: DocumentAuditAction.VERSION_UPLOADED,
+        metadata: { versionId: version.id, versionNumber: version.versionNumber },
+      });
 
       res.status(201).json({
         version: {
@@ -405,8 +894,12 @@ documentsRouter.get("/:documentId/versions/:versionId/file", authenticateToken, 
   }
 
   const abs = absolutePathForKey(version.storageKey);
+  const inline = req.query.inline === "1" || req.query.inline === "true";
   res.setHeader("Content-Type", version.mimeType);
-  res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(version.fileName)}"`);
+  res.setHeader(
+    "Content-Disposition",
+    `${inline ? "inline" : "attachment"}; filename="${encodeURIComponent(version.fileName)}"`,
+  );
   createReadStream(abs).pipe(res);
 });
 
@@ -431,6 +924,13 @@ documentsRouter.delete("/:documentId", authenticateToken, async (req, res) => {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
+
+  await logDocumentAudit(prisma, {
+    documentId: doc.id,
+    userId: user.id,
+    action: DocumentAuditAction.DELETED,
+    metadata: { title: doc.title },
+  });
 
   for (const v of doc.versions) {
     await deleteFileIfExists(v.storageKey);

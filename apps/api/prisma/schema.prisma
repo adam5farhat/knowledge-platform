@@ -26,6 +26,20 @@ enum DocumentProcessingStatus {
   FAILED
 }
 
+enum DocumentAuditAction {
+  CREATED
+  VERSION_UPLOADED
+  UPDATED
+  DELETED
+  FAVORITED
+  UNFAVORITED
+  ARCHIVED
+  UNARCHIVED
+  VIEWED
+  REPROCESS_REQUESTED
+  BULK_DELETED
+}
+
 model Department {
   id                 String   @id @default(uuid())
   name               String
@@ -66,8 +80,11 @@ model User {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  documentsCreated        Document[]        @relation("DocumentCreatedBy")
-  documentVersionsCreated DocumentVersion[] @relation("DocumentVersionCreatedBy")
+  documentsCreated        Document[]             @relation("DocumentCreatedBy")
+  documentVersionsCreated DocumentVersion[]      @relation("DocumentVersionCreatedBy")
+  documentFavorites       DocumentUserFavorite[]
+  documentRecents         DocumentUserRecent[]
+  documentAuditLogs       DocumentAuditLog[]
   passwordResetTokens     PasswordResetToken[]
   refreshSessions         RefreshSession[]
   authEvents              AuthEvent[]
@@ -133,19 +150,68 @@ model AuthEvent {
 }
 
 model Document {
-  id          String             @id @default(uuid())
-  title       String
-  createdById String
-  createdBy   User               @relation("DocumentCreatedBy", fields: [createdById], references: [id])
+  id           String             @id @default(uuid())
+  title        String
+  description  String?            @db.Text
+  createdById  String
+  createdBy    User               @relation("DocumentCreatedBy", fields: [createdById], references: [id])
   departmentId String?
   department   Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   visibility   DocumentVisibility @default(ALL)
+  isArchived   Boolean            @default(false)
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
   versions     DocumentVersion[]
+  tags         DocumentTag[]
+  favoritedBy  DocumentUserFavorite[]
+  viewedBy     DocumentUserRecent[]
+  auditLogs    DocumentAuditLog[]
 
   @@index([createdById])
   @@index([departmentId])
+}
+
+model DocumentUserFavorite {
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([userId, documentId])
+  @@index([documentId])
+}
+
+model DocumentUserRecent {
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentId   String
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  lastViewedAt DateTime @default(now())
+
+  @@id([userId, documentId])
+  @@index([userId, lastViewedAt])
+}
+
+model DocumentAuditLog {
+  id         String              @id @default(uuid())
+  documentId String?
+  document   Document?           @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  userId     String?
+  user       User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     DocumentAuditAction
+  metadata   Json?
+  createdAt  DateTime            @default(now())
+
+  @@index([documentId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model DocumentTag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  documents Document[]
 }
 
 model DocumentVersion {

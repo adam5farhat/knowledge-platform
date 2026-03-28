@@ -59,7 +59,12 @@ export function createHttpApp(): express.Application {
     if (res.headersSent) {
       return;
     }
-    res.status(500).json({ error: "Internal server error" });
+    const dev = process.env.NODE_ENV !== "production";
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({
+      error: "Internal server error",
+      ...(dev ? { debug: message } : {}),
+    });
   });
 
   return app;
