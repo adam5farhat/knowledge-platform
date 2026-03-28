@@ -10,7 +10,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 export default function ResetClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token") ?? "";
+  const token = searchParams?.get("token") ?? "";
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");

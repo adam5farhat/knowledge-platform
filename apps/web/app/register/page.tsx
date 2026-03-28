@@ -14,7 +14,7 @@ export default function RegisterInfoPage() {
         <>
           <Link href="/login">Sign in</Link>
           {" · "}
-          <Link href="/">Home</Link>
+          <Link href="/documents">Home</Link>
         </>
       }
     >

@@ -60,7 +60,7 @@ Monorepo: **API** (Express + Prisma + Postgres/pgvector + Redis/BullMQ) and **We
    ```
 
    - API: http://localhost:3001  
-   - Web: http://localhost:3000  
+   - Web: http://localhost:3000 (opens `/`: redirects to **Sign in** if logged out, or **Dashboard** if logged in)  
 
 7. **Sign in**  
    After seed, default admin is `admin@example.com` / `ChangeMe123!` unless overridden by `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`.
@@ -78,6 +78,16 @@ Monorepo: **API** (Express + Prisma + Postgres/pgvector + Redis/BullMQ) and **We
 ## API build note
 
 TypeScript compilation **excludes** `src/**/*.test.ts` so `npm run build` in the API package only compiles application code. Run `npm run test:api` for tests.
+
+## Troubleshooting (web)
+
+If the dashboard (or any page) loads but **`/_next/static/...` returns 404** for CSS or JS, the dev cache is usually out of sync with what the browser is asking for.
+
+1. Stop **all** `node` / Next dev processes (only one app should use port 3000).
+2. From the repo root: **`npm run dev:clean`** (stops Node, deletes `apps/web/.next`, starts dev again), or manually delete **`apps/web/.next`** and run **`npm run dev`**.
+3. Hard-refresh the browser (**Ctrl+Shift+R**) or close old tabs that pointed at an earlier dev session.
+
+Root **`npm run dev`** runs **`node scripts/dev-web.mjs`** and **`node scripts/dev-api.mjs`**, which **force `cwd`** to **`apps/web`** and **`apps/api`** so Next always reads/writes **`apps/web/.next`** (avoids `/_next/static/*` 404s when the dev server’s working directory is wrong).
 
 ## License
 

@@ -218,7 +218,7 @@ export default function AdminDepartmentsClient() {
         <p style={{ marginTop: "1rem" }}>
           <Link href="/login">Sign in</Link>
           {" · "}
-          <Link href="/">Home</Link>
+          <Link href="/documents">Home</Link>
         </p>
       </main>
     );
@@ -232,7 +232,7 @@ export default function AdminDepartmentsClient() {
         <p>
           <Link href="/dashboard">Dashboard</Link>
           {" · "}
-          <Link href="/">Home</Link>
+          <Link href="/documents">Home</Link>
         </p>
       </main>
     );
@@ -490,7 +490,7 @@ export default function AdminDepartmentsClient() {
         {" · "}
         <Link href="/dashboard">Dashboard</Link>
         {" · "}
-        <Link href="/">Home</Link>
+        <Link href="/documents">Home</Link>
       </p>
     </main>
   );

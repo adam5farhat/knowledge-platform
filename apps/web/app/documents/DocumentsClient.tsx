@@ -850,7 +850,7 @@ export default function DocumentsClient() {
       <section className={styles.content}>
         <header className={styles.docNavbar}>
           <div className={styles.docNavLeft}>
-            <Link href="/" className={styles.docNavBrand} aria-label="Knowledge Platform home">
+            <Link href="/dashboard" className={styles.docNavBrand} aria-label="Dashboard">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img className={styles.docNavLogo} src="/logo-swapped.svg" alt="" />
             </Link>

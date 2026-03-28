@@ -11,7 +11,7 @@ export default function ContactPage() {
         support channel.
       </p>
       <p style={{ marginTop: "1rem" }}>
-        <Link href="/dashboard">Dashboard</Link>
+        <Link href="/documents">Documents</Link>
       </p>
     </main>
   );

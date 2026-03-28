@@ -361,7 +361,7 @@ export default function ProfileClient() {
       <p style={{ marginTop: "1.5rem" }}>
         <Link href="/dashboard">Dashboard</Link>
         {" · "}
-        <Link href="/">Home</Link>
+        <Link href="/documents">Home</Link>
       </p>
     </main>
   );

@@ -6,12 +6,15 @@ const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
   display: "swap",
+  /** Avoid Chrome “preloaded but not used” warnings when first paint is delayed (e.g. client-only shells). */
+  preload: false,
 });
 
 const gelasio = Gelasio({
   subsets: ["latin"],
   variable: "--font-gelasio",
   display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {

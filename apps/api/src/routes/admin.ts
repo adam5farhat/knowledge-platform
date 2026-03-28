@@ -575,6 +575,35 @@ adminRouter.post("/users/:userId/set-password", authenticateToken, requireRole(R
   res.status(204).send();
 });
 
+/** Admin-initiated sign-in lock (same gate as failed-login lock in auth). */
+const ADMIN_MANUAL_LOCK_MS = 7 * 24 * 60 * 60 * 1000;
+
+adminRouter.post("/users/:userId/lock", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+  const actingUserId = req.authUser!.id;
+  const targetId = req.params.userId;
+
+  if (targetId === actingUserId) {
+    res.status(400).json({ error: "You cannot lock your own account" });
+    return;
+  }
+
+  const u = await prisma.user.findUnique({ where: { id: targetId } });
+  if (!u) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  await prisma.user.update({
+    where: { id: targetId },
+    data: {
+      failedLoginAttempts: 0,
+      loginLockedUntil: new Date(Date.now() + ADMIN_MANUAL_LOCK_MS),
+    },
+  });
+
+  res.status(204).send();
+});
+
 adminRouter.post("/users/:userId/unlock", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
   const targetId = req.params.userId;
   const u = await prisma.user.findUnique({ where: { id: targetId } });

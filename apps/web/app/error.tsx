@@ -28,7 +28,7 @@ export default function ErrorBoundary({
         >
           Try again
         </button>
-        <Link href="/">Home</Link>
+        <Link href="/documents">Home</Link>
       </p>
     </main>
   );

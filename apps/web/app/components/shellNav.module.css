@@ -1,0 +1,96 @@
+/* Shared top nav + profile menu (dashboard shell). Keep route `page.module.css` files from importing each other. */
+
+/* Full-height shell: navbar row + remaining area (admin hub card grid, etc.). */
+.page {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.9rem;
+}
+
+.navbar {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 1rem;
+  gap: 1rem;
+}
+
+.navLeft {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem 1rem;
+  align-items: center;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-right: 0.5rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.brandMark {
+  height: 28px;
+  width: auto;
+}
+
+.brandText {
+  font-family: var(--font-gelasio), Georgia, serif;
+  font-size: 1.02rem;
+}
+
+.profileWrap {
+  position: relative;
+}
+
+.profileBtn {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: none;
+  background: var(--interactive);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 220px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 22px rgba(2, 2, 2, 0.15);
+  z-index: 20;
+  overflow: hidden;
+}
+
+.menuHeader {
+  padding: 0.65rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.65rem 0.8rem;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 0.92rem;
+}
+
+.menuItem:hover {
+  background: #eef4f8;
+}

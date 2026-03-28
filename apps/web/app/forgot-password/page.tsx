@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
     <main className={styles.shell} data-auth-fullscreen="true">
       <section className={styles.frame}>
         <aside className={styles.left}>
-          <a className={styles.brand} href="/">
+          <a className={styles.brand} href="/dashboard">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className={styles.brandMark} src="/logo.svg" alt="Knowledge Platform" />
           </a>

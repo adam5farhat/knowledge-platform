@@ -118,7 +118,7 @@ export default function DashboardClient() {
         <p style={{ marginTop: "1rem" }}>
           <Link href="/login">Sign in</Link>
           {" · "}
-          <Link href="/">Home</Link>
+          <Link href="/documents">Home</Link>
         </p>
       </main>
     );
@@ -150,11 +150,10 @@ export default function DashboardClient() {
     <main className={styles.page} data-dashboard-fullscreen="true">
       <header className={styles.navbar}>
         <nav className={styles.navLeft} aria-label="Primary">
-          <a className={styles.brand} href="/">
+          <a className={styles.brand} href="/dashboard">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className={styles.brandMark} src="/logo-swapped.svg" alt="Platform" />
           </a>
-          <Link href="/dashboard">Home</Link>
           <Link href="/about">About</Link>
           <Link href="/contact">Contact</Link>
           <Link href="/documents">Documents</Link>
@@ -254,10 +253,10 @@ export default function DashboardClient() {
           <div className={styles.cardInner}>
             <div className={styles.icon} aria-hidden>
               <svg className={styles.iconGlyph} viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path d="M7 3.5h7l3 3V20.5H7z" stroke="currentColor" strokeWidth="1.6" />
-                <path d="M14 3.5v4h3" stroke="currentColor" strokeWidth="1.6" />
-                <path d="M9.5 11.5h5" stroke="currentColor" strokeWidth="1.6" />
-                <path d="M9.5 14.5h5" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M7 3.5h7l3 3V20.5H7z" stroke="currentColor" strokeWidth="1.2" />
+                <path d="M14 3.5v4h3" stroke="currentColor" strokeWidth="1.2" />
+                <path d="M9.5 11.5h5" stroke="currentColor" strokeWidth="1.2" />
+                <path d="M9.5 14.5h5" stroke="currentColor" strokeWidth="1.2" />
               </svg>
             </div>
             <h2 className={styles.cardTitle}>Documents</h2>
@@ -273,8 +272,8 @@ export default function DashboardClient() {
           <div className={styles.cardInner}>
             <div className={styles.icon} aria-hidden>
               <svg className={styles.iconGlyph} viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path d="M5 6.5h14v9H9l-4 3z" stroke="currentColor" strokeWidth="1.6" />
-                <path d="M9 10.5h6" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M5 6.5h14v9H9l-4 3z" stroke="currentColor" strokeWidth="1.2" />
+                <path d="M9 10.5h6" stroke="currentColor" strokeWidth="1.2" />
               </svg>
             </div>
             <h2 className={styles.cardTitle}>Semantic search</h2>
@@ -290,10 +289,10 @@ export default function DashboardClient() {
                   <path
                     d="M12 3.5l1.8 3.6 4 .6-2.9 2.8.7 4L12 16.9 8.4 14.7l.7-4L6.2 7.7l4-.6L12 3.5z"
                     stroke="currentColor"
-                    strokeWidth="1.5"
+                    strokeWidth="1.2"
                     strokeLinejoin="round"
                   />
-                  <path d="M5 20.5h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M5 20.5h14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                 </svg>
               </div>
               <h2 className={styles.cardTitle}>Administration</h2>

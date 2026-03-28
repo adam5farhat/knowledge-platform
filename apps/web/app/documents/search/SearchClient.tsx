@@ -19,7 +19,7 @@ type Result = {
 export default function SearchClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialQ = searchParams.get("q") ?? "";
+  const initialQ = searchParams?.get("q") ?? "";
 
   const [phase, setPhase] = useState<"checking" | "need-login" | "ready">("checking");
   const [query, setQuery] = useState(initialQ);
@@ -92,7 +92,6 @@ export default function SearchClient() {
       <nav style={{ margin: "1rem 0", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
         <Link href="/documents">Documents</Link>
         <Link href="/dashboard">Dashboard</Link>
-        <Link href="/">Home</Link>
       </nav>
 
       <form onSubmit={(e) => void onSearch(e)} style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "1rem" }}>
