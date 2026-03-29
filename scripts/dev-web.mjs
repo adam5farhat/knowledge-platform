@@ -27,6 +27,9 @@ console.error(
 console.error(
   `[kp dev-web] Missing chunk (./402.js) / CSS 404: "npm run clean:web", restart dev, one server on this port.`,
 );
+console.error(
+  `[kp dev-web] "__webpack_modules__[moduleId] is not a function" in the browser: run "npm run clean:web", hard-refresh; if using dev:turbo, try "npm run dev" (Webpack). Disable wallet/SES extensions on localhost if it persists.`,
+);
 
 /** Match API `PUBLIC_API_URL` when only one of the two is set (avatar URLs + `next/image` remotePatterns). */
 const alignedPublicApi =

@@ -1,28 +1,12 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import HomeEntryClient from "./HomeEntryClient";
 
-const loadingShell = (
-  <main
-    suppressHydrationWarning
-    style={{
-      minHeight: "60vh",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      color: "#52525b",
-    }}
-  >
-    <p style={{ margin: 0 }}>Loading…</p>
-  </main>
-);
-
-/** `ssr: false` avoids hydrating auth logic against static HTML (fixes React #418 with extensions / timing). */
-const HomeEntryClient = dynamic(() => import("./HomeEntryClient"), {
-  ssr: false,
-  loading: () => loadingShell,
-});
-
+/**
+ * Direct import avoids a dev-only webpack bug where `dynamic(..., { ssr: false })` chunks
+ * can desync with HMR/RSC flight (`__webpack_modules__[moduleId] is not a function`).
+ * HomeEntryClient’s first paint matches SSR (static “Loading…” until `useEffect` runs).
+ */
 export default function HomePageGate() {
   return <HomeEntryClient />;
 }

@@ -1,4 +1,5 @@
 import "dotenv/config";
+import compression from "compression";
 import cors from "cors";
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
@@ -14,6 +15,7 @@ import { avatarsPublicRouter } from "./routes/avatarsPublic.js";
 export function createHttpApp(): express.Application {
   const app = express();
 
+  app.use(compression());
   app.use(cors({ origin: true }));
   app.use(express.json({ limit: "1mb" }));
   app.use("/avatars", avatarsPublicRouter);

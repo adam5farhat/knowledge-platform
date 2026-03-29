@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Remove apps/web/.next so dev server chunk manifests and RSC payloads stay in sync.
- * Fixes "Cannot find module './611.js'" and similar webpack-runtime require errors after HMR/crashes.
+ * Fixes "Cannot find module './611.js'", "__webpack_modules__[moduleId] is not a function",
+ * and similar webpack-runtime / RSC flight desync after HMR, turbopack↔webpack switches, or crashes.
  */
 import fs from "node:fs";
 import path from "node:path";

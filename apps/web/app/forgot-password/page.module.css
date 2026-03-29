@@ -39,6 +39,8 @@
 .brandMark {
   height: 32px;
   width: auto;
+  /* Dark logo asset → white on navy left panel (forgot-password only) */
+  filter: brightness(0) invert(1);
 }
 
 .brandName {

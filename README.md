@@ -72,6 +72,12 @@ Monorepo: **API** (Express + Prisma + Postgres/pgvector + Redis/BullMQ) and **We
    npm run dev
    ```
 
+   Optional: **Turbopack** for the Next.js dev server (faster refresh on some setups):
+
+   ```bash
+   npm run dev:turbo
+   ```
+
    - API: http://localhost:3001  
    - Web: http://localhost:3000 (opens `/`: redirects to **Sign in** if logged out, or **Dashboard** if logged in)  
 
@@ -83,7 +89,9 @@ Monorepo: **API** (Express + Prisma + Postgres/pgvector + Redis/BullMQ) and **We
 | Script | Description |
 |--------|-------------|
 | `npm run dev` | API + Web together |
+| `npm run dev:turbo` | Same as `dev`, with Next.js Turbopack (`NEXT_TURBOPACK_DEV=1`) |
 | `npm run verify` | Production builds for API and Web |
+| `npm run analyze:web` | Web production build with bundle analyzer (`ANALYZE=true`; inspect chunk sizes) |
 | `npm run test:api` | Vitest (integration tests; needs DB + seed) |
 | `npm run db:migrate` | Apply Prisma migrations |
 | `npm run db:seed` | Seed roles, departments, sample users |

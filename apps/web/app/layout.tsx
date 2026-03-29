@@ -6,8 +6,8 @@ const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
   display: "swap",
-  /** Avoid Chrome “preloaded but not used” warnings when first paint is delayed (e.g. client-only shells). */
-  preload: false,
+  /** Primary UI font — preload for faster first text paint (body uses `var(--font-inter)`). */
+  preload: true,
 });
 
 const gelasio = Gelasio({

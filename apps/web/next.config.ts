@@ -1,4 +1,10 @@
 import type { NextConfig } from "next";
+import bundleAnalyzer from "@next/bundle-analyzer";
+
+const withBundleAnalyzer = bundleAnalyzer({
+  /** Dev/CI only: `npm run analyze:web` at repo root. No effect on normal `next build`. */
+  enabled: process.env.ANALYZE === "true",
+});
 
 const nextConfig: NextConfig = {
   experimental: {
@@ -11,4 +17,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

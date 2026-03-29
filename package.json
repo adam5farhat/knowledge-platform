@@ -6,12 +6,14 @@
   ],
   "scripts": {
     "dev": "npx concurrently -n api,web -c blue,green \"node scripts/dev-api.mjs\" \"node scripts/dev-web.mjs\"",
+    "dev:turbo": "cross-env NEXT_TURBOPACK_DEV=1 npx concurrently -n api,web -c blue,green \"node scripts/dev-api.mjs\" \"node scripts/dev-web.mjs\"",
     "clean:web": "node scripts/clean-web-next.mjs",
     "dev:clean": "node scripts/clean-web-next.mjs && npm run dev",
     "dev:api": "node scripts/dev-api.mjs",
     "dev:web": "node scripts/dev-web.mjs",
     "build": "npm run build -w @knowledge-platform/api && npm run build -w @knowledge-platform/web",
     "verify": "npm run build -w @knowledge-platform/api && npm run build -w @knowledge-platform/web",
+    "analyze:web": "cross-env ANALYZE=true npm run build -w @knowledge-platform/web",
     "test:api": "npm run test -w @knowledge-platform/api",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
@@ -20,6 +22,7 @@
     "db:seed": "npm run db:seed -w @knowledge-platform/api"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "cross-env": "^10.1.0"
   }
 }

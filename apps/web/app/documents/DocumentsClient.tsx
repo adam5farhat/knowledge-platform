@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileTypeIcon } from "../../components/FileTypeIcon";
@@ -8,83 +8,33 @@ import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
 import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../lib/authClient";
 import { DEFAULT_USER_RESTRICTIONS, restrictedHref, type MeUserDto } from "../../lib/restrictions";
 import styles from "./page.module.css";
+import type { Dept, DocRow, LibraryScope, Me } from "./documentsTypes";
+import { MAX_UPLOAD_TAGS, TABLE_TAGS_VISIBLE } from "./documentsTypes";
+import {
+  formatModifiedTable,
+  formatSize,
+  formatUploadedOnLine,
+  initialsFromPerson,
+  normalizeUploadTag,
+} from "./documentsFormat";
+import {
+  ActionIconArchive,
+  ActionIconDelete,
+  ActionIconDownload,
+  ActionIconHeart,
+  ActionIconOpen,
+  DeptCardFolderIcon,
+  IconSideBackArrow,
+  SideIconArchive,
+  SideIconClock,
+  SideIconFolder,
+  SideIconHeart,
+  SideIconHome,
+  StatusLabel,
+  TableRowHeartIcon,
+} from "./DocumentsClientIcons";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-
-const MAX_UPLOAD_TAGS = 24;
-const TAG_NAME_RE = /^[a-z0-9]+(?:[ .+_-][a-z0-9]+)*$/;
-
-function normalizeUploadTag(raw: string): string | null {
-  const s = raw
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .slice(0, 40)
-    .trim();
-  if (!s || !TAG_NAME_RE.test(s)) return null;
-  return s;
-}
-
-type Me = { user: MeUserDto };
-type DocRow = {
-  id: string;
-  title: string;
-  description?: string | null;
-  visibility: string;
-  departmentId: string | null;
-  departmentName: string | null;
-  createdAt: string;
-  updatedAt?: string;
-  createdBy: { name: string; email: string };
-  tags: string[];
-  isFavorited?: boolean;
-  isArchived?: boolean;
-  latestVersion: {
-    id: string;
-    versionNumber: number;
-    fileName: string;
-    mimeType: string;
-    sizeBytes: number;
-    processingStatus: string;
-    processingError: string | null;
-    createdAt: string;
-  } | null;
-};
-
-type LibraryScope = "ALL" | "RECENT" | "FAVORITES" | "ARCHIVED";
-type Dept = { id: string; name: string };
-
-const TABLE_TAGS_VISIBLE = 3;
-
-function initialsFromPerson(name: string | undefined, email: string) {
-  const n = name?.trim();
-  if (n) {
-    const parts = n.split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) {
-      return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
-    }
-    if (parts[0] && parts[0].length >= 2) {
-      return parts[0].slice(0, 2).toUpperCase();
-    }
-    if (parts[0]) {
-      return parts[0][0]!.toUpperCase();
-    }
-  }
-  const e = email.trim();
-  return (e[0] ?? "?").toUpperCase();
-}
-
-function formatUploadedOnLine(iso: string) {
-  const d = new Date(iso);
-  const day = d.getDate();
-  const mon = d.toLocaleDateString(undefined, { month: "short" });
-  return `Uploaded on ${day} ${mon}`;
-}
-
-function formatModifiedTable(iso: string | undefined, fallbackIso: string) {
-  const d = new Date(iso ?? fallbackIso);
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
 
 export default function DocumentsClient() {
   const router = useRouter();
@@ -1870,217 +1820,3 @@ export default function DocumentsClient() {
     </main>
   );
 }
-
-function IconSideBackArrow() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M15 18 9 12l6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-/** Department cards: modern gradient folder only (no outer frame — styling is on the SVG). */
-function DeptCardFolderIcon({ className }: { className?: string }) {
-  const uid = useId().replace(/:/g, "");
-  const gTab = `dcf-tab-${uid}`;
-  const gBody = `dcf-body-${uid}`;
-  const fSh = `dcf-sh-${uid}`;
-
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <defs>
-        <linearGradient id={gTab} x1="4" y1="5" x2="15" y2="13" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#7dd3fc" />
-          <stop offset="0.5" stopColor="#38bdf8" />
-          <stop offset="1" stopColor="#0ea5e9" />
-        </linearGradient>
-        <linearGradient id={gBody} x1="12" y1="11" x2="12" y2="21" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#3b82f6" />
-          <stop offset="0.55" stopColor="#2563eb" />
-          <stop offset="1" stopColor="#1e3a8a" />
-        </linearGradient>
-        <filter id={fSh} x="-25%" y="-25%" width="150%" height="150%">
-          <feDropShadow dx="0" dy="1.2" stdDeviation="1" floodColor="#0f172a" floodOpacity="0.14" />
-        </filter>
-      </defs>
-      <g filter={`url(#${fSh})`}>
-        <path
-          d="M4 11h16v7.5a1.5 1.5 0 0 1-1.5 1.5H5.5A1.5 1.5 0 0 1 4 18.5V11Z"
-          fill={`url(#${gBody})`}
-        />
-        <path
-          d="M4 11V8.25A1.25 1.25 0 0 1 5.25 7H9l1.45 2.25H18.5a1.25 1.25 0 0 1 1.25 1.25V11H4Z"
-          fill={`url(#${gTab})`}
-        />
-      </g>
-    </svg>
-  );
-}
-
-function SideIconHome() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function SideIconFolder() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M4 10.5 6.5 6.5h4l1.5-2H20a1.5 1.5 0 0 1 1.5 1.5V18a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18V8a1.5 1.5 0 0 1 1.5-1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function SideIconClock() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M12 8v4l3 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function SideIconHeart() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function SideIconArchive() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M4 8h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8Z" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M4 8V6a1 1 0 0 1 1-1h1l1-2h10l1 2h1a1 1 0 0 1 1 1v2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M10 12h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function StatusLabel({ status, error }: { status: string; error: string | null }) {
-  const color =
-    status === "READY" ? "#15803d" : status === "FAILED" ? "var(--error)" : status === "PROCESSING" ? "#a16207" : "#52525b";
-  return (
-    <span style={{ color }}>
-      {status}
-      {status === "FAILED" && error ? ` — ${error}` : ""}
-    </span>
-  );
-}
-
-function formatSize(bytes: number | undefined) {
-  if (!bytes || bytes <= 0) return "0 KB";
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function ActionIconOpen() {
-  return (
-    <svg className={styles.actionIconSvg} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <polyline points="15 3 21 3 21 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <line x1="10" y1="14" x2="21" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function ActionIconDownload() {
-  return (
-    <svg className={styles.actionIconSvg} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <polyline points="7 10 12 15 17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function ActionIconDelete() {
-  return (
-    <svg className={styles.actionIconSvg} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <polyline points="3 6 5 6 21 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <path
-        d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function TableRowHeartIcon({ active }: { active?: boolean }) {
-  return (
-    <svg className={styles.tableFavSvg} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-        fill={active ? "currentColor" : "none"}
-        stroke="currentColor"
-        strokeWidth={active ? 0 : 1.75}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ActionIconHeart({ active }: { active?: boolean }) {
-  return (
-    <svg className={styles.actionIconSvg} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-        fill={active ? "currentColor" : "none"}
-        stroke="currentColor"
-        strokeWidth={active ? 0 : 2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ActionIconArchive() {
-  return (
-    <svg className={styles.actionIconSvg} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M4 8h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M4 8V6a1 1 0 0 1 1-1h1l1-2h10l1 2h1a1 1 0 0 1 1 1v2"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M10 12h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
