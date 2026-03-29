@@ -1,12 +1,32 @@
 import { Prisma, RoleName } from "@prisma/client";
 import { Router } from "express";
+import multer from "multer";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { hashPassword } from "../lib/password.js";
 import { mapUserResponse } from "../lib/mapUser.js";
+import { syncRefreshSessionsAuthVersion } from "../lib/refreshSessionSync.js";
 import { authenticateToken, requireRole } from "../middleware/auth.js";
+import { isAllowedProfilePictureUrlForUser } from "../lib/avatar.js";
+import { clearUserAvatar, commitAvatarUpload } from "../lib/avatarOps.js";
 
 export const adminRouter = Router();
+
+const adminAvatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = ["image/jpeg", "image/png", "image/webp"].includes(file.mimetype);
+    cb(null, ok);
+  },
+});
+
+function normalizeProfilePictureInput(v: string | null | undefined): string | null | undefined {
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  const t = v.trim();
+  return t === "" ? null : t;
+}
 
 const createUserBody = z.object({
   email: z.string().email(),
@@ -39,8 +59,38 @@ const patchUserBody = z
     phoneNumber: z.string().max(50).optional().nullable(),
     position: z.string().max(200).optional().nullable(),
     isActive: z.boolean().optional(),
+    loginAllowed: z.boolean().optional(),
+    accessDocumentsAllowed: z.boolean().optional(),
+    manageDocumentsAllowed: z.boolean().optional(),
+    accessDashboardAllowed: z.boolean().optional(),
+    useAiQueriesAllowed: z.boolean().optional(),
+    mustChangePassword: z.boolean().optional(),
+    profilePictureUrl: z.string().max(2000).optional().nullable(),
   })
   .refine((o) => Object.keys(o).length > 0, { message: "No fields to update" });
+
+const bulkRestrictionsBody = z
+  .object({
+    ids: z.array(z.string().uuid()).min(1).max(50),
+    loginAllowed: z.boolean().optional(),
+    accessDocumentsAllowed: z.boolean().optional(),
+    manageDocumentsAllowed: z.boolean().optional(),
+    accessDashboardAllowed: z.boolean().optional(),
+    useAiQueriesAllowed: z.boolean().optional(),
+  })
+  .refine(
+    (o) =>
+      o.loginAllowed !== undefined ||
+      o.accessDocumentsAllowed !== undefined ||
+      o.manageDocumentsAllowed !== undefined ||
+      o.accessDashboardAllowed !== undefined ||
+      o.useAiQueriesAllowed !== undefined,
+    { message: "No restriction fields to update" },
+  );
+
+const importUsersBody = z.object({
+  users: z.array(createUserBody).min(1).max(50),
+});
 
 const setPasswordBody = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -60,6 +110,14 @@ function mapUserAdmin(user: {
   position: string | null;
   profilePictureUrl: string | null;
   isActive: boolean;
+  loginAllowed: boolean;
+  accessDocumentsAllowed: boolean;
+  manageDocumentsAllowed: boolean;
+  accessDashboardAllowed: boolean;
+  useAiQueriesAllowed: boolean;
+  mustChangePassword: boolean;
+  lastLoginAt: Date | null;
+  deletedAt: Date | null;
   failedLoginAttempts: number;
   loginLockedUntil: Date | null;
   createdAt: Date;
@@ -71,12 +129,20 @@ function mapUserAdmin(user: {
     failedLoginAttempts: user.failedLoginAttempts,
     loginLockedUntil: user.loginLockedUntil?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
+    lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+    deletedAt: user.deletedAt?.toISOString() ?? null,
   };
+}
+
+function parseBoolQuery(raw: unknown): boolean | undefined {
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  return undefined;
 }
 
 async function countActiveAdmins(): Promise<number> {
   return prisma.user.count({
-    where: { isActive: true, role: { name: RoleName.ADMIN } },
+    where: { isActive: true, deletedAt: null, role: { name: RoleName.ADMIN } },
   });
 }
 
@@ -127,7 +193,34 @@ adminRouter.get("/departments", authenticateToken, requireRole(RoleName.ADMIN), 
     select: { id: true, name: true, parentDepartmentId: true },
   });
 
-  res.json({ departments });
+  const members = await prisma.user.findMany({
+    where: { deletedAt: null },
+    select: { id: true, name: true, profilePictureUrl: true, departmentId: true },
+    orderBy: [{ name: "asc" }, { email: "asc" }],
+  });
+
+  const previewByDept = new Map<string, { id: string; name: string; profilePictureUrl: string | null }[]>();
+  const countByDept = new Map<string, number>();
+  for (const m of members) {
+    countByDept.set(m.departmentId, (countByDept.get(m.departmentId) ?? 0) + 1);
+    const list = previewByDept.get(m.departmentId) ?? [];
+    if (list.length < 4) {
+      list.push({
+        id: m.id,
+        name: m.name,
+        profilePictureUrl: m.profilePictureUrl,
+      });
+      previewByDept.set(m.departmentId, list);
+    }
+  }
+
+  res.json({
+    departments: departments.map((d) => ({
+      ...d,
+      memberPreview: previewByDept.get(d.id) ?? [],
+      memberCount: countByDept.get(d.id) ?? 0,
+    })),
+  });
 });
 
 adminRouter.get("/roles", authenticateToken, requireRole(RoleName.ADMIN), async (_req, res) => {
@@ -326,8 +419,12 @@ adminRouter.get("/users", authenticateToken, requireRole(RoleName.ADMIN), async 
   const departmentId = typeof req.query.departmentId === "string" ? req.query.departmentId.trim() : "";
   const roleRaw = typeof req.query.role === "string" ? req.query.role.trim().toUpperCase() : "";
   const activeRaw = typeof req.query.isActive === "string" ? req.query.isActive.trim() : "";
+  const includeDeleted = req.query.includeDeleted === "1" || req.query.includeDeleted === "true";
 
   const where: Prisma.UserWhereInput = {};
+  if (!includeDeleted) {
+    where.deletedAt = null;
+  }
   if (q.length > 0) {
     where.OR = [
       { email: { contains: q, mode: "insensitive" } },
@@ -343,6 +440,19 @@ adminRouter.get("/users", authenticateToken, requireRole(RoleName.ADMIN), async 
   }
   if (activeRaw === "true") where.isActive = true;
   if (activeRaw === "false") where.isActive = false;
+
+  const la = parseBoolQuery(req.query.loginAllowed);
+  if (la !== undefined) where.loginAllowed = la;
+  const ada = parseBoolQuery(req.query.accessDocumentsAllowed);
+  if (ada !== undefined) where.accessDocumentsAllowed = ada;
+  const mda = parseBoolQuery(req.query.manageDocumentsAllowed);
+  if (mda !== undefined) where.manageDocumentsAllowed = mda;
+  const dba = parseBoolQuery(req.query.accessDashboardAllowed);
+  if (dba !== undefined) where.accessDashboardAllowed = dba;
+  const uai = parseBoolQuery(req.query.useAiQueriesAllowed);
+  if (uai !== undefined) where.useAiQueriesAllowed = uai;
+  const mcp = parseBoolQuery(req.query.mustChangePassword);
+  if (mcp !== undefined) where.mustChangePassword = mcp;
 
   const [total, rows] = await Promise.all([
     prisma.user.count({ where }),
@@ -442,7 +552,12 @@ adminRouter.patch("/users/:userId", authenticateToken, requireRole(RoleName.ADMI
   }
 
   const actingUserId = req.authUser!.id;
-  const targetId = req.params.userId;
+  const targetIdRaw = req.params.userId;
+  if (typeof targetIdRaw !== "string" || !targetIdRaw) {
+    res.status(400).json({ error: "Missing user id" });
+    return;
+  }
+  const targetId = targetIdRaw;
 
   const existing = await prisma.user.findUnique({
     where: { id: targetId },
@@ -469,6 +584,19 @@ adminRouter.patch("/users/:userId", authenticateToken, requireRole(RoleName.ADMI
   if (parsed.data.isActive === false && targetId === actingUserId) {
     res.status(400).json({ error: "You cannot deactivate your own account" });
     return;
+  }
+
+  if (targetId === actingUserId && parsed.data.loginAllowed === false) {
+    res.status(400).json({ error: "You cannot disable login access for your own account" });
+    return;
+  }
+
+  if (parsed.data.profilePictureUrl !== undefined) {
+    const pic = normalizeProfilePictureInput(parsed.data.profilePictureUrl);
+    if (typeof pic === "string" && !isAllowedProfilePictureUrlForUser(pic, targetId)) {
+      res.status(400).json({ error: "Profile picture URL is not allowed for this user" });
+      return;
+    }
   }
 
   const normalizedBadge = parsed.data.employeeBadgeNumber?.trim();
@@ -509,10 +637,19 @@ adminRouter.patch("/users/:userId", authenticateToken, requireRole(RoleName.ADMI
     roleId = r.id;
   }
 
+  const restrictionFieldsChanged =
+    parsed.data.loginAllowed !== undefined ||
+    parsed.data.accessDocumentsAllowed !== undefined ||
+    parsed.data.manageDocumentsAllowed !== undefined ||
+    parsed.data.accessDashboardAllowed !== undefined ||
+    parsed.data.useAiQueriesAllowed !== undefined;
+
   const bumpAuth =
     parsed.data.email !== undefined ||
     parsed.data.role !== undefined ||
-    parsed.data.departmentId !== undefined;
+    parsed.data.departmentId !== undefined ||
+    parsed.data.isActive !== undefined ||
+    restrictionFieldsChanged;
 
   const data: Prisma.UserUpdateInput = {};
   if (parsed.data.email !== undefined) data.email = parsed.data.email;
@@ -520,6 +657,22 @@ adminRouter.patch("/users/:userId", authenticateToken, requireRole(RoleName.ADMI
   if (parsed.data.phoneNumber !== undefined) data.phoneNumber = parsed.data.phoneNumber;
   if (parsed.data.position !== undefined) data.position = parsed.data.position;
   if (parsed.data.isActive !== undefined) data.isActive = parsed.data.isActive;
+  if (parsed.data.loginAllowed !== undefined) data.loginAllowed = parsed.data.loginAllowed;
+  if (parsed.data.accessDocumentsAllowed !== undefined) {
+    data.accessDocumentsAllowed = parsed.data.accessDocumentsAllowed;
+  }
+  if (parsed.data.manageDocumentsAllowed !== undefined) {
+    data.manageDocumentsAllowed = parsed.data.manageDocumentsAllowed;
+  }
+  if (parsed.data.accessDashboardAllowed !== undefined) {
+    data.accessDashboardAllowed = parsed.data.accessDashboardAllowed;
+  }
+  if (parsed.data.useAiQueriesAllowed !== undefined) {
+    data.useAiQueriesAllowed = parsed.data.useAiQueriesAllowed;
+  }
+  if (parsed.data.mustChangePassword !== undefined) {
+    data.mustChangePassword = parsed.data.mustChangePassword;
+  }
   if (parsed.data.employeeBadgeNumber !== undefined) {
     data.employeeBadgeNumber = normalizedBadge || null;
   }
@@ -528,6 +681,9 @@ adminRouter.patch("/users/:userId", authenticateToken, requireRole(RoleName.ADMI
   }
   if (parsed.data.role !== undefined) {
     data.role = { connect: { id: roleId } };
+  }
+  if (parsed.data.profilePictureUrl !== undefined) {
+    data.profilePictureUrl = normalizeProfilePictureInput(parsed.data.profilePictureUrl) ?? null;
   }
   if (bumpAuth) {
     data.authVersion = { increment: 1 };
@@ -539,6 +695,9 @@ adminRouter.patch("/users/:userId", authenticateToken, requireRole(RoleName.ADMI
       data,
       include: { role: true, department: true },
     });
+    if (bumpAuth) {
+      await syncRefreshSessionsAuthVersion(targetId, user.authVersion);
+    }
     res.json({ user: mapUserAdmin(user) });
   } catch (e: unknown) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
@@ -547,6 +706,243 @@ adminRouter.patch("/users/:userId", authenticateToken, requireRole(RoleName.ADMI
     }
     throw e;
   }
+});
+
+adminRouter.post(
+  "/users/:userId/avatar",
+  authenticateToken,
+  requireRole(RoleName.ADMIN),
+  (req, res, next) => {
+    adminAvatarUpload.single("file")(req, res, (err: unknown) => {
+      if (err) {
+        const msg = err instanceof Error ? err.message : "Upload failed";
+        res.status(400).json({ error: msg });
+        return;
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    const targetId = req.params.userId;
+    if (!targetId) {
+      res.status(400).json({ error: "Missing user id" });
+      return;
+    }
+    const file = req.file;
+    if (!file?.buffer) {
+      res.status(400).json({ error: "Missing file (multipart field name: file)" });
+      return;
+    }
+    const existing = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true, deletedAt: true } });
+    if (!existing || existing.deletedAt) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    try {
+      await commitAvatarUpload(req, targetId, file.buffer);
+      const user = await prisma.user.findUniqueOrThrow({
+        where: { id: targetId },
+        include: { role: true, department: true },
+      });
+      res.json({ user: mapUserAdmin(user) });
+    } catch (e: unknown) {
+      const code = (e as { code?: string }).code;
+      if (code === "INVALID_IMAGE") {
+        res.status(400).json({ error: "Please upload a JPEG, PNG, or WebP image (max 2 MB)." });
+        return;
+      }
+      throw e;
+    }
+  },
+);
+
+adminRouter.delete("/users/:userId/avatar", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+  const targetId = req.params.userId;
+  if (!targetId) {
+    res.status(400).json({ error: "Missing user id" });
+    return;
+  }
+  const existing = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true, deletedAt: true } });
+  if (!existing || existing.deletedAt) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  try {
+    await clearUserAvatar(targetId);
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: targetId },
+      include: { role: true, department: true },
+    });
+    res.json({ user: mapUserAdmin(user) });
+  } catch (e: unknown) {
+    const code = (e as { code?: string }).code;
+    if (code === "NOT_FOUND") {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    throw e;
+  }
+});
+
+adminRouter.post("/users/bulk-restrictions", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+  const parsed = bulkRestrictionsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+    return;
+  }
+
+  const actingUserId = req.authUser!.id;
+  const { ids, ...patch } = parsed.data;
+  const uniqueIds = [...new Set(ids)];
+
+  const data: Prisma.UserUpdateInput = {};
+  if (patch.loginAllowed !== undefined) data.loginAllowed = patch.loginAllowed;
+  if (patch.accessDocumentsAllowed !== undefined) data.accessDocumentsAllowed = patch.accessDocumentsAllowed;
+  if (patch.manageDocumentsAllowed !== undefined) data.manageDocumentsAllowed = patch.manageDocumentsAllowed;
+  if (patch.accessDashboardAllowed !== undefined) data.accessDashboardAllowed = patch.accessDashboardAllowed;
+  if (patch.useAiQueriesAllowed !== undefined) data.useAiQueriesAllowed = patch.useAiQueriesAllowed;
+
+  let updatedCount = 0;
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const id of uniqueIds) {
+        if (id === actingUserId && patch.loginAllowed === false) {
+          continue;
+        }
+        const u = await tx.user.update({
+          where: { id },
+          data: {
+            ...data,
+            authVersion: { increment: 1 },
+          },
+        });
+        await tx.refreshSession.updateMany({
+          where: { userId: id, revokedAt: null },
+          data: { authVersion: u.authVersion },
+        });
+        updatedCount += 1;
+      }
+    });
+  } catch (e: unknown) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
+      res.status(404).json({ error: "One or more users were not found" });
+      return;
+    }
+    throw e;
+  }
+
+  res.json({ ok: true, updatedCount });
+});
+
+adminRouter.post("/users/import", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+  const parsed = importUsersBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+    return;
+  }
+
+  const errors: { email: string; error: string }[] = [];
+  const created: ReturnType<typeof mapUserResponse>[] = [];
+
+  for (const row of parsed.data.users) {
+    const normalizedBadge = row.employeeBadgeNumber?.trim();
+    if (row.role === RoleName.EMPLOYEE && !normalizedBadge) {
+      errors.push({ email: row.email, error: "Employee badge number is required for EMPLOYEE" });
+      continue;
+    }
+    const department = await prisma.department.findUnique({ where: { id: row.departmentId } });
+    if (!department) {
+      errors.push({ email: row.email, error: "Department not found" });
+      continue;
+    }
+    const roleRecord = await prisma.role.findUnique({ where: { name: row.role } });
+    if (!roleRecord) {
+      errors.push({ email: row.email, error: "Invalid role" });
+      continue;
+    }
+    const dup = await prisma.user.findUnique({ where: { email: row.email } });
+    if (dup) {
+      errors.push({ email: row.email, error: "Email already in use" });
+      continue;
+    }
+    try {
+      const passwordHash = await hashPassword(row.password);
+      const user = await prisma.user.create({
+        data: {
+          email: row.email,
+          name: row.name,
+          passwordHash,
+          roleId: roleRecord.id,
+          departmentId: department.id,
+          employeeBadgeNumber: normalizedBadge || undefined,
+          phoneNumber: row.phoneNumber ?? undefined,
+          position: row.position ?? undefined,
+        },
+        include: { role: true, department: true },
+      });
+      created.push(mapUserResponse(user));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Create failed";
+      errors.push({ email: row.email, error: msg });
+    }
+  }
+
+  res.status(201).json({ created: created.length, users: created, errors });
+});
+
+adminRouter.post(
+  "/users/:userId/reset-restrictions",
+  authenticateToken,
+  requireRole(RoleName.ADMIN),
+  async (req, res) => {
+    const targetId = req.params.userId;
+    const existing = await prisma.user.findUnique({
+      where: { id: targetId },
+      include: { role: true, department: true },
+    });
+    if (!existing) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const user = await prisma.user.update({
+      where: { id: targetId },
+      data: {
+        loginAllowed: true,
+        accessDocumentsAllowed: true,
+        manageDocumentsAllowed: true,
+        accessDashboardAllowed: true,
+        useAiQueriesAllowed: true,
+        authVersion: { increment: 1 },
+      },
+      include: { role: true, department: true },
+    });
+    await syncRefreshSessionsAuthVersion(targetId, user.authVersion);
+
+    res.json({ user: mapUserAdmin(user) });
+  },
+);
+
+adminRouter.post("/users/:userId/revoke-sessions", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+  const targetId = req.params.userId;
+  const u = await prisma.user.findUnique({ where: { id: targetId } });
+  if (!u) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.refreshSession.updateMany({
+      where: { userId: targetId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    await tx.user.update({
+      where: { id: targetId },
+      data: { authVersion: { increment: 1 } },
+    });
+  });
+
+  res.status(204).send();
 });
 
 adminRouter.post("/users/:userId/set-password", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
@@ -564,13 +960,15 @@ adminRouter.post("/users/:userId/set-password", authenticateToken, requireRole(R
   }
 
   const passwordHash = await hashPassword(parsed.data.password);
-  await prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id: targetId },
     data: {
       passwordHash,
       authVersion: { increment: 1 },
+      mustChangePassword: false,
     },
   });
+  await syncRefreshSessionsAuthVersion(targetId, updated.authVersion);
 
   res.status(204).send();
 });
@@ -623,9 +1021,30 @@ adminRouter.post("/users/:userId/unlock", authenticateToken, requireRole(RoleNam
   res.status(204).send();
 });
 
+adminRouter.post("/users/:userId/restore", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+  const targetId = req.params.userId;
+  const u = await prisma.user.findUnique({ where: { id: targetId }, include: { role: true, department: true } });
+  if (!u) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (!u.deletedAt) {
+    res.status(400).json({ error: "User is not archived" });
+    return;
+  }
+
+  const user = await prisma.user.update({
+    where: { id: targetId },
+    data: { deletedAt: null, isActive: true },
+    include: { role: true, department: true },
+  });
+  res.json({ user: mapUserAdmin(user) });
+});
+
 adminRouter.delete("/users/:userId", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
   const actingUserId = req.authUser!.id;
   const targetId = req.params.userId;
+  const hard = req.query.hard === "true" || req.query.hard === "1";
 
   if (targetId === actingUserId) {
     res.status(400).json({ error: "You cannot delete your own account" });
@@ -641,9 +1060,14 @@ adminRouter.delete("/users/:userId", authenticateToken, requireRole(RoleName.ADM
     return;
   }
 
+  if (!hard && u.deletedAt) {
+    res.status(204).send();
+    return;
+  }
+
   if (u.role.name === RoleName.ADMIN) {
     const admins = await countActiveAdmins();
-    if (admins <= 1 && u.isActive) {
+    if (admins <= 1 && u.isActive && !u.deletedAt) {
       res.status(400).json({ error: "Cannot delete the last active administrator" });
       return;
     }
@@ -663,7 +1087,27 @@ adminRouter.delete("/users/:userId", authenticateToken, requireRole(RoleName.ADM
     return;
   }
 
-  await prisma.user.delete({ where: { id: targetId } });
+  if (hard) {
+    await prisma.user.delete({ where: { id: targetId } });
+    res.status(204).send();
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.refreshSession.updateMany({
+      where: { userId: targetId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    await tx.user.update({
+      where: { id: targetId },
+      data: {
+        deletedAt: new Date(),
+        isActive: false,
+        authVersion: { increment: 1 },
+      },
+    });
+  });
+
   res.status(204).send();
 });
 

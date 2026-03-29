@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "@/lib/authClient";
 import dash from "../components/shellNav.module.css";
+import { AdminChromeHeader } from "./AdminChromeHeader";
 import { AdminHubGlyph } from "./AdminHubIcons";
 import styles from "./adminHub.module.css";
 
@@ -16,6 +17,7 @@ type HubUser = {
   name: string;
   email: string;
   role: string;
+  profilePictureUrl?: string | null;
 };
 
 type HubCard = {
@@ -75,8 +77,6 @@ export default function AdminHubClient() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("checking");
   const [user, setUser] = useState<HubUser | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,7 +100,7 @@ export default function AdminHubClient() {
           return;
         }
         const me = (await meRes.json().catch(() => ({}))) as {
-          user?: { name?: string; email?: string; role?: string };
+          user?: { name?: string; email?: string; role?: string; profilePictureUrl?: string | null };
         };
         if (!meRes.ok || me.user?.role !== "ADMIN") {
           if (!cancelled) setPhase("forbidden");
@@ -111,6 +111,7 @@ export default function AdminHubClient() {
             name: me.user?.name ?? "",
             email: me.user?.email ?? "",
             role: me.user?.role ?? "ADMIN",
+            profilePictureUrl: me.user?.profilePictureUrl ?? null,
           });
           setPhase("ready");
         }
@@ -122,35 +123,6 @@ export default function AdminHubClient() {
       cancelled = true;
     };
   }, [router]);
-
-  useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      if (!menuRef.current) return;
-      if (!menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    if (menuOpen) document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [menuOpen]);
-
-  async function signOut() {
-    const refreshToken = localStorage.getItem("kp_refresh_token");
-    if (refreshToken) {
-      try {
-        await fetch(`${API}/auth/logout`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken }),
-        });
-      } catch {
-        /* best-effort */
-      }
-    }
-    clearStoredSession();
-    router.replace("/login");
-    router.refresh();
-  }
 
   if (phase === "checking") {
     return (
@@ -192,81 +164,26 @@ export default function AdminHubClient() {
     return null;
   }
 
-  const nameParts = user.name.trim().split(/\s+/);
-  const initials = ((nameParts[0]?.[0] ?? "A") + (nameParts[1]?.[0] ?? "")).toUpperCase();
-
   return (
     <main className={dash.page} data-dashboard-fullscreen="true">
-      <header className={dash.navbar}>
-        <nav className={dash.navLeft} aria-label="Primary">
-          <a className={dash.brand} href="/dashboard">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className={dash.brandMark} src="/logo-swapped.svg" alt="Platform" />
-          </a>
-          <Link href="/about">About</Link>
-          <Link href="/contact">Contact</Link>
-          <Link href="/documents">Documents</Link>
-        </nav>
+      <AdminChromeHeader user={user} />
 
-        <div className={dash.profileWrap} ref={menuRef}>
-          <button
-            type="button"
-            className={dash.profileBtn}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((v) => !v)}
-            title={`${user.name} (${user.role})`}
-          >
-            {initials}
-          </button>
-          {menuOpen ? (
-            <div className={dash.menu} role="menu">
-              <div className={dash.menuHeader}>
-                <div>{user.name}</div>
-                <div>{user.email}</div>
-              </div>
-              <Link className={dash.menuItem} href="/profile" role="menuitem" onClick={() => setMenuOpen(false)}>
-                View Profile
-              </Link>
-              <Link className={dash.menuItem} href="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>
-                Dashboard
-              </Link>
-              <Link className={dash.menuItem} href="/admin" role="menuitem" onClick={() => setMenuOpen(false)}>
-                Admin hub
-              </Link>
-              <Link className={dash.menuItem} href="/admin/users" role="menuitem" onClick={() => setMenuOpen(false)}>
-                Users
-              </Link>
-              <Link className={dash.menuItem} href="/admin/departments" role="menuitem" onClick={() => setMenuOpen(false)}>
-                Departments
-              </Link>
-              <Link className={dash.menuItem} href="/admin/documents" role="menuitem" onClick={() => setMenuOpen(false)}>
-                Document tools
-              </Link>
-              <Link className={dash.menuItem} href="/admin/activity" role="menuitem" onClick={() => setMenuOpen(false)}>
-                Sign-in activity
-              </Link>
-              <Link className={dash.menuItem} href="/admin/document-audit" role="menuitem" onClick={() => setMenuOpen(false)}>
-                Document audit
-              </Link>
-              <Link className={dash.menuItem} href="/admin/system" role="menuitem" onClick={() => setMenuOpen(false)}>
-                System stats
-              </Link>
-              <button
-                type="button"
-                className={dash.menuItem}
-                onClick={() => {
-                  setMenuOpen(false);
-                  void signOut();
-                }}
-                role="menuitem"
-              >
-                Logout
-              </button>
-            </div>
-          ) : null}
-        </div>
-      </header>
+      <Link
+        href="/dashboard"
+        className={styles.hubBackFab}
+        aria-label="Back to dashboard"
+        title="Back to dashboard"
+      >
+        <svg className={styles.hubBackFabIcon} viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path
+            d="M15 18 9 12l6-6"
+            stroke="currentColor"
+            strokeWidth="2.25"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </Link>
 
       <section className={styles.featureGrid} aria-label="Administration">
         {cards.map((c) => (

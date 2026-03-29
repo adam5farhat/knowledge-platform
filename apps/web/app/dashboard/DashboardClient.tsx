@@ -3,26 +3,31 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
 import { clearStoredSession, fetchWithAuth } from "../../lib/authClient";
+import {
+  DEFAULT_USER_RESTRICTIONS,
+  restrictedHref,
+  type MeResponse,
+  type MeUserDto,
+} from "../../lib/restrictions";
 import styles from "./page.module.css";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-type MeResponse = {
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-    phoneNumber: string | null;
-    position: string | null;
-    employeeBadgeNumber: string | null;
-    profilePictureUrl: string | null;
-    department: { id: string; name: string };
-  };
-};
-
 type LoadState = "loading" | "need-login" | "error" | "ready";
+
+function documentsCardHref(user: MeUserDto): string {
+  const r = user.restrictions ?? DEFAULT_USER_RESTRICTIONS;
+  return r.accessDocumentsAllowed ? "/documents" : restrictedHref("accessDocuments");
+}
+
+function semanticSearchCardHref(user: MeUserDto): string {
+  const r = user.restrictions ?? DEFAULT_USER_RESTRICTIONS;
+  if (!r.useAiQueriesAllowed) return restrictedHref("useAiQueries");
+  if (!r.accessDocumentsAllowed) return restrictedHref("accessDocuments");
+  return "/documents/search";
+}
 
 export default function DashboardClient() {
   const router = useRouter();
@@ -64,6 +69,13 @@ export default function DashboardClient() {
           return;
         }
         if (!cancelled) {
+          const rs = body.user.restrictions ?? DEFAULT_USER_RESTRICTIONS;
+          if (!rs.accessDashboardAllowed) {
+            router.replace(
+              body.user.role === "ADMIN" ? "/admin" : restrictedHref("accessDashboard"),
+            );
+            return;
+          }
           setData(body);
           setLoadState("ready");
         }
@@ -142,9 +154,10 @@ export default function DashboardClient() {
   }
 
   const { user } = data;
-  const nameParts = user.name.trim().split(/\s+/);
-  const initials = ((nameParts[0]?.[0] ?? "U") + (nameParts[1]?.[0] ?? "")).toUpperCase();
+  const rs = user.restrictions ?? DEFAULT_USER_RESTRICTIONS;
   const isManagerOrAdmin = user.role === "ADMIN" || user.role === "MANAGER";
+  const docHref = documentsCardHref(user);
+  const searchHref = semanticSearchCardHref(user);
 
   return (
     <main className={styles.page} data-dashboard-fullscreen="true">
@@ -154,22 +167,20 @@ export default function DashboardClient() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className={styles.brandMark} src="/logo-swapped.svg" alt="Platform" />
           </a>
-          <Link href="/about">About</Link>
-          <Link href="/contact">Contact</Link>
-          <Link href="/documents">Documents</Link>
         </nav>
 
         <div className={styles.profileWrap} ref={menuRef}>
-          <button
-            type="button"
+          <UserAvatarNavButton
             className={styles.profileBtn}
+            imgClassName={styles.profileBtnImg}
+            pictureUrl={user.profilePictureUrl}
+            name={user.name}
+            email={user.email}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((v) => !v)}
             title={`${user.name} (${user.role})`}
-          >
-            {initials}
-          </button>
+          />
           {menuOpen ? (
             <div className={styles.menu} role="menu">
               <div className={styles.menuHeader}>
@@ -249,7 +260,15 @@ export default function DashboardClient() {
         className={`${styles.cards} ${user.role === "ADMIN" ? styles.cardsWithAdmin : ""}`}
         aria-label="Core features"
       >
-        <Link className={`${styles.card} ${styles.cardDocuments}`} href="/documents" aria-label="Go to document management">
+        <Link
+          className={`${styles.card} ${styles.cardDocuments}`}
+          href={docHref}
+          aria-label="Go to document management"
+          style={{ opacity: rs.accessDocumentsAllowed ? 1 : 0.55 }}
+          title={
+            rs.accessDocumentsAllowed ? undefined : "Document library access is disabled for your account."
+          }
+        >
           <div className={styles.cardInner}>
             <div className={styles.icon} aria-hidden>
               <svg className={styles.iconGlyph} viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -266,8 +285,18 @@ export default function DashboardClient() {
 
         <Link
           className={`${styles.card} ${styles.cardQuestions}`}
-          href="/documents/search"
+          href={searchHref}
           aria-label="Go to semantic search over document embeddings"
+          style={{
+            opacity: rs.accessDocumentsAllowed && rs.useAiQueriesAllowed ? 1 : 0.55,
+          }}
+          title={
+            !rs.useAiQueriesAllowed
+              ? "AI search is disabled for your account."
+              : !rs.accessDocumentsAllowed
+                ? "Document library access is required for semantic search."
+                : undefined
+          }
         >
           <div className={styles.cardInner}>
             <div className={styles.icon} aria-hidden>

@@ -1,9 +1,9 @@
 .shell {
   height: 100dvh;
   box-sizing: border-box;
-  display: grid;
-  grid-template-columns: minmax(240px, 276px) minmax(0, 1fr);
-  grid-template-rows: 1fr;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0;
   padding: 0;
   overflow: hidden;
@@ -11,9 +11,33 @@
     linear-gradient(180deg, color-mix(in srgb, var(--interactive) 3%, #eef0f5) 0%, #e9ecf2 48%, #e6e9f0 100%);
 }
 
+/* Below full-width nav: library sidebar | filters + explorer */
+.shellWorkspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+/* Right column: filters + file explorer (same width) */
+.docMainColumn {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  background: linear-gradient(180deg, #fafbfc 0%, #f6f7f9 32%, #f3f4f6 100%);
+}
+
 .sidebar {
-  grid-column: 1;
-  grid-row: 1;
+  flex: 0 0 clamp(240px, 28vw, 276px);
+  width: clamp(240px, 28vw, 276px);
+  align-self: stretch;
   background: linear-gradient(180deg, #fcfcfd 0%, #f7f8fa 55%, #f3f5f8 100%);
   border-right: 1px solid color-mix(in srgb, var(--border) 82%, #94a3b8);
   border-radius: 0;
@@ -21,7 +45,6 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 100%;
   min-width: 0;
   box-shadow:
     1px 0 0 rgba(255, 255, 255, 0.85) inset,
@@ -35,7 +58,7 @@
   display: grid;
   align-content: start;
   gap: 0;
-  padding: 0.5rem 0 1rem;
+  padding: 0.85rem 0 1rem;
 }
 
 .sideSection {
@@ -117,7 +140,7 @@
 }
 
 .sideBrand {
-  padding: 1.15rem 1.1rem 1rem;
+  padding: 1.35rem 1.1rem 1rem;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
   background: linear-gradient(180deg, #fff 0%, #fafbfc 100%);
 }
@@ -220,17 +243,13 @@
 }
 
 .content {
-  grid-column: 2;
-  grid-row: 1;
+  flex: 1;
   min-width: 0;
-  display: grid;
-  grid-template-rows: auto auto 1fr;
-  gap: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  background: linear-gradient(180deg, #fafbfc 0%, #f6f7f9 32%, #f3f4f6 100%);
-  border-left: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  background: transparent;
 }
 
 .docNavbar {
@@ -238,6 +257,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  width: 100%;
+  box-sizing: border-box;
   padding: 0.72rem 1.5rem;
   background: color-mix(in srgb, #fff 88%, transparent);
   backdrop-filter: blur(10px);
@@ -247,7 +268,7 @@
   border-radius: 0;
   flex-shrink: 0;
   position: relative;
-  z-index: 2;
+  z-index: 12;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
@@ -265,7 +286,7 @@
 }
 
 .docNavLogo {
-  height: 28px;
+  height: 32px;
   width: auto;
 }
 
@@ -295,6 +316,20 @@
     transform 0.18s ease,
     box-shadow 0.18s ease,
     filter 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.profileBtnImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  display: block;
 }
 
 .profileBtn:hover {
@@ -462,6 +497,7 @@
 }
 
 .body {
+  flex: 1;
   min-height: 0;
   overflow: hidden;
   display: flex;
@@ -657,41 +693,23 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 46px;
-  height: 46px;
-  margin: 0 0 0.75rem;
-  border-radius: 0;
+  margin: 0 0 0.65rem;
+  padding: 0;
+  width: auto;
+  height: auto;
   border: none;
-  background: linear-gradient(
-    150deg,
-    color-mix(in srgb, var(--interactive) 12%, #fff) 0%,
-    color-mix(in srgb, var(--interactive) 5%, #f4f6f9) 100%
-  );
-  color: var(--interactive);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive) 10%, transparent);
-  transition:
-    background 0.22s ease,
-    box-shadow 0.22s ease,
-    color 0.22s ease,
-    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  background: none;
+  box-shadow: none;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .deptCard:hover .deptCardIcon {
-  background: linear-gradient(
-    150deg,
-    color-mix(in srgb, var(--interactive) 22%, #fff) 0%,
-    color-mix(in srgb, var(--interactive) 10%, #e8f4fa) 100%
-  );
-  color: var(--interactive);
-  box-shadow:
-    0 6px 20px color-mix(in srgb, var(--interactive) 22%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--interactive) 15%, transparent);
-  transform: scale(1.04);
+  transform: scale(1.06);
 }
 
 .deptCardIconSvg {
-  width: 24px;
-  height: 24px;
+  width: 56px;
+  height: 56px;
   display: block;
 }
 
@@ -1054,17 +1072,6 @@
   height: 48px;
 }
 
-.tableRowFileIcon .fileTypeIcon,
-.tableRowFileIcon .fileTypeIconPdfFull {
-  width: 36px;
-  height: 44px;
-}
-
-.tableRowFileIcon .filePdfSvg {
-  width: 100%;
-  height: 100%;
-}
-
 .tableNameTexts {
   min-width: 0;
   display: flex;
@@ -1232,8 +1239,12 @@
 }
 
 .detailsWrap {
-  grid-column: 2;
-  grid-row: 1;
+  /* Fixed overlay; do not consume flex space under column shell */
+  flex: 0 0 0;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  align-self: flex-start;
   position: fixed;
   top: 0;
   right: 0;
@@ -1507,26 +1518,6 @@
 .detailsPreviewFrame:hover .detailsPreview {
   filter: drop-shadow(0 14px 32px color-mix(in srgb, var(--interactive) 24%, transparent));
   transform: scale(1.04);
-}
-
-.detailsPreview .fileTypeIcon {
-  width: 96px;
-  height: 120px;
-}
-
-.detailsPreview .fileTypeBanner {
-  min-height: 22px;
-  padding: 4px 6px 4px 4px;
-}
-
-.detailsPreview .fileTypeBannerText {
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
-}
-
-.detailsPreview .fileFlatPreviewSvg {
-  max-width: 78px;
-  max-height: 72px;
 }
 
 .detailMeta {
@@ -2340,32 +2331,53 @@
 }
 
 @media (max-width: 1100px) {
-  .shell {
-    grid-template-columns: minmax(220px, 248px) minmax(0, 1fr);
+  .sidebar {
+    flex: 0 0 clamp(220px, 30vw, 248px);
+    width: clamp(220px, 30vw, 248px);
   }
 }
 
 @media (max-width: 840px) {
   .shell {
     height: auto;
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
+    min-height: 100dvh;
     overflow: visible;
     padding: 0.5rem;
     background: #eef0f5;
   }
+
+  .docNavbar {
+    margin: 0 -0.5rem;
+    width: calc(100% + 1rem);
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .shellWorkspace {
+    flex-direction: column;
+    overflow: visible;
+    min-height: 0;
+  }
+
+  .docMainColumn {
+    order: -1;
+    border-left: none;
+    box-shadow: none;
+    overflow: visible;
+    min-height: 0;
+  }
+
   .sidebar {
-    grid-column: 1;
-    grid-row: auto;
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: none;
+    border-right: none;
     max-height: none;
     box-shadow: 0 4px 24px -12px rgba(15, 23, 42, 0.08);
   }
+
   .content {
-    grid-column: 1;
-    grid-row: auto;
     overflow: visible;
-    border-left: none;
-    box-shadow: none;
   }
   .body {
     overflow: visible;

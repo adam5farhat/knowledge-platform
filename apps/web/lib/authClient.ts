@@ -3,6 +3,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 type RefreshResponse = {
   token?: string;
   refreshToken?: string;
+  code?: string;
 };
 
 function hasBrowserStorage(): boolean {
@@ -19,29 +20,61 @@ export function clearStoredSession() {
   }
 }
 
+/**
+ * Single in-flight refresh: the API rotates refresh tokens, so two parallel POST /auth/refresh
+ * calls invalidate each other — the second fails and we were clearing the session (felt like a random logout).
+ */
+let refreshInFlight: Promise<string | null> | null = null;
+
+/** Clear after the current task so every caller that awaited the same refresh finishes before a new refresh can start. */
+function scheduleClearRefreshInFlight(): void {
+  setTimeout(() => {
+    refreshInFlight = null;
+  }, 0);
+}
+
 export async function refreshAccessToken(): Promise<string | null> {
   if (!hasBrowserStorage()) return null;
+
+  if (refreshInFlight) {
+    return refreshInFlight;
+  }
+
   const refreshToken = localStorage.getItem("kp_refresh_token");
   if (!refreshToken) return null;
-  try {
-    const res = await fetch(`${API}/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
-    });
-    const data = (await res.json().catch(() => ({}))) as RefreshResponse;
-    if (!res.ok || !data.token) {
-      clearStoredSession();
+
+  refreshInFlight = (async (): Promise<string | null> => {
+    try {
+      const rt = localStorage.getItem("kp_refresh_token");
+      if (!rt) return null;
+
+      const res = await fetch(`${API}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken: rt }),
+      });
+      const data = (await res.json().catch(() => ({}))) as RefreshResponse;
+      if (!res.ok || !data.token) {
+        if (res.status === 403 && data.code === "ACCOUNT_RESTRICTED") {
+          clearStoredSession();
+          return null;
+        }
+        clearStoredSession();
+        return null;
+      }
+      localStorage.setItem("kp_access_token", data.token);
+      if (data.refreshToken) {
+        localStorage.setItem("kp_refresh_token", data.refreshToken);
+      }
+      return data.token;
+    } catch {
       return null;
+    } finally {
+      scheduleClearRefreshInFlight();
     }
-    localStorage.setItem("kp_access_token", data.token);
-    if (data.refreshToken) {
-      localStorage.setItem("kp_refresh_token", data.refreshToken);
-    }
-    return data.token;
-  } catch {
-    return null;
-  }
+  })();
+
+  return refreshInFlight;
 }
 
 export async function getValidAccessToken(): Promise<string | null> {

@@ -8,6 +8,7 @@ import { authRouter } from "./routes/auth.js";
 import { adminRouter } from "./routes/admin.js";
 import { documentsRouter } from "./routes/documents.js";
 import { searchRouter } from "./routes/search.js";
+import { avatarsPublicRouter } from "./routes/avatarsPublic.js";
 
 /** Express app (no listen, no background workers). Used by `index.ts` and tests. */
 export function createHttpApp(): express.Application {
@@ -15,6 +16,7 @@ export function createHttpApp(): express.Application {
 
   app.use(cors({ origin: true }));
   app.use(express.json({ limit: "1mb" }));
+  app.use("/avatars", avatarsPublicRouter);
   app.use("/auth", authRouter);
   app.use("/admin", adminRouter);
   app.use("/documents", documentsRouter);

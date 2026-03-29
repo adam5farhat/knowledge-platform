@@ -1,4 +1,5 @@
 import { Router } from "express";
+import multer from "multer";
 import { AuthEventType, Prisma, RoleName } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
@@ -10,8 +11,19 @@ import { generateRawResetToken, hashResetToken } from "../lib/passwordReset.js";
 import { sendPasswordResetEmail } from "../lib/email.js";
 import { loginRateLimiter, forgotPasswordRateLimiter } from "../lib/rateLimiter.js";
 import { generateRawRefreshToken, hashRefreshToken, refreshTokenTtlMs } from "../lib/refreshToken.js";
+import { isAllowedProfilePictureUrlForUser } from "../lib/avatar.js";
+import { clearUserAvatar, commitAvatarUpload } from "../lib/avatarOps.js";
 
 export const authRouter = Router();
+
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = ["image/jpeg", "image/png", "image/webp"].includes(file.mimetype);
+    cb(null, ok);
+  },
+});
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 const LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000;
@@ -140,7 +152,7 @@ authRouter.post("/login", loginRateLimiter, async (req, res) => {
     },
   });
 
-  if (!user || !user.isActive) {
+  if (!user || !user.isActive || user.deletedAt) {
     await logAuthEvent({
       eventType: AuthEventType.LOGIN_FAILURE,
       ...meta,
@@ -192,12 +204,42 @@ authRouter.post("/login", loginRateLimiter, async (req, res) => {
     });
   }
 
+  if (!user.loginAllowed) {
+    await logAuthEvent({
+      userId: user.id,
+      eventType: AuthEventType.LOGIN_FAILURE,
+      ...meta,
+      metadata: { reason: "login_disabled", email },
+    });
+    res.status(403).json({
+      error: "Your account has been restricted. Please contact your administrator.",
+      code: "ACCOUNT_RESTRICTED",
+      supportContact:
+        process.env.SUPPORT_CONTACT_MESSAGE ??
+        "If you believe this is a mistake, contact your IT administrator or help desk.",
+    });
+    return;
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  });
+  const userForResponse = await prisma.user.findUnique({
+    where: { id: user.id },
+    include: { role: true, department: true },
+  });
+  if (!userForResponse) {
+    res.status(500).json({ error: "Login could not be completed" });
+    return;
+  }
+
   const tokens = await issueSessionTokens({
-    userId: user.id,
-    email: user.email,
-    role: user.role.name,
-    departmentId: user.departmentId,
-    authVersion: user.authVersion,
+    userId: userForResponse.id,
+    email: userForResponse.email,
+    role: userForResponse.role.name,
+    departmentId: userForResponse.departmentId,
+    authVersion: userForResponse.authVersion,
     ...meta,
   });
   await logAuthEvent({
@@ -206,7 +248,11 @@ authRouter.post("/login", loginRateLimiter, async (req, res) => {
     ...meta,
   });
 
-  res.json({ user: mapUserResponse(user), token: tokens.accessToken, refreshToken: tokens.refreshToken });
+  res.json({
+    user: mapUserResponse(userForResponse),
+    token: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+  });
 });
 
 authRouter.post("/refresh", async (req, res) => {
@@ -227,7 +273,13 @@ authRouter.post("/refresh", async (req, res) => {
     },
   });
 
-  if (!session || session.revokedAt || session.expiresAt < new Date() || !session.user.isActive) {
+  if (
+    !session ||
+    session.revokedAt ||
+    session.expiresAt < new Date() ||
+    !session.user.isActive ||
+    session.user.deletedAt
+  ) {
     await logAuthEvent({
       eventType: AuthEventType.REFRESH_FAILURE,
       ...meta,
@@ -248,6 +300,27 @@ authRouter.post("/refresh", async (req, res) => {
       metadata: { reason: "auth_version_mismatch" },
     });
     res.status(401).json({ error: "Session expired. Please sign in again." });
+    return;
+  }
+
+  if (!session.user.loginAllowed) {
+    await prisma.refreshSession.update({
+      where: { id: session.id },
+      data: { revokedAt: new Date() },
+    });
+    await logAuthEvent({
+      userId: session.userId,
+      eventType: AuthEventType.REFRESH_FAILURE,
+      ...meta,
+      metadata: { reason: "login_disabled" },
+    });
+    res.status(403).json({
+      error: "Your account has been restricted. Please contact your administrator.",
+      code: "ACCOUNT_RESTRICTED",
+      supportContact:
+        process.env.SUPPORT_CONTACT_MESSAGE ??
+        "If you believe this is a mistake, contact your IT administrator or help desk.",
+    });
     return;
   }
 
@@ -349,7 +422,7 @@ authRouter.get("/me", authenticateToken, async (req, res) => {
     },
   });
 
-  if (!user || !user.isActive) {
+  if (!user || !user.isActive || user.deletedAt) {
     res.status(401).json({ error: "User not found or inactive" });
     return;
   }
@@ -387,14 +460,10 @@ authRouter.patch("/profile", authenticateToken, async (req, res) => {
   }
 
   if (data.profilePictureUrl !== undefined && data.profilePictureUrl !== null) {
-    try {
-      const u = new URL(data.profilePictureUrl);
-      if (u.protocol !== "http:" && u.protocol !== "https:") {
-        res.status(400).json({ error: "Profile picture URL must start with http:// or https://" });
-        return;
-      }
-    } catch {
-      res.status(400).json({ error: "profilePictureUrl must be a valid URL (e.g. https://…)" });
+    if (!isAllowedProfilePictureUrlForUser(data.profilePictureUrl, id)) {
+      res.status(400).json({
+        error: "Profile picture URL must be a valid http(s) link, or a platform avatar URL for your account.",
+      });
       return;
     }
   }
@@ -454,6 +523,67 @@ authRouter.patch("/profile", authenticateToken, async (req, res) => {
   }
 });
 
+authRouter.post(
+  "/profile/avatar",
+  authenticateToken,
+  (req, res, next) => {
+    avatarUpload.single("file")(req, res, (err: unknown) => {
+      if (err) {
+        const msg = err instanceof Error ? err.message : "Upload failed";
+        res.status(400).json({ error: msg });
+        return;
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    const id = req.authUser?.id;
+    if (!id) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const file = req.file;
+    if (!file?.buffer) {
+      res.status(400).json({ error: "Missing file (multipart field name: file)" });
+      return;
+    }
+    try {
+      const user = await commitAvatarUpload(req, id, file.buffer);
+      res.json({ user });
+    } catch (e: unknown) {
+      const code = (e as { code?: string }).code;
+      if (code === "INVALID_IMAGE") {
+        res.status(400).json({ error: "Please upload a JPEG, PNG, or WebP image (max 2 MB)." });
+        return;
+      }
+      if (code === "NOT_FOUND") {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+      throw e;
+    }
+  },
+);
+
+authRouter.delete("/profile/avatar", authenticateToken, async (req, res) => {
+  const id = req.authUser?.id;
+  if (!id) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  try {
+    const user = await clearUserAvatar(id);
+    res.json({ user });
+  } catch (e: unknown) {
+    const code = (e as { code?: string }).code;
+    if (code === "NOT_FOUND") {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    throw e;
+  }
+});
+
 authRouter.post("/change-password", authenticateToken, async (req, res) => {
   const id = req.authUser?.id;
   if (!id) {
@@ -487,6 +617,7 @@ authRouter.post("/change-password", authenticateToken, async (req, res) => {
     data: {
       passwordHash,
       authVersion: { increment: 1 },
+      mustChangePassword: false,
     },
     include: {
       role: true,

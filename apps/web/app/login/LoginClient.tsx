@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fetchWithAuth, getValidAccessToken } from "@/lib/authClient";
+import { homePathForUser, type MeUserDto } from "@/lib/restrictions";
 import styles from "./page.module.css";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -29,7 +30,16 @@ export default function LoginClient() {
       if (!token) return;
       const res = await fetchWithAuth(`${API}/auth/me`);
       if (!cancelled && res.ok) {
-        router.replace("/documents");
+        const body = (await res.json().catch(() => null)) as { user: MeUserDto } | null;
+        if (body?.user) {
+          if (body.user.mustChangePassword) {
+            router.replace("/profile?pwd=1");
+          } else {
+            router.replace(homePathForUser(body.user));
+          }
+        } else {
+          router.replace("/dashboard");
+        }
       }
     })();
     return () => {
@@ -47,14 +57,33 @@ export default function LoginClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      let data: { error?: string; token?: string; refreshToken?: string };
+      let data: {
+        error?: string;
+        code?: string;
+        supportContact?: string;
+        token?: string;
+        refreshToken?: string;
+        user?: MeUserDto;
+      };
       try {
-        data = (await res.json()) as { error?: string; token?: string };
+        data = (await res.json()) as {
+          error?: string;
+          code?: string;
+          supportContact?: string;
+          token?: string;
+          user?: MeUserDto;
+        };
       } catch {
         setError("Invalid response from server (is the API running?)");
         return;
       }
       if (!res.ok) {
+        if (res.status === 403 && data.code === "ACCOUNT_RESTRICTED") {
+          const msg = data.error ?? "Your account has been restricted.";
+          const extra = data.supportContact ? `\n\n${data.supportContact}` : "";
+          setError(`${msg}${extra}`);
+          return;
+        }
         setError(data.error ?? "Login failed");
         return;
       }
@@ -64,7 +93,15 @@ export default function LoginClient() {
       if (data.refreshToken) {
         localStorage.setItem("kp_refresh_token", data.refreshToken);
       }
-      router.push("/documents");
+      if (data.user) {
+        if (data.user.mustChangePassword) {
+          router.push("/profile?pwd=1");
+        } else {
+          router.push(homePathForUser(data.user));
+        }
+      } else {
+        router.push("/dashboard");
+      }
       router.refresh();
     } catch {
       setError("Could not reach the API");

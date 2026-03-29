@@ -6,6 +6,7 @@ import type { Prisma } from "@prisma/client";
 import { DocumentAuditAction, DocumentVisibility, RoleName } from "@prisma/client";
 import { z } from "zod";
 import { authenticateToken, requireRole } from "../middleware/auth.js";
+import { requireDocLibraryAccess, requireManageDocumentsCapability } from "../middleware/restrictions.js";
 import { logDocumentAudit } from "../lib/documentAudit.js";
 import { canManageDocument, canReadDocument } from "../lib/documentAccess.js";
 import { docListInclude, listDocuments, mapDocumentRow, parseLibraryScope } from "../lib/documentQuery.js";
@@ -45,6 +46,8 @@ const uploadMeta = z.object({
 documentsRouter.post(
   "/upload",
   authenticateToken,
+  requireDocLibraryAccess,
+  requireManageDocumentsCapability,
   requireRole(RoleName.ADMIN, RoleName.MANAGER),
   (req, res, next) => {
     upload.single("file")(req, res, (err: unknown) => {
@@ -171,7 +174,9 @@ documentsRouter.post(
   },
 );
 
-documentsRouter.get("/tags/suggestions", authenticateToken, async (req, res) => {
+documentsRouter.use(authenticateToken, requireDocLibraryAccess);
+
+documentsRouter.get("/tags/suggestions", async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -239,7 +244,6 @@ async function attachFavoriteFlags(
 
 documentsRouter.get(
   "/export",
-  authenticateToken,
   requireRole(RoleName.ADMIN),
   async (req, res) => {
     const user = req.authUser;
@@ -304,8 +308,8 @@ documentsRouter.get(
 
 documentsRouter.post(
   "/bulk-delete",
-  authenticateToken,
   requireRole(RoleName.ADMIN),
+  requireManageDocumentsCapability,
   async (req, res) => {
     const user = req.authUser;
     if (!user) {
@@ -342,7 +346,7 @@ documentsRouter.post(
   },
 );
 
-documentsRouter.get("/", authenticateToken, async (req, res) => {
+documentsRouter.get("/", async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -359,6 +363,9 @@ documentsRouter.get("/", authenticateToken, async (req, res) => {
   const fileType = typeof req.query.fileType === "string" ? req.query.fileType : "ALL";
   const dateFilter = typeof req.query.dateFilter === "string" ? req.query.dateFilter : "ALL";
   const includeMeta = req.query.includeMeta === "1" || req.query.includeMeta === "true";
+  const allScopeIncludeArchived =
+    user.role === RoleName.ADMIN &&
+    (req.query.includeArchived === "1" || req.query.includeArchived === "true");
 
   const { documents: docs, total, departmentCounts } = await listDocuments({
     user,
@@ -374,6 +381,7 @@ documentsRouter.get("/", authenticateToken, async (req, res) => {
     page,
     pageSize,
     includeDepartmentCounts: includeMeta && libraryScope === "ALL",
+    allScopeIncludeArchived,
   });
 
   const flags = await attachFavoriteFlags(user.id, docs);
@@ -398,7 +406,7 @@ const patchDocumentBody = z
   })
   .refine((o) => Object.keys(o).length > 0, { message: "No fields to update" });
 
-documentsRouter.patch("/:documentId", authenticateToken, async (req, res) => {
+documentsRouter.patch("/:documentId", async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -518,7 +526,7 @@ documentsRouter.patch("/:documentId", authenticateToken, async (req, res) => {
   });
 });
 
-documentsRouter.post("/:documentId/view", authenticateToken, async (req, res) => {
+documentsRouter.post("/:documentId/view", async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -543,7 +551,7 @@ documentsRouter.post("/:documentId/view", authenticateToken, async (req, res) =>
   res.status(204).send();
 });
 
-documentsRouter.post("/:documentId/favorite", authenticateToken, async (req, res) => {
+documentsRouter.post("/:documentId/favorite", async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -568,7 +576,7 @@ documentsRouter.post("/:documentId/favorite", authenticateToken, async (req, res
   res.status(204).send();
 });
 
-documentsRouter.delete("/:documentId/favorite", authenticateToken, async (req, res) => {
+documentsRouter.delete("/:documentId/favorite", async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -588,8 +596,8 @@ documentsRouter.delete("/:documentId/favorite", authenticateToken, async (req, r
 
 documentsRouter.post(
   "/:documentId/archive",
-  authenticateToken,
   requireRole(RoleName.ADMIN, RoleName.MANAGER),
+  requireManageDocumentsCapability,
   async (req, res) => {
   const user = req.authUser;
   if (!user) {
@@ -621,8 +629,8 @@ documentsRouter.post(
 
 documentsRouter.delete(
   "/:documentId/archive",
-  authenticateToken,
   requireRole(RoleName.ADMIN, RoleName.MANAGER),
+  requireManageDocumentsCapability,
   async (req, res) => {
   const user = req.authUser;
   if (!user) {
@@ -652,7 +660,7 @@ documentsRouter.delete(
   },
 );
 
-documentsRouter.get("/:documentId/audit", authenticateToken, async (req, res) => {
+documentsRouter.get("/:documentId/audit", async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -683,7 +691,7 @@ documentsRouter.get("/:documentId/audit", authenticateToken, async (req, res) =>
   res.json({ entries });
 });
 
-documentsRouter.get("/:documentId", authenticateToken, async (req, res) => {
+documentsRouter.get("/:documentId", async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -742,7 +750,7 @@ documentsRouter.get("/:documentId", authenticateToken, async (req, res) => {
 
 documentsRouter.post(
   "/:documentId/versions/:versionId/reprocess",
-  authenticateToken,
+  requireManageDocumentsCapability,
   async (req, res) => {
     const user = req.authUser;
     if (!user) {
@@ -779,7 +787,7 @@ documentsRouter.post(
 
 documentsRouter.post(
   "/:documentId/versions",
-  authenticateToken,
+  requireManageDocumentsCapability,
   (req, res, next) => {
     upload.single("file")(req, res, (err: unknown) => {
       if (err) {
@@ -871,7 +879,7 @@ documentsRouter.post(
   },
 );
 
-documentsRouter.get("/:documentId/versions/:versionId/file", authenticateToken, async (req, res) => {
+documentsRouter.get("/:documentId/versions/:versionId/file", async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -903,7 +911,7 @@ documentsRouter.get("/:documentId/versions/:versionId/file", authenticateToken, 
   createReadStream(abs).pipe(res);
 });
 
-documentsRouter.delete("/:documentId", authenticateToken, async (req, res) => {
+documentsRouter.delete("/:documentId", async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });

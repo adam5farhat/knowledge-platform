@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { ProfileAvatarImage } from "@/components/ProfileAvatarImage";
+import { ProfilePhotoUploader } from "@/components/ProfilePhotoUploader";
+import { profilePictureDisplayUrl } from "@/lib/profilePicture";
 import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
+import type { UserRestrictionsDto } from "../../../lib/restrictions";
+import { AdminChromeHeader } from "../AdminChromeHeader";
 import { AdminHubGlyph, type AdminHubGlyphType } from "../AdminHubIcons";
 import dash from "../../components/shellNav.module.css";
 import styles from "./adminUsers.module.css";
@@ -147,11 +152,47 @@ type AdminUserRow = {
   failedLoginAttempts: number;
   loginLockedUntil: string | null;
   createdAt: string;
+  restrictions?: UserRestrictionsDto;
+  mustChangePassword?: boolean;
+  lastLoginAt: string | null;
+  deletedAt: string | null;
 };
+
+const DEFAULT_RESTRICTIONS: UserRestrictionsDto = {
+  loginAllowed: true,
+  accessDocumentsAllowed: true,
+  manageDocumentsAllowed: true,
+  accessDashboardAllowed: true,
+  useAiQueriesAllowed: true,
+};
+
+function normalizeAdminUserRow(u: AdminUserRow): AdminUserRow {
+  return {
+    ...u,
+    restrictions: u.restrictions ?? { ...DEFAULT_RESTRICTIONS },
+    mustChangePassword: u.mustChangePassword ?? false,
+    lastLoginAt: u.lastLoginAt ?? null,
+    deletedAt: u.deletedAt ?? null,
+  };
+}
+
+type TriBoolFilter = "" | "true" | "false";
+
+function appendTriBoolParam(params: URLSearchParams, key: string, v: TriBoolFilter) {
+  if (v === "true" || v === "false") params.set(key, v);
+}
+
+const RESTRICTION_PILLS: { key: keyof UserRestrictionsDto; label: string; tooltip: string }[] = [
+  { key: "loginAllowed", label: "Login access", tooltip: "Allow or block sign-in for this user." },
+  { key: "accessDocumentsAllowed", label: "Access documents", tooltip: "Open the document library and view files." },
+  { key: "manageDocumentsAllowed", label: "Manage documents", tooltip: "Upload, edit metadata, archive, or delete (requires manager/admin role)." },
+  { key: "accessDashboardAllowed", label: "Access dashboard", tooltip: "Open the main dashboard hub after sign-in." },
+  { key: "useAiQueriesAllowed", label: "Use AI queries", tooltip: "Run semantic (embedding) search over documents." },
+];
 
 type Phase = "checking" | "need-login" | "forbidden" | "load-error" | "ready";
 
-type SessionUser = { id: string; name: string; email: string; role: string };
+type SessionUser = { id: string; name: string; email: string; role: string; profilePictureUrl?: string | null };
 
 function fmtDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -160,6 +201,11 @@ function fmtDateTime(iso: string | null | undefined): string {
   } catch {
     return "—";
   }
+}
+
+function accountStatusLabel(u: AdminUserRow): string {
+  if (u.deletedAt) return "Archived";
+  return u.isActive ? "Active" : "Inactive";
 }
 
 function userInitials(name: string): string {
@@ -183,6 +229,13 @@ export default function AdminUsersClient() {
   const [filterDepartmentId, setFilterDepartmentId] = useState("");
   const [filterRole, setFilterRole] = useState("");
   const [filterActive, setFilterActive] = useState("");
+  const [filterIncludeDeleted, setFilterIncludeDeleted] = useState(false);
+  const [filterLoginAllowed, setFilterLoginAllowed] = useState<TriBoolFilter>("");
+  const [filterAccessDocuments, setFilterAccessDocuments] = useState<TriBoolFilter>("");
+  const [filterManageDocuments, setFilterManageDocuments] = useState<TriBoolFilter>("");
+  const [filterAccessDashboard, setFilterAccessDashboard] = useState<TriBoolFilter>("");
+  const [filterUseAi, setFilterUseAi] = useState<TriBoolFilter>("");
+  const [filterMustChangePassword, setFilterMustChangePassword] = useState<TriBoolFilter>("");
   const [directoryUsers, setDirectoryUsers] = useState<AdminUserRow[]>([]);
   const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [directoryLoading, setDirectoryLoading] = useState(false);
@@ -204,8 +257,6 @@ export default function AdminUsersClient() {
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
   const filterWrapRef = useRef<HTMLDivElement | null>(null);
   const headerCheckboxRef = useRef<HTMLInputElement | null>(null);
   const rowMenuBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -216,6 +267,20 @@ export default function AdminUsersClient() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [panelUser, setPanelUser] = useState<AdminUserRow | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [pillBusy, setPillBusy] = useState<string | null>(null);
+  const [restrictionToast, setRestrictionToast] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importJson, setImportJson] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [forcePwdAfterSet, setForcePwdAfterSet] = useState(false);
+
+  const bumpUserProfilePicture = useCallback((userId: string, url: string | null) => {
+    setDirectoryUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, profilePictureUrl: url } : u)));
+    setPanelUser((p) => (p && p.id === userId ? { ...p, profilePictureUrl: url } : p));
+    setEditUser((e) => (e && e.id === userId ? { ...e, profilePictureUrl: url } : e));
+    setSessionUser((s) => (s && s.id === userId ? { ...s, profilePictureUrl: url } : s));
+  }, []);
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -226,7 +291,19 @@ export default function AdminUsersClient() {
 
   useEffect(() => {
     setListPage(1);
-  }, [userQ, filterDepartmentId, filterRole, filterActive]);
+  }, [
+    userQ,
+    filterDepartmentId,
+    filterRole,
+    filterActive,
+    filterIncludeDeleted,
+    filterLoginAllowed,
+    filterAccessDocuments,
+    filterManageDocuments,
+    filterAccessDashboard,
+    filterUseAi,
+    filterMustChangePassword,
+  ]);
 
   useLayoutEffect(() => {
     if (!rowMenuUserId) {
@@ -265,6 +342,13 @@ export default function AdminUsersClient() {
       if (filterDepartmentId) params.set("departmentId", filterDepartmentId);
       if (filterRole) params.set("role", filterRole);
       if (filterActive === "true" || filterActive === "false") params.set("isActive", filterActive);
+      if (filterIncludeDeleted) params.set("includeDeleted", "true");
+      appendTriBoolParam(params, "loginAllowed", filterLoginAllowed);
+      appendTriBoolParam(params, "accessDocumentsAllowed", filterAccessDocuments);
+      appendTriBoolParam(params, "manageDocumentsAllowed", filterManageDocuments);
+      appendTriBoolParam(params, "accessDashboardAllowed", filterAccessDashboard);
+      appendTriBoolParam(params, "useAiQueriesAllowed", filterUseAi);
+      appendTriBoolParam(params, "mustChangePassword", filterMustChangePassword);
       const res = await fetchWithAuth(`${API}/admin/users?${params.toString()}`);
       if (!res.ok) {
         setDirectoryError("Could not load users.");
@@ -275,14 +359,30 @@ export default function AdminUsersClient() {
         total?: number;
         page?: number;
       };
-      setDirectoryUsers(Array.isArray(data.users) ? data.users : []);
+      setDirectoryUsers(
+        Array.isArray(data.users) ? data.users.map((u) => normalizeAdminUserRow(u as AdminUserRow)) : [],
+      );
       setListTotal(data.total ?? 0);
     } catch {
       setDirectoryError("Could not load users.");
     } finally {
       setDirectoryLoading(false);
     }
-  }, [listPage, listPageSize, userQ, filterDepartmentId, filterRole, filterActive]);
+  }, [
+    listPage,
+    listPageSize,
+    userQ,
+    filterDepartmentId,
+    filterRole,
+    filterActive,
+    filterIncludeDeleted,
+    filterLoginAllowed,
+    filterAccessDocuments,
+    filterManageDocuments,
+    filterAccessDashboard,
+    filterUseAi,
+    filterMustChangePassword,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -308,9 +408,11 @@ export default function AdminUsersClient() {
           return;
         }
 
-        let me: { user?: { id: string; role: string; name?: string; email?: string } };
+        let me: { user?: { id: string; role: string; name?: string; email?: string; profilePictureUrl?: string | null } };
         try {
-          me = (await meRes.json()) as { user?: { id: string; role: string; name?: string; email?: string } };
+          me = (await meRes.json()) as {
+            user?: { id: string; role: string; name?: string; email?: string; profilePictureUrl?: string | null };
+          };
         } catch {
           if (!cancelled) setPhase("load-error");
           return;
@@ -327,6 +429,7 @@ export default function AdminUsersClient() {
             name: me.user?.name ?? "",
             email: me.user?.email ?? "",
             role: me.user?.role ?? "ADMIN",
+            profilePictureUrl: me.user?.profilePictureUrl ?? null,
           });
         }
 
@@ -378,9 +481,15 @@ export default function AdminUsersClient() {
     setPanelUser((prev) => {
       if (!prev) return null;
       const fresh = directoryUsers.find((x) => x.id === prev.id);
-      return fresh ?? null;
+      return fresh ? normalizeAdminUserRow(fresh) : null;
     });
   }, [directoryUsers]);
+
+  useEffect(() => {
+    if (!restrictionToast) return;
+    const id = window.setTimeout(() => setRestrictionToast(null), 2200);
+    return () => window.clearTimeout(id);
+  }, [restrictionToast]);
 
   useEffect(() => {
     if (!panelUser) return;
@@ -457,6 +566,7 @@ export default function AdminUsersClient() {
     setModalError(null);
     setModalBusy(true);
     try {
+      const r = editUser.restrictions ?? DEFAULT_RESTRICTIONS;
       const body: Record<string, unknown> = {
         email: editUser.email,
         name: editUser.name,
@@ -466,6 +576,13 @@ export default function AdminUsersClient() {
         phoneNumber: editUser.phoneNumber,
         position: editUser.position,
         isActive: editUser.isActive,
+        loginAllowed: r.loginAllowed,
+        accessDocumentsAllowed: r.accessDocumentsAllowed,
+        manageDocumentsAllowed: r.manageDocumentsAllowed,
+        accessDashboardAllowed: r.accessDashboardAllowed,
+        useAiQueriesAllowed: r.useAiQueriesAllowed,
+        mustChangePassword: editUser.mustChangePassword ?? false,
+        profilePictureUrl: editUser.profilePictureUrl,
       };
       const res = await fetchWithAuth(`${API}/admin/users/${editUser.id}`, {
         method: "PATCH",
@@ -483,6 +600,68 @@ export default function AdminUsersClient() {
       setModalError("Could not reach the API.");
     } finally {
       setModalBusy(false);
+    }
+  }
+
+  async function setRestrictionForPanel(key: keyof UserRestrictionsDto, value: boolean) {
+    if (!panelUser?.restrictions) return;
+    if (panelUser.id === sessionUser?.id && key === "loginAllowed" && !value) {
+      window.alert("You cannot disable login for your own account.");
+      return;
+    }
+    setPillBusy(key);
+    setRestrictionToast(null);
+    try {
+      const res = await fetchWithAuth(`${API}/admin/users/${panelUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: value }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; user?: AdminUserRow };
+      if (!res.ok) {
+        window.alert(data.error ?? "Update failed.");
+        return;
+      }
+      if (data.user) {
+        const nu = normalizeAdminUserRow(data.user);
+        setPanelUser(nu);
+        setDirectoryUsers((rows) => rows.map((r) => (r.id === nu.id ? nu : r)));
+      } else {
+        void loadDirectory();
+      }
+      setRestrictionToast(value ? "Permission enabled" : "Restriction applied");
+    } catch {
+      window.alert("Could not reach the API.");
+    } finally {
+      setPillBusy(null);
+    }
+  }
+
+  async function resetRestrictionsForPanel() {
+    if (!panelUser) return;
+    setPillBusy("reset");
+    setRestrictionToast(null);
+    try {
+      const res = await fetchWithAuth(`${API}/admin/users/${panelUser.id}/reset-restrictions`, {
+        method: "POST",
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; user?: AdminUserRow };
+      if (!res.ok) {
+        window.alert(data.error ?? "Reset failed.");
+        return;
+      }
+      if (data.user) {
+        const nu = normalizeAdminUserRow(data.user);
+        setPanelUser(nu);
+        setDirectoryUsers((rows) => rows.map((r) => (r.id === nu.id ? nu : r)));
+      } else {
+        void loadDirectory();
+      }
+      setRestrictionToast("All permissions reset to allowed");
+    } catch {
+      window.alert("Could not reach the API.");
+    } finally {
+      setPillBusy(null);
     }
   }
 
@@ -505,8 +684,22 @@ export default function AdminUsersClient() {
         setModalError(data.error ?? "Could not set password.");
         return;
       }
+      if (forcePwdAfterSet) {
+        const pr = await fetchWithAuth(`${API}/admin/users/${passwordUserId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mustChangePassword: true }),
+        });
+        if (!pr.ok) {
+          const data = (await pr.json().catch(() => ({}))) as { error?: string };
+          setModalError(data.error ?? "Password was set but could not flag “change on next sign-in”.");
+          return;
+        }
+      }
       setPasswordUserId(null);
       setPasswordValue("");
+      setForcePwdAfterSet(false);
+      void loadDirectory();
     } catch {
       setModalError("Could not reach the API.");
     } finally {
@@ -563,13 +756,76 @@ export default function AdminUsersClient() {
     if (fail) window.alert(`${fail} lock operation(s) failed.`);
   }
 
+  async function bulkApplyRestrictions(patch: Partial<UserRestrictionsDto>) {
+    let ids = [...selectedIds];
+    if (patch.loginAllowed === false) {
+      ids = ids.filter((id) => id !== sessionUser?.id);
+      if (ids.length === 0) {
+        window.alert("Remove your own account from the selection to block sign-in for others.");
+        return;
+      }
+    }
+    const keys = Object.keys(patch) as (keyof UserRestrictionsDto)[];
+    if (keys.length === 0) return;
+    const label = keys.map((k) => RESTRICTION_PILLS.find((p) => p.key === k)?.label ?? k).join(", ");
+    if (!window.confirm(`Apply restriction changes to ${ids.length} user(s)?\n${label}`)) return;
+    setBulkBusy(true);
+    let fail = 0;
+    for (let i = 0; i < ids.length; i += 50) {
+      const chunk = ids.slice(i, i + 50);
+      const res = await fetchWithAuth(`${API}/admin/users/bulk-restrictions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: chunk, ...patch }),
+      });
+      if (!res.ok) fail += chunk.length;
+    }
+    setBulkBusy(false);
+    setSelectedIds(new Set());
+    void loadDirectory();
+    if (fail) window.alert(`${fail} user(s) could not be updated (check permissions or try a smaller batch).`);
+  }
+
+  async function bulkResetRestrictionsSelected() {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Reset all access permissions to “allowed” for ${ids.length} user(s)?`)) return;
+    setBulkBusy(true);
+    let fail = 0;
+    const allowAll: Partial<UserRestrictionsDto> = {
+      loginAllowed: true,
+      accessDocumentsAllowed: true,
+      manageDocumentsAllowed: true,
+      accessDashboardAllowed: true,
+      useAiQueriesAllowed: true,
+    };
+    for (let i = 0; i < ids.length; i += 50) {
+      const chunk = ids.slice(i, i + 50);
+      const res = await fetchWithAuth(`${API}/admin/users/bulk-restrictions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: chunk, ...allowAll }),
+      });
+      if (!res.ok) fail += chunk.length;
+    }
+    setBulkBusy(false);
+    setSelectedIds(new Set());
+    void loadDirectory();
+    if (fail) window.alert(`${fail} user(s) could not be updated.`);
+  }
+
   async function bulkDeleteSelected() {
     const ids = [...selectedIds].filter((id) => id !== sessionUser?.id);
     if (ids.length === 0) {
       window.alert("You cannot delete only your own account from this bulk action.");
       return;
     }
-    if (!window.confirm(`Permanently delete ${ids.length} user(s)? This cannot be undone.`)) return;
+    if (
+      !window.confirm(
+        `Archive ${ids.length} user(s)? They will be hidden from the directory and signed out. Users who created documents may need content reassigned first.`,
+      )
+    )
+      return;
     setBulkBusy(true);
     let ok = 0;
     let fail = 0;
@@ -583,45 +839,120 @@ export default function AdminUsersClient() {
     setSelectedIds(new Set());
     setPanelUser((p) => (p && removed.has(p.id) ? null : p));
     void loadDirectory();
-    if (fail) window.alert(`Removed ${ok}. ${fail} could not be deleted (e.g. last admin).`);
+    if (fail) window.alert(`Archived ${ok}. ${fail} could not be archived (e.g. last admin or documents owned).`);
   }
 
   async function deleteUser(u: AdminUserRow) {
-    if (!window.confirm(`Permanently delete ${u.email}? This cannot be undone.`)) return;
+    if (
+      !window.confirm(
+        `Archive ${u.email}? They will be hidden from the directory and signed out. This does not remove database rows unless you erase them later (when allowed).`,
+      )
+    )
+      return;
     const res = await fetchWithAuth(`${API}/admin/users/${u.id}`, { method: "DELETE" });
+    if (res.status === 204) {
+      void loadDirectory();
+      setPanelUser((p) => (p?.id === u.id ? null : p));
+      return;
+    }
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    window.alert(data.error ?? "Archive failed.");
+  }
+
+  async function restoreUser(id: string) {
+    const res = await fetchWithAuth(`${API}/admin/users/${id}/restore`, { method: "POST" });
+    const data = (await res.json().catch(() => ({}))) as { error?: string; user?: AdminUserRow };
+    if (!res.ok) {
+      window.alert(data.error ?? "Restore failed.");
+      return;
+    }
+    if (data.user) {
+      const nu = normalizeAdminUserRow(data.user);
+      setDirectoryUsers((rows) => rows.map((r) => (r.id === nu.id ? nu : r)));
+      setPanelUser((p) => (p?.id === nu.id ? nu : p));
+    } else {
+      void loadDirectory();
+    }
+  }
+
+  async function revokeAllSessionsForUser(id: string) {
+    if (!window.confirm("Revoke every refresh session for this user? They must sign in again on all devices.")) return;
+    const res = await fetchWithAuth(`${API}/admin/users/${id}/revoke-sessions`, { method: "POST" });
     if (res.status === 204) {
       void loadDirectory();
       return;
     }
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    window.alert(data.error ?? "Delete failed.");
+    window.alert(data.error ?? "Could not revoke sessions.");
   }
 
-  async function signOut() {
-    const refreshToken = localStorage.getItem("kp_refresh_token");
-    if (refreshToken) {
-      try {
-        await fetch(`${API}/auth/logout`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken }),
-        });
-      } catch {
-        /* best-effort */
-      }
+  async function hardEraseUser(u: AdminUserRow) {
+    if (
+      !window.confirm(
+        `Permanently erase ${u.email} from the database? This cannot be undone. Only use when the account is already archived and has no documents.`,
+      )
+    )
+      return;
+    const res = await fetchWithAuth(`${API}/admin/users/${u.id}?hard=1`, { method: "DELETE" });
+    if (res.status === 204) {
+      setPanelUser((p) => (p?.id === u.id ? null : p));
+      void loadDirectory();
+      return;
     }
-    clearStoredSession();
-    router.replace("/login");
-    router.refresh();
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    window.alert(data.error ?? "Erase failed.");
+  }
+
+  async function submitImport() {
+    setImportMessage(null);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(importJson.trim()) as unknown;
+    } catch {
+      setImportMessage("Invalid JSON.");
+      return;
+    }
+    const body =
+      parsed && typeof parsed === "object" && !Array.isArray(parsed) && "users" in parsed
+        ? parsed
+        : { users: parsed };
+    setImportBusy(true);
+    try {
+      const res = await fetchWithAuth(`${API}/admin/users/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        created?: number;
+        errors?: { email: string; error: string }[];
+      };
+      if (!res.ok) {
+        setImportMessage(data.error ?? "Import failed.");
+        return;
+      }
+      const errCount = data.errors?.length ?? 0;
+      setImportMessage(
+        `Created ${data.created ?? 0} user(s).${errCount ? ` ${errCount} row(s) failed — see console.` : ""}`,
+      );
+      if (errCount && data.errors) {
+        console.warn("Import errors", data.errors);
+      }
+      setImportJson("");
+      void loadDirectory();
+    } catch {
+      setImportMessage("Could not reach the API.");
+    } finally {
+      setImportBusy(false);
+    }
   }
 
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
       const el = e.target as HTMLElement | null;
-      if (menuRef.current?.contains(el as Node)) return;
       if (filterWrapRef.current?.contains(el as Node)) return;
       if (el?.closest("[data-admin-users-row-menu]")) return;
-      setMenuOpen(false);
       setFiltersOpen(false);
       setRowMenuUserId(null);
     }
@@ -649,11 +980,36 @@ export default function AdminUsersClient() {
     });
   }
 
+  function toggleEditRestriction(key: keyof UserRestrictionsDto, next: boolean) {
+    if (!editUser) return;
+    if (editUser.id === sessionUser?.id && key === "loginAllowed" && !next) {
+      window.alert("You cannot disable login for your own account.");
+      return;
+    }
+    const base = editUser.restrictions ?? DEFAULT_RESTRICTIONS;
+    setEditUser({
+      ...editUser,
+      restrictions: { ...base, [key]: next },
+    });
+  }
+
   function exportCsv() {
     const rows =
       selectedIds.size > 0 ? directoryUsers.filter((u) => selectedIds.has(u.id)) : directoryUsers;
     const esc = (s: string | null | undefined) => `"${String(s ?? "").replace(/"/g, '""')}"`;
-    const header = ["Name", "Email", "Role", "Department", "Status", "Phone", "Badge", "Position"];
+    const header = [
+      "Name",
+      "Email",
+      "Role",
+      "Department",
+      "Status",
+      "LastSignIn",
+      "ForcePasswordChange",
+      "Archived",
+      "Phone",
+      "Badge",
+      "Position",
+    ];
     const lines = [header.join(",")];
     for (const u of rows) {
       lines.push(
@@ -662,7 +1018,10 @@ export default function AdminUsersClient() {
           esc(u.email),
           esc(u.role),
           esc(u.department.name),
-          esc(u.isActive ? "Active" : "Inactive"),
+          esc(accountStatusLabel(u)),
+          esc(u.lastLoginAt),
+          esc(u.mustChangePassword ? "yes" : "no"),
+          esc(u.deletedAt ? "yes" : "no"),
           esc(u.phoneNumber),
           esc(u.employeeBadgeNumber),
           esc(u.position),
@@ -739,81 +1098,9 @@ export default function AdminUsersClient() {
     );
   }
 
-  const nameParts = sessionUser.name.trim().split(/\s+/);
-  const navInitials = ((nameParts[0]?.[0] ?? "A") + (nameParts[1]?.[0] ?? "")).toUpperCase();
-
   return (
     <main className={styles.shell} data-dashboard-fullscreen="true">
-      <header className={`${dash.navbar} ${styles.navbarRow}`}>
-        <nav className={dash.navLeft} aria-label="Primary">
-          <a className={dash.brand} href="/dashboard">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className={dash.brandMark} src="/logo-swapped.svg" alt="Platform" />
-          </a>
-          <Link href="/about">About</Link>
-          <Link href="/contact">Contact</Link>
-          <Link href="/documents">Documents</Link>
-        </nav>
-
-        <div className={dash.profileWrap} ref={menuRef}>
-          <button
-            type="button"
-            className={dash.profileBtn}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((v) => !v)}
-            title={`${sessionUser.name} (${sessionUser.role})`}
-          >
-            {navInitials}
-          </button>
-          {menuOpen ? (
-            <div className={dash.menu} role="menu">
-              <div className={dash.menuHeader}>
-                <div>{sessionUser.name}</div>
-                <div>{sessionUser.email}</div>
-              </div>
-              <Link className={dash.menuItem} href="/profile" role="menuitem" onClick={() => setMenuOpen(false)}>
-                View Profile
-              </Link>
-              <Link className={dash.menuItem} href="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>
-                Dashboard
-              </Link>
-              <Link className={dash.menuItem} href="/admin" role="menuitem" onClick={() => setMenuOpen(false)}>
-                Admin hub
-              </Link>
-              <Link className={dash.menuItem} href="/admin/users" role="menuitem" onClick={() => setMenuOpen(false)}>
-                Users
-              </Link>
-              <Link className={dash.menuItem} href="/admin/departments" role="menuitem" onClick={() => setMenuOpen(false)}>
-                Departments
-              </Link>
-              <Link className={dash.menuItem} href="/admin/documents" role="menuitem" onClick={() => setMenuOpen(false)}>
-                Document tools
-              </Link>
-              <Link className={dash.menuItem} href="/admin/activity" role="menuitem" onClick={() => setMenuOpen(false)}>
-                Sign-in activity
-              </Link>
-              <Link className={dash.menuItem} href="/admin/document-audit" role="menuitem" onClick={() => setMenuOpen(false)}>
-                Document audit
-              </Link>
-              <Link className={dash.menuItem} href="/admin/system" role="menuitem" onClick={() => setMenuOpen(false)}>
-                System stats
-              </Link>
-              <button
-                type="button"
-                className={dash.menuItem}
-                onClick={() => {
-                  setMenuOpen(false);
-                  void signOut();
-                }}
-                role="menuitem"
-              >
-                Logout
-              </button>
-            </div>
-          ) : null}
-        </div>
-      </header>
+      <AdminChromeHeader user={sessionUser} className={`${dash.navbar} ${styles.navbarRow}`} />
 
       <div className={styles.adminBody}>
         <aside className={styles.adminSidebar} aria-label="Admin sections">
@@ -837,20 +1124,34 @@ export default function AdminUsersClient() {
         <div className={styles.pageHead}>
           <div>
             <h1 className={styles.pageTitle}>Users</h1>
-            <p className={styles.pageSubtitle}>Directory, sign-in lock state, and provisioning new accounts.</p>
+            <p className={styles.pageSubtitle}>
+              Directory, access restrictions, sign-in lock, archives, and bulk updates.
+            </p>
           </div>
-          <button
-            type="button"
-            className={styles.addButton}
-            onClick={() => {
-              setSubmitError(null);
-              setSuccess(null);
-              setCreateOpen(true);
-            }}
-          >
-            <IconPlus />
-            Add new user
-          </button>
+          <div className={styles.pageHeadActions}>
+            <button
+              type="button"
+              className={styles.btnGhost}
+              onClick={() => {
+                setImportOpen(true);
+                setImportMessage(null);
+              }}
+            >
+              Import JSON
+            </button>
+            <button
+              type="button"
+              className={styles.addButton}
+              onClick={() => {
+                setSubmitError(null);
+                setSuccess(null);
+                setCreateOpen(true);
+              }}
+            >
+              <IconPlus />
+              Add new user
+            </button>
+          </div>
         </div>
 
         <div className={styles.tableCard}>
@@ -913,6 +1214,74 @@ export default function AdminUsersClient() {
                         <option value="false">Inactive only</option>
                       </select>
                     </label>
+                    <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={filterIncludeDeleted}
+                        onChange={(e) => setFilterIncludeDeleted(e.target.checked)}
+                      />
+                      <span>Show archived users</span>
+                    </label>
+                    <label>
+                      Login access
+                      <select value={filterLoginAllowed} onChange={(e) => setFilterLoginAllowed(e.target.value as TriBoolFilter)}>
+                        <option value="">Any</option>
+                        <option value="true">Sign-in allowed</option>
+                        <option value="false">Sign-in disabled</option>
+                      </select>
+                    </label>
+                    <label>
+                      Document access
+                      <select
+                        value={filterAccessDocuments}
+                        onChange={(e) => setFilterAccessDocuments(e.target.value as TriBoolFilter)}
+                      >
+                        <option value="">Any</option>
+                        <option value="true">Documents allowed</option>
+                        <option value="false">Documents blocked</option>
+                      </select>
+                    </label>
+                    <label>
+                      Manage documents
+                      <select
+                        value={filterManageDocuments}
+                        onChange={(e) => setFilterManageDocuments(e.target.value as TriBoolFilter)}
+                      >
+                        <option value="">Any</option>
+                        <option value="true">Allowed</option>
+                        <option value="false">Blocked</option>
+                      </select>
+                    </label>
+                    <label>
+                      Dashboard access
+                      <select
+                        value={filterAccessDashboard}
+                        onChange={(e) => setFilterAccessDashboard(e.target.value as TriBoolFilter)}
+                      >
+                        <option value="">Any</option>
+                        <option value="true">Allowed</option>
+                        <option value="false">Blocked</option>
+                      </select>
+                    </label>
+                    <label>
+                      AI queries
+                      <select value={filterUseAi} onChange={(e) => setFilterUseAi(e.target.value as TriBoolFilter)}>
+                        <option value="">Any</option>
+                        <option value="true">Allowed</option>
+                        <option value="false">Blocked</option>
+                      </select>
+                    </label>
+                    <label>
+                      Password change required
+                      <select
+                        value={filterMustChangePassword}
+                        onChange={(e) => setFilterMustChangePassword(e.target.value as TriBoolFilter)}
+                      >
+                        <option value="">Any</option>
+                        <option value="true">Must change password</option>
+                        <option value="false">Not forced</option>
+                      </select>
+                    </label>
                     <button
                       type="button"
                       className={styles.btnGhost}
@@ -943,11 +1312,67 @@ export default function AdminUsersClient() {
               </button>
               <button
                 type="button"
+                className={styles.btnGhost}
+                disabled={bulkBusy}
+                onClick={() =>
+                  void bulkApplyRestrictions({
+                    accessDocumentsAllowed: false,
+                  })
+                }
+              >
+                Block document access
+              </button>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={bulkBusy}
+                onClick={() =>
+                  void bulkApplyRestrictions({
+                    accessDocumentsAllowed: true,
+                  })
+                }
+              >
+                Allow document access
+              </button>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={bulkBusy}
+                onClick={() =>
+                  void bulkApplyRestrictions({
+                    loginAllowed: false,
+                  })
+                }
+              >
+                Disable sign-in
+              </button>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={bulkBusy}
+                onClick={() =>
+                  void bulkApplyRestrictions({
+                    loginAllowed: true,
+                  })
+                }
+              >
+                Enable sign-in
+              </button>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                disabled={bulkBusy}
+                onClick={() => void bulkResetRestrictionsSelected()}
+              >
+                Reset permissions
+              </button>
+              <button
+                type="button"
                 className={styles.btnDanger}
                 disabled={bulkBusy}
                 onClick={() => void bulkDeleteSelected()}
               >
-                Delete selected
+                Archive selected
               </button>
               <button type="button" className={styles.btnGhost} disabled={bulkBusy} onClick={clearSelection}>
                 Clear selection
@@ -980,6 +1405,8 @@ export default function AdminUsersClient() {
                   <th scope="col">Department</th>
                   <th scope="col">Role</th>
                   <th scope="col">Status</th>
+                  <th scope="col">Last sign-in</th>
+                  <th scope="col">Force pwd</th>
                   <th scope="col">Lock</th>
                   <th scope="col">Actions</th>
                 </tr>
@@ -987,14 +1414,14 @@ export default function AdminUsersClient() {
               <tbody>
                 {directoryLoading ? (
                   <tr>
-                    <td colSpan={9} className={styles.cellMuted} style={{ padding: "1.25rem" }}>
+                    <td colSpan={11} className={styles.cellMuted} style={{ padding: "1.25rem" }}>
                       Loading…
                     </td>
                   </tr>
                 ) : null}
                 {!directoryLoading && directoryUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className={styles.cellMuted} style={{ padding: "1.25rem" }}>
+                    <td colSpan={11} className={styles.cellMuted} style={{ padding: "1.25rem" }}>
                       No users match your filters.
                     </td>
                   </tr>
@@ -1002,18 +1429,18 @@ export default function AdminUsersClient() {
                 {!directoryLoading &&
                   directoryUsers.map((u) => {
                     const initials = userInitials(u.name);
-                    const photoOk =
-                      u.profilePictureUrl &&
-                      (u.profilePictureUrl.startsWith("http://") || u.profilePictureUrl.startsWith("https://"));
+                    const photoSrc = profilePictureDisplayUrl(u.profilePictureUrl);
                     return (
                       <tr
                         key={u.id}
-                        className={`${styles.clickableRow}${selectedIds.has(u.id) ? ` ${styles.rowSelected}` : ""}`}
+                        className={`${styles.clickableRow}${u.deletedAt ? ` ${styles.rowArchived}` : ""}${
+                          selectedIds.has(u.id) ? ` ${styles.rowSelected}` : ""
+                        }`}
                         onClick={(e) => {
                           const el = e.target as HTMLElement;
                           if (el.closest("input, button, [role='menu'], [data-admin-users-row-menu]")) return;
                           setRowMenuUserId(null);
-                          setPanelUser(u);
+                          setPanelUser(normalizeAdminUserRow(u));
                         }}
                       >
                         <td className={styles.checkboxCell} onClick={(e) => e.stopPropagation()}>
@@ -1026,9 +1453,8 @@ export default function AdminUsersClient() {
                         </td>
                         <td>
                           <div className={styles.userCell}>
-                            {photoOk ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img className={styles.avatar} src={u.profilePictureUrl!} alt="" width={36} height={36} />
+                            {photoSrc ? (
+                              <ProfileAvatarImage className={styles.avatar} src={photoSrc} alt="" width={36} height={36} sizes="36px" />
                             ) : (
                               <span className={styles.avatarFallback} aria-hidden>
                                 {initials}
@@ -1041,7 +1467,9 @@ export default function AdminUsersClient() {
                         <td className={styles.cellMuted}>{u.phoneNumber ?? "—"}</td>
                         <td>{u.department.name}</td>
                         <td>{u.role}</td>
-                        <td>{u.isActive ? "Active" : "Inactive"}</td>
+                        <td>{accountStatusLabel(u)}</td>
+                        <td className={styles.cellMuted}>{fmtDateTime(u.lastLoginAt)}</td>
+                        <td className={styles.cellMuted}>{u.mustChangePassword ? "Yes" : "—"}</td>
                         <td className={styles.cellMuted}>
                           {u.loginLockedUntil || u.failedLoginAttempts > 0 ? (
                             <span style={{ color: "#b45309" }} title={u.loginLockedUntil ?? undefined}>
@@ -1080,7 +1508,7 @@ export default function AdminUsersClient() {
                                   onClick={() => {
                                     setRowMenuUserId(null);
                                     setModalError(null);
-                                    setEditUser({ ...u });
+                                    setEditUser(normalizeAdminUserRow({ ...u }));
                                   }}
                                 >
                                   Edit
@@ -1114,12 +1542,34 @@ export default function AdminUsersClient() {
                                     setRowMenuUserId(null);
                                     setModalError(null);
                                     setPasswordValue("");
+                                    setForcePwdAfterSet(false);
                                     setPasswordUserId(u.id);
                                   }}
                                 >
                                   Set password
                                 </button>
-                                {u.id !== sessionUser.id ? (
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={() => {
+                                    setRowMenuUserId(null);
+                                    void revokeAllSessionsForUser(u.id);
+                                  }}
+                                >
+                                  Revoke all sessions
+                                </button>
+                                {u.deletedAt ? (
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setRowMenuUserId(null);
+                                      void restoreUser(u.id);
+                                    }}
+                                  >
+                                    Restore account
+                                  </button>
+                                ) : u.id !== sessionUser.id ? (
                                   <button
                                     type="button"
                                     className={styles.rowMenuDanger}
@@ -1129,7 +1579,20 @@ export default function AdminUsersClient() {
                                       void deleteUser(u);
                                     }}
                                   >
-                                    Delete
+                                    Archive user
+                                  </button>
+                                ) : null}
+                                {u.deletedAt && u.id !== sessionUser.id ? (
+                                  <button
+                                    type="button"
+                                    className={styles.rowMenuDanger}
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setRowMenuUserId(null);
+                                      void hardEraseUser(u);
+                                    }}
+                                  >
+                                    Erase permanently
                                   </button>
                                 ) : null}
                               </div>
@@ -1185,16 +1648,14 @@ export default function AdminUsersClient() {
 
               <div className={styles.profileHero}>
                 <div className={styles.profileAvatarRing}>
-                  {panelUser.profilePictureUrl &&
-                  (panelUser.profilePictureUrl.startsWith("http://") ||
-                    panelUser.profilePictureUrl.startsWith("https://")) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                  {profilePictureDisplayUrl(panelUser.profilePictureUrl) ? (
+                    <ProfileAvatarImage
                       className={styles.profileAvatarImg}
-                      src={panelUser.profilePictureUrl}
+                      src={profilePictureDisplayUrl(panelUser.profilePictureUrl)!}
                       alt=""
                       width={88}
                       height={88}
+                      sizes="88px"
                     />
                   ) : (
                     <span className={styles.profileAvatarFallback} aria-hidden>
@@ -1205,13 +1666,28 @@ export default function AdminUsersClient() {
                 <h3 className={styles.profileName}>{panelUser.name}</h3>
                 <p className={styles.profileEmail}>{panelUser.email}</p>
                 <p className={styles.profileJoined}>Joined {fmtDateTime(panelUser.createdAt)}</p>
+                <p className={styles.profileJoined} style={{ marginTop: "0.2rem" }}>
+                  Last sign-in {fmtDateTime(panelUser.lastLoginAt)}
+                </p>
+                {!panelUser.deletedAt ? (
+                  <div style={{ marginTop: "0.85rem", width: "100%", maxWidth: 320 }}>
+                    <ProfilePhotoUploader
+                      mode="admin"
+                      targetUserId={panelUser.id}
+                      displayName={panelUser.name}
+                      pictureUrl={panelUser.profilePictureUrl}
+                      compact
+                      onPictureUpdated={(url) => bumpUserProfilePicture(panelUser.id, url)}
+                    />
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   className={styles.profileEditCta}
                   onClick={() => {
                     setPanelUser(null);
                     setModalError(null);
-                    setEditUser({ ...panelUser });
+                    setEditUser(normalizeAdminUserRow({ ...panelUser }));
                   }}
                 >
                   Edit profile
@@ -1232,8 +1708,12 @@ export default function AdminUsersClient() {
                   <div className={styles.profileFieldBox}>{panelUser.phoneNumber ?? "—"}</div>
                 </div>
                 <div className={styles.profileField}>
-                  <span className={styles.profileFieldLabel}>Status</span>
-                  <div className={styles.profileFieldBox}>{panelUser.isActive ? "Active" : "Inactive"}</div>
+                  <span className={styles.profileFieldLabel}>Account status</span>
+                  <div className={styles.profileFieldBox}>{accountStatusLabel(panelUser)}</div>
+                </div>
+                <div className={styles.profileField}>
+                  <span className={styles.profileFieldLabel}>Must change password</span>
+                  <div className={styles.profileFieldBox}>{panelUser.mustChangePassword ? "Yes" : "No"}</div>
                 </div>
                 <div className={styles.profileField}>
                   <span className={styles.profileFieldLabel}>Employee badge</span>
@@ -1251,6 +1731,60 @@ export default function AdminUsersClient() {
                       : "Not locked"}
                   </div>
                 </div>
+              </div>
+
+              <div className={styles.restrictionSection}>
+                <h4 className={styles.restrictionSectionTitle}>Access controls</h4>
+                <p style={{ margin: "0 0 0.75rem", fontSize: "0.8rem", lineHeight: 1.45, color: "#71717a" }}>
+                  Toggle permissions for this user. Allowed is highlighted; restricted is muted or red. Role still
+                  applies—e.g. employees cannot manage documents unless they are a manager.
+                </p>
+                <div className={styles.restrictionPills} role="group" aria-label="Permission toggles">
+                  {RESTRICTION_PILLS.map(({ key, label, tooltip }) => {
+                    const r = panelUser.restrictions ?? DEFAULT_RESTRICTIONS;
+                    const allowed = r[key];
+                    const busy = pillBusy === key || pillBusy === "reset";
+                    const blockSelfLoginOff =
+                      panelUser.id === sessionUser?.id && key === "loginAllowed" && allowed;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`${styles.restrictionPill} ${
+                          allowed
+                            ? styles.restrictionPillAllowed
+                            : key === "loginAllowed"
+                              ? styles.restrictionPillRestrictedWarn
+                              : styles.restrictionPillRestricted
+                        }`}
+                        title={
+                          blockSelfLoginOff
+                            ? `${tooltip} You cannot remove your own login access here.`
+                            : `${tooltip} Click to ${allowed ? "restrict" : "allow"}.`
+                        }
+                        disabled={busy || blockSelfLoginOff || !!panelUser.deletedAt}
+                        onClick={() => void setRestrictionForPanel(key, !allowed)}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  className={styles.restrictionResetBtn}
+                  disabled={pillBusy !== null || !!panelUser.deletedAt}
+                  onClick={() => void resetRestrictionsForPanel()}
+                >
+                  Reset permissions
+                </button>
+                {restrictionToast ? (
+                  <div className={styles.restrictionToast} role="status">
+                    {restrictionToast}
+                  </div>
+                ) : (
+                  <div className={styles.restrictionToast} aria-hidden />
+                )}
               </div>
 
               <ul className={styles.profileMenu} role="list">
@@ -1278,6 +1812,7 @@ export default function AdminUsersClient() {
                       setPanelUser(null);
                       setModalError(null);
                       setPasswordValue("");
+                      setForcePwdAfterSet(false);
                       setPasswordUserId(panelUser.id);
                     }}
                   >
@@ -1286,7 +1821,30 @@ export default function AdminUsersClient() {
                     <IconChevronRight />
                   </button>
                 </li>
-                {panelUser.id !== sessionUser.id ? (
+                <li>
+                  <button
+                    type="button"
+                    className={styles.profileMenuItem}
+                    onClick={() => void revokeAllSessionsForUser(panelUser.id)}
+                  >
+                    <IconProfileLock />
+                    <span className={styles.profileMenuLabel}>Revoke all sessions</span>
+                    <IconChevronRight />
+                  </button>
+                </li>
+                {panelUser.deletedAt ? (
+                  <li>
+                    <button
+                      type="button"
+                      className={styles.profileMenuItem}
+                      onClick={() => void restoreUser(panelUser.id)}
+                    >
+                      <IconProfileUnlock />
+                      <span className={styles.profileMenuLabel}>Restore account</span>
+                      <IconChevronRight />
+                    </button>
+                  </li>
+                ) : panelUser.id !== sessionUser.id ? (
                   <li>
                     <button
                       type="button"
@@ -1294,7 +1852,20 @@ export default function AdminUsersClient() {
                       onClick={() => void deleteUser(panelUser)}
                     >
                       <IconProfileTrash />
-                      <span className={styles.profileMenuLabel}>Delete user</span>
+                      <span className={styles.profileMenuLabel}>Archive user</span>
+                      <IconChevronRight />
+                    </button>
+                  </li>
+                ) : null}
+                {panelUser.deletedAt && panelUser.id !== sessionUser.id ? (
+                  <li>
+                    <button
+                      type="button"
+                      className={`${styles.profileMenuItem} ${styles.profileMenuItemDanger}`}
+                      onClick={() => void hardEraseUser(panelUser)}
+                    >
+                      <IconProfileTrash />
+                      <span className={styles.profileMenuLabel}>Erase permanently</span>
                       <IconChevronRight />
                     </button>
                   </li>
@@ -1431,6 +2002,28 @@ export default function AdminUsersClient() {
                 <span>Name</span>
                 <input value={editUser.name} onChange={(e) => setEditUser({ ...editUser, name: e.target.value })} />
               </label>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <span style={{ fontWeight: 600, fontSize: "0.9rem", display: "block", marginBottom: "0.5rem" }}>
+                  Profile photo
+                </span>
+                <ProfilePhotoUploader
+                  mode="admin"
+                  targetUserId={editUser.id}
+                  displayName={editUser.name}
+                  pictureUrl={editUser.profilePictureUrl}
+                  disabled={!!editUser.deletedAt}
+                  onPictureUpdated={(url) => bumpUserProfilePicture(editUser.id, url)}
+                />
+              </div>
+              <label style={{ gridColumn: "1 / -1" }}>
+                <span>Photo URL (optional, external https only)</span>
+                <input
+                  value={editUser.profilePictureUrl ?? ""}
+                  onChange={(e) => setEditUser({ ...editUser, profilePictureUrl: e.target.value.trim() || null })}
+                  placeholder="https://…"
+                  disabled={!!editUser.deletedAt}
+                />
+              </label>
               <label>
                 <span>Role</span>
                 <select value={editUser.role} onChange={(e) => setEditUser({ ...editUser, role: e.target.value })}>
@@ -1487,6 +2080,53 @@ export default function AdminUsersClient() {
                 />
                 <span>Active</span>
               </label>
+              <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={editUser.mustChangePassword ?? false}
+                  onChange={(e) => setEditUser({ ...editUser, mustChangePassword: e.target.checked })}
+                />
+                <span>Require password change on next sign-in</span>
+              </label>
+              <div className={styles.modalRestrictionSection}>
+                <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>Access controls</span>
+                <p className={styles.hint} style={{ marginTop: "0.35rem" }}>
+                  Saved with this form. Archived accounts must be restored before changing permissions here.
+                </p>
+                <div className={styles.modalRestrictionPills} role="group" aria-label="Edit permission toggles">
+                  {RESTRICTION_PILLS.map(({ key, label, tooltip }) => {
+                    const r = editUser.restrictions ?? DEFAULT_RESTRICTIONS;
+                    const allowed = r[key];
+                    const blockSelfLoginOff =
+                      editUser.id === sessionUser.id && key === "loginAllowed" && allowed;
+                    const archived = !!editUser.deletedAt;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`${styles.restrictionPill} ${
+                          allowed
+                            ? styles.restrictionPillAllowed
+                            : key === "loginAllowed"
+                              ? styles.restrictionPillRestrictedWarn
+                              : styles.restrictionPillRestricted
+                        }`}
+                        title={
+                          archived
+                            ? "Restore the account before editing permissions."
+                            : blockSelfLoginOff
+                              ? `${tooltip} You cannot remove your own login access here.`
+                              : `${tooltip} Click to ${allowed ? "restrict" : "allow"}.`
+                        }
+                        disabled={archived || blockSelfLoginOff}
+                        onClick={() => toggleEditRestriction(key, !allowed)}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
             {modalError ? (
               <p role="alert" style={{ color: "var(--error)" }}>
@@ -1514,6 +2154,7 @@ export default function AdminUsersClient() {
             setPasswordUserId(null);
             setPasswordValue("");
             setModalError(null);
+            setForcePwdAfterSet(false);
           }}
         >
           <div className={styles.modalPanel} style={{ maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
@@ -1528,6 +2169,14 @@ export default function AdminUsersClient() {
                   minLength={8}
                   autoComplete="new-password"
                 />
+              </label>
+              <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={forcePwdAfterSet}
+                  onChange={(e) => setForcePwdAfterSet(e.target.checked)}
+                />
+                <span>Require password change on next sign-in</span>
               </label>
             </div>
             {modalError ? (
@@ -1546,9 +2195,73 @@ export default function AdminUsersClient() {
                   setPasswordUserId(null);
                   setPasswordValue("");
                   setModalError(null);
+                  setForcePwdAfterSet(false);
                 }}
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {importOpen ? (
+        <div
+          className={styles.modalOverlay}
+          role="dialog"
+          aria-modal
+          aria-labelledby="import-users-title"
+          onClick={() => {
+            setImportOpen(false);
+            setImportMessage(null);
+          }}
+        >
+          <div className={styles.modalPanel} style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+            <h2 id="import-users-title">Import users (JSON)</h2>
+            <p className={styles.hint}>
+              POST body shape: <code>{"{ \"users\": [ ... ] }"}</code> or a raw array. Each row matches &quot;Add new
+              user&quot; (email, password, name, role, departmentId; badge required for EMPLOYEE). Up to 50 rows per
+              request.
+            </p>
+            <label style={{ display: "grid", gap: 6, marginTop: "0.75rem" }}>
+              <span>JSON</span>
+              <textarea
+                value={importJson}
+                onChange={(e) => setImportJson(e.target.value)}
+                rows={10}
+                style={{
+                  width: "100%",
+                  fontFamily: "ui-monospace, monospace",
+                  fontSize: "0.82rem",
+                  padding: "0.5rem",
+                  border: "1px solid var(--border)",
+                }}
+                placeholder={`{\n  "users": [\n    {\n      "email": "user@company.com",\n      "password": "temporary-password",\n      "name": "Sample User",\n      "role": "EMPLOYEE",\n      "departmentId": "…uuid…",\n      "employeeBadgeNumber": "B123"\n    }\n  ]\n}`}
+              />
+            </label>
+            {importMessage ? (
+              <p role="status" style={{ marginTop: "0.65rem", color: "var(--text)", fontSize: "0.9rem" }}>
+                {importMessage}
+              </p>
+            ) : null}
+            <div className={styles.modalActions} style={{ marginTop: "1rem" }}>
+              <button
+                type="button"
+                className={styles.btnPrimary}
+                disabled={importBusy || !importJson.trim()}
+                onClick={() => void submitImport()}
+              >
+                {importBusy ? "Importing…" : "Run import"}
+              </button>
+              <button
+                type="button"
+                className={styles.btnGhost}
+                onClick={() => {
+                  setImportOpen(false);
+                  setImportMessage(null);
+                }}
+              >
+                Close
               </button>
             </div>
           </div>

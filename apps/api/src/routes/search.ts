@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { DocumentVisibility } from "@prisma/client";
 import { authenticateToken } from "../middleware/auth.js";
+import { requireDocLibraryAccess, requireUseAiQueries } from "../middleware/restrictions.js";
 import { embedQuery } from "../lib/embeddings.js";
 import { prisma } from "../lib/prisma.js";
 
@@ -13,7 +14,7 @@ const semanticBody = z.object({
 });
 
 /** Semantic search over chunk embeddings (cosine distance via pgvector). */
-searchRouter.post("/semantic", authenticateToken, async (req, res) => {
+searchRouter.post("/semantic", authenticateToken, requireDocLibraryAccess, requireUseAiQueries, async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });

@@ -46,11 +46,24 @@ Monorepo: **API** (Express + Prisma + Postgres/pgvector + Redis/BullMQ) and **We
    | `REDIS_URL` | Optional; defaults like `redis://127.0.0.1:6379` if unset. |
    | `STORAGE_PATH` | Optional; file uploads directory. |
    | `SMTP_*` | Optional; without `SMTP_HOST`, password reset emails are only logged in dev. |
+   | `PUBLIC_API_URL` | **Recommended in all environments.** Public base URL of this API (`https://api.example.com`, no trailing slash). Used when saving profile-picture URLs so `<img src>` works behind proxies. **Must match** `NEXT_PUBLIC_API_URL` on the web app (same scheme + host). Local dev: `http://localhost:3001`. |
 
 5. **Web environment** (`apps/web/.env.local`)
 
    ```env
    NEXT_PUBLIC_API_URL=http://localhost:3001
+   ```
+
+   Use the **same** scheme + host as `PUBLIC_API_URL` in `apps/api/.env` so API calls and avatar image URLs stay consistent.
+
+   **Production:** point both at the public API hostname, for example:
+
+   ```env
+   # apps/api/.env
+   PUBLIC_API_URL=https://api.example.com
+
+   # apps/web — build-time (e.g. hosting dashboard or .env.production)
+   NEXT_PUBLIC_API_URL=https://api.example.com
    ```
 
 6. **Run dev servers**
@@ -87,7 +100,7 @@ If the dashboard (or any page) loads but **`/_next/static/...` returns 404** for
 2. From the repo root: **`npm run dev:clean`** (stops Node, deletes `apps/web/.next`, starts dev again), or manually delete **`apps/web/.next`** and run **`npm run dev`**.
 3. Hard-refresh the browser (**Ctrl+Shift+R**) or close old tabs that pointed at an earlier dev session.
 
-Root **`npm run dev`** runs **`node scripts/dev-web.mjs`** and **`node scripts/dev-api.mjs`**, which **force `cwd`** to **`apps/web`** and **`apps/api`** so Next always reads/writes **`apps/web/.next`** (avoids `/_next/static/*` 404s when the dev server’s working directory is wrong).
+Root **`npm run dev`** runs **`node scripts/dev-web.mjs`** and **`node scripts/dev-api.mjs`**, which **force `cwd`** to **`apps/web`** and **`apps/api`** so Next always reads/writes **`apps/web/.next`** (avoids `/_next/static/*` 404s when the dev server’s working directory is wrong). Those scripts also **align** **`PUBLIC_API_URL`** (API process) with **`NEXT_PUBLIC_API_URL`** (web process): if you only set one, both default to the other, then **`http://localhost:3001`**, so stored avatar URLs match what the browser uses for API calls during local development.
 
 ## License
 

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
+import dash from "../../components/shellNav.module.css";
+import { AdminChromeHeader, type AdminChromeSessionUser } from "../AdminChromeHeader";
 import AdminNav from "../AdminNav";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -28,6 +30,7 @@ export default function AdminDocumentAuditClient() {
   const [total, setTotal] = useState(0);
   const [entries, setEntries] = useState<AuditRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [sessionUser, setSessionUser] = useState<AdminChromeSessionUser | null>(null);
   const [filterDraft, setFilterDraft] = useState("");
   const [appliedDocId, setAppliedDocId] = useState("");
 
@@ -81,12 +84,22 @@ export default function AdminDocumentAuditClient() {
           }
           return;
         }
-        const me = (await meRes.json().catch(() => ({}))) as { user?: { role?: string } };
+        const me = (await meRes.json().catch(() => ({}))) as {
+          user?: { name?: string; email?: string; role?: string; profilePictureUrl?: string | null };
+        };
         if (!meRes.ok || me.user?.role !== "ADMIN") {
           if (!cancelled) setPhase("forbidden");
           return;
         }
-        if (!cancelled) setPhase("ready");
+        if (!cancelled) {
+          setSessionUser({
+            name: me.user?.name ?? "",
+            email: me.user?.email ?? "",
+            role: me.user?.role ?? "ADMIN",
+            profilePictureUrl: me.user?.profilePictureUrl ?? null,
+          });
+          setPhase("ready");
+        }
       } catch {
         if (!cancelled) setPhase("load-error");
       }
@@ -135,15 +148,36 @@ export default function AdminDocumentAuditClient() {
 
   if (phase === "load-error") {
     return (
+      <main className={sessionUser ? dash.page : undefined} data-dashboard-fullscreen={sessionUser ? true : undefined}>
+        {sessionUser ? <AdminChromeHeader user={sessionUser} /> : null}
+        <div style={{ padding: sessionUser ? "0 1rem 2rem" : undefined, maxWidth: 960, margin: "0 auto" }}>
+          <p style={{ color: "var(--error)" }}>Could not verify access.</p>
+          <Link href="/admin">Admin hub</Link>
+        </div>
+      </main>
+    );
+  }
+
+  if (!sessionUser) {
+    return (
       <main>
-        <p style={{ color: "var(--error)" }}>Could not verify access.</p>
-        <Link href="/admin">Admin hub</Link>
+        <p>Loading…</p>
       </main>
     );
   }
 
   return (
-    <main style={{ maxWidth: 960 }}>
+    <main className={dash.page} data-dashboard-fullscreen="true">
+      <AdminChromeHeader user={sessionUser} />
+      <div
+        style={{
+          padding: "0 1rem 2rem",
+          maxWidth: 960,
+          margin: "0 auto",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+      >
       <h1>Document audit</h1>
       <p style={{ color: "#52525b", marginTop: 0 }}>
         Library-wide actions (uploads, edits, views, favorites, archive, delete, reprocess).
@@ -252,6 +286,7 @@ export default function AdminDocumentAuditClient() {
         >
           Next
         </button>
+      </div>
       </div>
     </main>
   );

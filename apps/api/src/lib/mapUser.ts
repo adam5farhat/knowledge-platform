@@ -1,4 +1,5 @@
 import type { RoleName } from "@prisma/client";
+import { restrictionPayloadFromUser } from "./userRestrictions.js";
 
 export function mapUserResponse(
   user: {
@@ -10,6 +11,13 @@ export function mapUserResponse(
     position: string | null;
     profilePictureUrl: string | null;
     isActive: boolean;
+    loginAllowed: boolean;
+    accessDocumentsAllowed: boolean;
+    manageDocumentsAllowed: boolean;
+    accessDashboardAllowed: boolean;
+    useAiQueriesAllowed: boolean;
+    mustChangePassword: boolean;
+    lastLoginAt: Date | null;
     role: { name: RoleName };
     department: {
       id: string;
@@ -31,5 +39,8 @@ export function mapUserResponse(
       id: user.department.id,
       name: user.department.name,
     },
+    restrictions: restrictionPayloadFromUser(user),
+    mustChangePassword: user.mustChangePassword,
+    lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
   };
 }

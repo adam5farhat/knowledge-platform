@@ -3,10 +3,11 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../lib/authClient";
+import { homePathForUser, type MeResponse } from "../lib/restrictions";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-/** Root `/`: send anonymous users to login, signed-in users to the document library. */
+/** Root `/`: send anonymous users to login, signed-in users to the dashboard. */
 export default function HomeEntryClient() {
   const router = useRouter();
 
@@ -28,7 +29,14 @@ export default function HomeEntryClient() {
         if (!cancelled) router.replace("/login");
         return;
       }
-      if (!cancelled) router.replace("/documents");
+      let body: MeResponse;
+      try {
+        body = (await res.json()) as MeResponse;
+      } catch {
+        if (!cancelled) router.replace("/login");
+        return;
+      }
+      if (!cancelled) router.replace(homePathForUser(body.user));
     })();
     return () => {
       cancelled = true;

@@ -9,6 +9,11 @@ declare global {
         role: RoleName;
         departmentId: string;
         authVersion: number;
+        loginAllowed: boolean;
+        accessDocumentsAllowed: boolean;
+        manageDocumentsAllowed: boolean;
+        accessDashboardAllowed: boolean;
+        useAiQueriesAllowed: boolean;
       };
     }
   }

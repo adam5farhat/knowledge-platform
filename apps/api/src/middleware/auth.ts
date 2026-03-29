@@ -14,10 +14,26 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
     const payload = verifyAccessToken(token);
     const user = await prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { authVersion: true, isActive: true },
+      select: {
+        authVersion: true,
+        isActive: true,
+        deletedAt: true,
+        loginAllowed: true,
+        accessDocumentsAllowed: true,
+        manageDocumentsAllowed: true,
+        accessDashboardAllowed: true,
+        useAiQueriesAllowed: true,
+      },
     });
-    if (!user || !user.isActive || user.authVersion !== payload.authVersion) {
+    if (!user || !user.isActive || user.deletedAt || user.authVersion !== payload.authVersion) {
       res.status(401).json({ error: "Invalid or expired token" });
+      return;
+    }
+    if (!user.loginAllowed) {
+      res.status(403).json({
+        error: "Your account has been restricted. Please contact your administrator.",
+        code: "ACCOUNT_RESTRICTED",
+      });
       return;
     }
     req.authUser = {
@@ -26,6 +42,11 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
       role: payload.role,
       departmentId: payload.departmentId,
       authVersion: payload.authVersion,
+      loginAllowed: user.loginAllowed,
+      accessDocumentsAllowed: user.accessDocumentsAllowed,
+      manageDocumentsAllowed: user.manageDocumentsAllowed,
+      accessDashboardAllowed: user.accessDashboardAllowed,
+      useAiQueriesAllowed: user.useAiQueriesAllowed,
     };
     next();
   } catch {

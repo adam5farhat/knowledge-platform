@@ -1,0 +1,616 @@
+.pageTitle {
+  margin: 0 0 0.35rem;
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.pageSubtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  max-width: 42rem;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.cardBody {
+  padding: 1rem 1.1rem 1.15rem;
+}
+
+.cardBodyFlush {
+  padding: 0;
+}
+
+.hintText {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.toastOk {
+  margin: 0 0 1rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.88rem;
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, #15803d 35%, var(--border));
+  background: color-mix(in srgb, #15803d 8%, var(--card-bg));
+  color: #166534;
+}
+
+.toastErr {
+  margin: 0 0 1rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.88rem;
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--error, #dc2626) 35%, var(--border));
+  background: color-mix(in srgb, var(--error, #dc2626) 6%, var(--card-bg));
+  color: var(--error, #991b1b);
+}
+
+.mergeRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mergeSelect {
+  min-width: 160px;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.mergeSelect:focus {
+  outline: 2px solid color-mix(in srgb, var(--interactive) 45%, transparent);
+  outline-offset: 1px;
+}
+
+.mergeArrow {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.deptCard {
+  position: relative;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, var(--text) 12%);
+  border-radius: 14px;
+  padding: 1rem 0.95rem 1.05rem;
+  padding-top: 1.15rem;
+  background: var(--card-bg);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--text) 2.5%, transparent) 0%, transparent 42%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.65) inset,
+    0 1px 2px rgba(15, 23, 42, 0.045),
+    0 10px 24px -12px rgba(15, 23, 42, 0.1);
+  transition:
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.15s ease;
+}
+
+.deptCard:hover {
+  border-color: color-mix(in srgb, var(--interactive) 42%, var(--border));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 14px 32px -10px color-mix(in srgb, var(--interactive) 22%, rgba(15, 23, 42, 0.12));
+  transform: translateY(-1px);
+}
+
+.deptCard:active {
+  transform: translateY(0);
+}
+
+.deptCardSelected {
+  border-color: color-mix(in srgb, var(--interactive) 55%, var(--border));
+  background-image: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--interactive) 9%, var(--card-bg)) 0%,
+    var(--card-bg) 52%
+  );
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55) inset,
+    0 0 0 1px color-mix(in srgb, var(--interactive) 22%, transparent),
+    0 12px 36px -10px color-mix(in srgb, var(--interactive) 28%, rgba(15, 23, 42, 0.14));
+}
+
+.deptCardTab {
+  position: absolute;
+  top: 0;
+  left: 12px;
+  width: 40px;
+  height: 9px;
+  background: var(--card-bg);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--text) 3%, transparent) 0%, transparent 100%);
+  border: 1px solid color-mix(in srgb, var(--border) 88%, var(--text) 12%);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.5) inset;
+}
+
+.deptCardSelected .deptCardTab {
+  border-color: color-mix(in srgb, var(--interactive) 50%, var(--border));
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--interactive) 12%, var(--card-bg)) 0%,
+    var(--card-bg) 100%
+  );
+}
+
+.deptCardMenuWrap {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+}
+
+.deptCardMenuBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid color-mix(in srgb, var(--border) 90%, var(--text) 10%);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--card-bg) 92%, var(--border) 8%);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.deptCardMenuBtn:hover {
+  background: var(--card-bg);
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--interactive) 28%, var(--border));
+}
+
+.deptCardMenu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  min-width: 148px;
+  background: var(--card-bg);
+  border: 1px solid color-mix(in srgb, var(--border) 88%, var(--text) 12%);
+  border-radius: 10px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 12px 40px -8px rgba(15, 23, 42, 0.18);
+  padding: 0.3rem 0;
+  z-index: 5;
+}
+
+.deptCardMenu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.85rem;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.deptCardMenu button:hover {
+  background: #f4f4f6;
+}
+
+.deptCardMenuDanger {
+  color: #b91c1c !important;
+}
+
+.deptLabel {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--muted) 88%, var(--text) 12%);
+  margin: 0 0 0.5rem;
+  line-height: 1.2;
+  font-feature-settings: "tnum" 1;
+}
+
+.avatarRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0 0 0.7rem;
+  min-height: 36px;
+  padding-right: 2.25rem;
+}
+
+.avatarStack {
+  display: flex;
+  align-items: center;
+}
+
+.avatarMini {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 2px solid var(--card-bg);
+  object-fit: cover;
+  margin-left: -11px;
+  background: linear-gradient(145deg, #e4e4e7 0%, #d4d4d8 100%);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--border) 75%, #0f172a 25%),
+    0 2px 6px -2px rgba(15, 23, 42, 0.12);
+  flex-shrink: 0;
+}
+
+.avatarMini:first-child {
+  margin-left: 0;
+}
+
+.avatarFallbackMini {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: color-mix(in srgb, var(--muted) 70%, var(--text) 30%);
+}
+
+.avatarOverflow {
+  margin-left: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: color-mix(in srgb, var(--muted) 85%, var(--interactive) 15%);
+  flex-shrink: 0;
+}
+
+.deptCardSelected .avatarMini {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--interactive) 35%, var(--border)),
+    0 2px 8px -2px color-mix(in srgb, var(--interactive) 25%, rgba(15, 23, 42, 0.15));
+}
+
+.deptCardBody {
+  border: none;
+  background: transparent;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  display: block;
+}
+
+.deptName {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  color: var(--text);
+  line-height: 1.22;
+  text-wrap: balance;
+}
+
+.drillSection {
+  margin-top: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.drillSectionInner {
+  padding: 1rem 1.1rem 1.15rem;
+}
+
+.drillHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.drillTitle {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.drillActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.drillGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 860px) {
+  .drillGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.drillPanel {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(2, 2, 2, 0.04);
+}
+
+.drillPanelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.listScroll {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.listRow {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.85rem;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--card-bg);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  transition: background-color 0.12s ease;
+}
+
+.listRow:hover {
+  background: color-mix(in srgb, var(--interactive) 5%, var(--card-bg));
+}
+
+.listRowSelected {
+  background: color-mix(in srgb, var(--interactive) 7%, var(--card-bg));
+  box-shadow: inset 3px 0 0 var(--interactive);
+}
+
+.rowThumb {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  background: color-mix(in srgb, var(--interactive) 14%, var(--card-bg));
+  color: var(--interactive);
+}
+
+.rowThumbUser {
+  border-radius: 999px;
+  padding: 0;
+  overflow: hidden;
+  background: #e4e4e7;
+}
+
+.rowThumbUser img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rowThumbFile {
+  flex-shrink: 0;
+  width: 40px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+.rowName {
+  flex: 1;
+  -webkit-font-smoothing: antialiased;
+  min-width: 0;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drillLink {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--interactive);
+  text-decoration: none;
+}
+
+.drillLink:hover {
+  text-decoration: underline;
+}
+
+.detailBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  z-index: 4500;
+}
+
+.detailPanel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 100vw);
+  z-index: 4600;
+  background: var(--card-bg);
+  border-left: 1px solid var(--border);
+  box-shadow: -12px 0 40px rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 20px 0 0 20px;
+}
+
+.detailPanelInner {
+  padding: 0;
+  overflow: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.docFormSection {
+  margin: 1rem;
+  padding: 0.85rem;
+  background: color-mix(in srgb, var(--border) 22%, var(--card-bg));
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 0.55rem;
+}
+
+.docFormSection label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.versionsList {
+  margin: 0 1rem 1rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.versionsList li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.input {
+  padding: 0.5rem 0.6rem;
+  border-radius: 0;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--text);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input:focus {
+  outline: 2px solid color-mix(in srgb, var(--interactive) 45%, transparent);
+  outline-offset: 1px;
+}
+
+.btn {
+  padding: 0.55rem 1rem;
+  border-radius: 0;
+  border: none;
+  background: #18181b;
+  color: #fafafa;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.btnGhost {
+  padding: 0.45rem 0.85rem;
+  border-radius: 0;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.btnGhost:hover:not(:disabled) {
+  background: #f4f4f6;
+  border-color: color-mix(in srgb, var(--interactive) 35%, var(--border));
+}
+
+.btnDangerGhost {
+  color: #b91c1c;
+  border-color: color-mix(in srgb, #fecaca 80%, var(--border));
+  background: color-mix(in srgb, #fef2f2 70%, var(--card-bg));
+}
+
+.btnDangerGhost:hover:not(:disabled) {
+  background: #fef2f2;
+}

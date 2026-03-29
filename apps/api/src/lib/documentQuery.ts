@@ -133,7 +133,7 @@ export function createdAtFromDateFilter(filter: string): Date | null {
 
 const docListInclude = {
   versions: { orderBy: { versionNumber: "desc" as const }, take: 1 },
-  createdBy: { select: { id: true, name: true, email: true } },
+  createdBy: { select: { id: true, name: true, email: true, profilePictureUrl: true } },
   department: { select: { name: true } },
   tags: { select: { name: true } },
 } satisfies Prisma.DocumentInclude;
@@ -180,6 +180,10 @@ export async function listDocuments(p: ListDocumentsParams): Promise<{
   total: number;
   departmentCounts: { id: string; name: string; count: number }[] | undefined;
 }> {
+  if (p.user.accessDocumentsAllowed === false) {
+    return { documents: [], total: 0, departmentCounts: undefined };
+  }
+
   const access = visibilityWhereForUser(p.user);
   const scoped =
     p.allScopeIncludeArchived === true &&

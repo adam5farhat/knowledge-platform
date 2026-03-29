@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ProfileAvatarImage } from "@/components/ProfileAvatarImage";
+import { ProfilePhotoModal } from "@/components/ProfilePhotoModal";
+import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
+import { profilePictureDisplayUrl, userInitialsFromName } from "@/lib/profilePicture";
 import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../lib/authClient";
+import dash from "../components/shellNav.module.css";
+import p from "./profile.module.css";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -17,12 +23,15 @@ type User = {
   profilePictureUrl: string | null;
   role: string;
   department: { id: string; name: string };
+  mustChangePassword?: boolean;
 };
 
 export default function ProfileClient() {
   const router = useRouter();
   const [phase, setPhase] = useState<"loading" | "need-login" | "ready">("loading");
   const [user, setUser] = useState<User | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -40,6 +49,14 @@ export default function ProfileClient() {
   const [pwError, setPwError] = useState<string | null>(null);
   const [pwOk, setPwOk] = useState<string | null>(null);
   const [savingPw, setSavingPw] = useState(false);
+  const [pwdUrlGate, setPwdUrlGate] = useState(false);
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const q = new URLSearchParams(window.location.search);
+    setPwdUrlGate(q.get("pwd") === "1");
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("kp_access_token");
@@ -62,6 +79,9 @@ export default function ProfileClient() {
       }
       const data = (await res.json()) as { user: User };
       setUser(data.user);
+      if (!data.user.mustChangePassword) {
+        setPwdUrlGate(false);
+      }
       setName(data.user.name);
       setEmail(data.user.email);
       setPhoneNumber(data.user.phoneNumber ?? "");
@@ -71,6 +91,33 @@ export default function ProfileClient() {
       setPhase("ready");
     })();
   }, [router]);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    if (menuOpen) document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [menuOpen]);
+
+  async function signOut() {
+    const refreshToken = localStorage.getItem("kp_refresh_token");
+    if (refreshToken) {
+      try {
+        await fetch(`${API}/auth/logout`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+      } catch {
+        /* best-effort */
+      }
+    }
+    clearStoredSession();
+    router.replace("/login");
+    router.refresh();
+  }
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -82,9 +129,7 @@ export default function ProfileClient() {
     try {
       const res = await fetchWithAuth(`${API}/auth/profile`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
           email: email.trim(),
@@ -129,19 +174,21 @@ export default function ProfileClient() {
     try {
       const res = await fetchWithAuth(`${API}/auth/change-password`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
         token?: string;
         refreshToken?: string;
+        user?: User;
       };
       if (res.status === 200 && data.token) {
         localStorage.setItem("kp_access_token", data.token);
         if (data.refreshToken) localStorage.setItem("kp_refresh_token", data.refreshToken);
+        if (data.user) setUser(data.user);
+        setPwdUrlGate(false);
+        router.replace("/profile");
         setPwOk("Password updated.");
         setCurrentPassword("");
         setNewPassword("");
@@ -158,211 +205,327 @@ export default function ProfileClient() {
 
   if (phase === "loading" || phase === "need-login") {
     return (
-      <main>
-        <p>Loading…</p>
+      <main className={p.shell} data-dashboard-fullscreen="true">
+        <p style={{ padding: "1.25rem" }}>Loading…</p>
       </main>
     );
   }
 
   if (!user) {
     return (
-      <main>
-        <p>Could not load profile.</p>
+      <main className={p.shell} data-dashboard-fullscreen="true">
+        <p style={{ padding: "1.25rem" }}>Could not load profile.</p>
         <Link href="/dashboard">Dashboard</Link>
       </main>
     );
   }
 
-  const photoOk =
-    user.profilePictureUrl &&
-    (user.profilePictureUrl.startsWith("http://") || user.profilePictureUrl.startsWith("https://"));
+  const showPwdBanner = pwdUrlGate || !!user.mustChangePassword;
+  const isAdmin = user.role === "ADMIN";
+  const isManagerOrAdmin = user.role === "MANAGER" || isAdmin;
+  const photoDisplaySrc = profilePictureDisplayUrl(user.profilePictureUrl);
 
   return (
-    <main style={{ maxWidth: 520 }}>
-      <h1>Profile</h1>
-      <p style={{ color: "#52525b", fontSize: "0.9rem" }}>
-        <strong>Role:</strong> {user.role} · <strong>Department:</strong> {user.department.name}
-      </p>
-      <p style={{ color: "#71717a", fontSize: "0.85rem", marginTop: "0.25rem" }}>
-        User ID: <code style={{ fontSize: "0.8rem" }}>{user.id}</code> · Role and department are assigned by an
-        administrator.
-      </p>
-
-      {photoOk ? (
-        <div style={{ marginTop: "1rem" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={user.profilePictureUrl!}
-            alt=""
-            width={96}
-            height={96}
-            style={{ borderRadius: 8, objectFit: "cover", border: "1px solid #e4e4e7" }}
+    <main className={p.shell} data-dashboard-fullscreen="true">
+      <header className={dash.navbar}>
+        <nav className={dash.navLeft} aria-label="Primary">
+          <a className={dash.brand} href="/dashboard">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className={dash.brandMark} src="/logo-swapped.svg" alt="Platform" />
+          </a>
+        </nav>
+        <div className={p.headerSpacer} aria-hidden />
+        <div className={dash.profileWrap} ref={menuRef}>
+          <UserAvatarNavButton
+            className={dash.profileBtn}
+            imgClassName={dash.profileBtnImg}
+            pictureUrl={user.profilePictureUrl}
+            name={user.name}
+            email={user.email}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+            title={`${user.name} (${user.role})`}
           />
+          {menuOpen ? (
+            <div className={dash.menu} role="menu">
+              <div className={dash.menuHeader}>
+                <div>{user.name}</div>
+                <div>{user.email}</div>
+              </div>
+              <Link className={dash.menuItem} href="/profile" role="menuitem" onClick={() => setMenuOpen(false)}>
+                View Profile
+              </Link>
+              {isManagerOrAdmin ? (
+                <Link className={dash.menuItem} href="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  Dashboard
+                </Link>
+              ) : null}
+              <Link className={dash.menuItem} href="/documents" role="menuitem" onClick={() => setMenuOpen(false)}>
+                Documents
+              </Link>
+              {isAdmin ? (
+                <>
+                  <Link className={dash.menuItem} href="/admin" role="menuitem" onClick={() => setMenuOpen(false)}>
+                    Admin hub
+                  </Link>
+                  <Link className={dash.menuItem} href="/admin/users" role="menuitem" onClick={() => setMenuOpen(false)}>
+                    Users
+                  </Link>
+                  <Link className={dash.menuItem} href="/admin/departments" role="menuitem" onClick={() => setMenuOpen(false)}>
+                    Departments
+                  </Link>
+                </>
+              ) : null}
+              <button
+                type="button"
+                className={dash.menuItem}
+                onClick={() => {
+                  setMenuOpen(false);
+                  void signOut();
+                }}
+                role="menuitem"
+              >
+                Logout
+              </button>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </header>
 
-      <section style={{ marginTop: "1.5rem" }}>
-        <h2 style={{ fontSize: "1.1rem" }}>Personal information</h2>
-        <p style={{ color: "#71717a", fontSize: "0.85rem", marginTop: "0.35rem" }}>
-          Update your contact details. Use an <strong>https</strong> link for the photo, or leave it blank.
+      <div className={p.content}>
+        <h1 className={p.pageTitle}>Profile settings</h1>
+        <p className={p.pageSub}>
+          Update how you appear in the platform. Role and department are set by an administrator.
         </p>
-        <form onSubmit={(e) => void saveProfile(e)} style={{ display: "grid", gap: "0.65rem", marginTop: "0.75rem" }}>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span>Full name</span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              autoComplete="name"
-              style={{ padding: "0.5rem 0.6rem", borderRadius: 6, border: "1px solid #d4d4d8" }}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span>Email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              style={{ padding: "0.5rem 0.6rem", borderRadius: 6, border: "1px solid #d4d4d8" }}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span>Phone (optional)</span>
-            <input
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              autoComplete="tel"
-              style={{ padding: "0.5rem 0.6rem", borderRadius: 6, border: "1px solid #d4d4d8" }}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span>Job title (optional)</span>
-            <input
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
-              autoComplete="organization-title"
-              style={{ padding: "0.5rem 0.6rem", borderRadius: 6, border: "1px solid #d4d4d8" }}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span>Employee badge number (optional)</span>
-            <input
-              value={employeeBadgeNumber}
-              onChange={(e) => setEmployeeBadgeNumber(e.target.value)}
-              maxLength={100}
-              style={{ padding: "0.5rem 0.6rem", borderRadius: 6, border: "1px solid #d4d4d8" }}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span>Profile picture URL (optional)</span>
-            <input
-              type="url"
-              value={profilePictureUrl}
-              onChange={(e) => setProfilePictureUrl(e.target.value)}
-              placeholder="https://example.com/photo.jpg"
-              autoComplete="photo"
-              style={{ padding: "0.5rem 0.6rem", borderRadius: 6, border: "1px solid #d4d4d8" }}
-            />
-          </label>
-          {profileError ? (
-            <p role="alert" style={{ color: "var(--error)", margin: 0 }}>
-              {profileError}
-            </p>
-          ) : null}
-          {profileOk ? (
-            <p role="status" style={{ color: "#15803d", margin: 0 }}>
-              {profileOk}
-            </p>
-          ) : null}
-          <button
-            type="submit"
-            disabled={savingProfile}
-            style={{
-              padding: "0.55rem 1rem",
-              borderRadius: 6,
-              border: "none",
-              background: "#18181b",
-              color: "#fafafa",
-              cursor: savingProfile ? "wait" : "pointer",
-            }}
-          >
-            {savingProfile ? "Saving…" : "Save profile"}
-          </button>
-        </form>
-      </section>
 
-      <section style={{ marginTop: "2rem" }}>
-        <h2 style={{ fontSize: "1.1rem" }}>Change password</h2>
-        <form onSubmit={(e) => void savePassword(e)} style={{ display: "grid", gap: "0.65rem", marginTop: "0.75rem" }}>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span>Current password</span>
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              style={{ padding: "0.5rem 0.6rem", borderRadius: 6, border: "1px solid #d4d4d8" }}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span>New password (min 8 characters)</span>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-              minLength={8}
-              autoComplete="new-password"
-              style={{ padding: "0.5rem 0.6rem", borderRadius: 6, border: "1px solid #d4d4d8" }}
-            />
-          </label>
-          <label style={{ display: "grid", gap: 4 }}>
-            <span>Confirm new password</span>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              minLength={8}
-              autoComplete="new-password"
-              style={{ padding: "0.5rem 0.6rem", borderRadius: 6, border: "1px solid #d4d4d8" }}
-            />
-          </label>
-          {pwError ? (
-            <p role="alert" style={{ color: "var(--error)", margin: 0 }}>
-              {pwError}
-            </p>
-          ) : null}
-          {pwOk ? (
-            <p role="status" style={{ color: "#15803d", margin: 0 }}>
-              {pwOk}
-            </p>
-          ) : null}
-          <button
-            type="submit"
-            disabled={savingPw}
-            style={{
-              padding: "0.55rem 1rem",
-              borderRadius: 6,
-              border: "none",
-              background: "#18181b",
-              color: "#fafafa",
-              cursor: savingPw ? "wait" : "pointer",
-            }}
-          >
-            {savingPw ? "Updating…" : "Update password"}
-          </button>
-        </form>
-      </section>
+        {showPwdBanner ? (
+          <div className={p.banner} role="status">
+            Your administrator requires you to change your password. Update it in Account management before using other
+            parts of the app.
+          </div>
+        ) : null}
 
-      <p style={{ marginTop: "1.5rem" }}>
-        <Link href="/dashboard">Dashboard</Link>
-        {" · "}
-        <Link href="/documents">Home</Link>
-      </p>
+        <div className={p.grid}>
+          <aside className={p.leftCol} aria-labelledby="account-mgmt-title">
+            <h2 id="account-mgmt-title" className={p.leftTitle}>
+              Account management
+            </h2>
+            <div className={p.photoPreview}>
+              {photoDisplaySrc ? (
+                <ProfileAvatarImage
+                  className={p.photoPreviewImg}
+                  src={photoDisplaySrc}
+                  alt=""
+                  width={400}
+                  height={400}
+                  sizes="(max-width: 320px) 100vw, 220px"
+                />
+              ) : (
+                <span className={p.photoPreviewFallback} aria-hidden>
+                  {userInitialsFromName(user.name)}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              className={p.photoModalTrigger}
+              onClick={() => {
+                setProfilePictureUrl(user.profilePictureUrl ?? "");
+                setPhotoModalOpen(true);
+              }}
+            >
+              Upload photo
+            </button>
+            <p className={p.photoHint}>Opens a window to drag-and-drop, browse, or paste an image URL.</p>
+
+            <ProfilePhotoModal
+              open={photoModalOpen}
+              onClose={() => setPhotoModalOpen(false)}
+              mode="self"
+              displayName={user.name}
+              pictureUrl={user.profilePictureUrl}
+              pictureUrlDraft={profilePictureUrl}
+              onPictureUrlDraftChange={setProfilePictureUrl}
+              onPictureUpdated={(nextUrl) => {
+                setUser((prev) => (prev ? { ...prev, profilePictureUrl: nextUrl } : null));
+                setProfilePictureUrl(nextUrl ?? "");
+              }}
+            />
+
+            <hr className={p.divider} />
+
+            <h3 className={p.sideSectionTitle}>Password</h3>
+            <form className={p.formSection} onSubmit={(e) => void savePassword(e)} style={{ marginBottom: 0 }}>
+              <div className={p.field} style={{ marginBottom: "0.75rem" }}>
+                <label className={p.label} htmlFor="profile-current-pw">
+                  Current password
+                </label>
+                <input
+                  id="profile-current-pw"
+                  className={p.input}
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+              </div>
+              <div className={p.field} style={{ marginBottom: "0.75rem" }}>
+                <label className={p.label} htmlFor="profile-new-pw">
+                  New password
+                </label>
+                <input
+                  id="profile-new-pw"
+                  className={p.input}
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className={p.field} style={{ marginBottom: "0.85rem" }}>
+                <label className={p.label} htmlFor="profile-confirm-pw">
+                  Confirm new password
+                </label>
+                <input
+                  id="profile-confirm-pw"
+                  className={p.input}
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                />
+              </div>
+              {pwError ? (
+                <p role="alert" className={p.error} style={{ marginBottom: "0.65rem" }}>
+                  {pwError}
+                </p>
+              ) : null}
+              {pwOk ? (
+                <p role="status" className={p.ok} style={{ marginBottom: "0.65rem" }}>
+                  {pwOk}
+                </p>
+              ) : null}
+              <button type="submit" className={p.btnPrimary} disabled={savingPw}>
+                {savingPw ? "Updating…" : "Change password"}
+              </button>
+            </form>
+          </aside>
+
+          <div className={p.rightCol}>
+            <form onSubmit={(e) => void saveProfile(e)}>
+              <section className={p.formSection} aria-labelledby="profile-info-heading">
+                <h2 id="profile-info-heading" className={p.sectionHeading}>
+                  Profile information
+                </h2>
+                <div className={p.fieldGrid}>
+                  <div className={`${p.field} ${p.fieldFull}`}>
+                    <label className={p.label} htmlFor="profile-name">
+                      Full name
+                    </label>
+                    <input
+                      id="profile-name"
+                      className={p.input}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      autoComplete="name"
+                    />
+                  </div>
+                  <div className={p.field}>
+                    <span className={p.label}>Role</span>
+                    <input className={`${p.input} ${p.inputReadonly}`} readOnly value={user.role} aria-readonly />
+                  </div>
+                  <div className={p.field}>
+                    <span className={p.label}>Department</span>
+                    <input className={`${p.input} ${p.inputReadonly}`} readOnly value={user.department.name} aria-readonly />
+                  </div>
+                  <div className={p.field}>
+                    <label className={p.label} htmlFor="profile-badge">
+                      Employee badge <span className={p.optional}>(optional)</span>
+                    </label>
+                    <input
+                      id="profile-badge"
+                      className={p.input}
+                      value={employeeBadgeNumber}
+                      onChange={(e) => setEmployeeBadgeNumber(e.target.value)}
+                      maxLength={100}
+                    />
+                  </div>
+                  <div className={p.field}>
+                    <label className={p.label} htmlFor="profile-position">
+                      Job title <span className={p.optional}>(optional)</span>
+                    </label>
+                    <input
+                      id="profile-position"
+                      className={p.input}
+                      value={position}
+                      onChange={(e) => setPosition(e.target.value)}
+                      autoComplete="organization-title"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className={p.formSection} aria-labelledby="contact-heading">
+                <h2 id="contact-heading" className={p.sectionHeading}>
+                  Contact
+                </h2>
+                <div className={p.fieldGrid}>
+                  <div className={`${p.field} ${p.fieldFull}`}>
+                    <label className={p.label} htmlFor="profile-email">
+                      Email
+                    </label>
+                    <input
+                      id="profile-email"
+                      className={p.input}
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      autoComplete="email"
+                    />
+                  </div>
+                  <div className={`${p.field} ${p.fieldFull}`}>
+                    <label className={p.label} htmlFor="profile-phone">
+                      Phone <span className={p.optional}>(optional)</span>
+                    </label>
+                    <input
+                      id="profile-phone"
+                      className={p.input}
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      autoComplete="tel"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <div className={p.messages}>
+                {profileError ? (
+                  <p role="alert" className={p.error}>
+                    {profileError}
+                  </p>
+                ) : null}
+                {profileOk ? (
+                  <p role="status" className={p.ok}>
+                    {profileOk}
+                  </p>
+                ) : null}
+              </div>
+
+              <button type="submit" className={p.btnPrimary} disabled={savingProfile}>
+                {savingProfile ? "Saving…" : "Save profile"}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
     </main>
   );
 }

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
+import dash from "../../components/shellNav.module.css";
+import { AdminChromeHeader, type AdminChromeSessionUser } from "../AdminChromeHeader";
 import AdminNav from "../AdminNav";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -28,6 +30,7 @@ export default function AdminActivityClient() {
   const [total, setTotal] = useState(0);
   const [events, setEvents] = useState<AuthEventRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [sessionUser, setSessionUser] = useState<AdminChromeSessionUser | null>(null);
 
   const loadEvents = useCallback(
     async (p: number) => {
@@ -74,12 +77,22 @@ export default function AdminActivityClient() {
           }
           return;
         }
-        const me = (await meRes.json().catch(() => ({}))) as { user?: { role?: string } };
+        const me = (await meRes.json().catch(() => ({}))) as {
+          user?: { name?: string; email?: string; role?: string; profilePictureUrl?: string | null };
+        };
         if (!meRes.ok || me.user?.role !== "ADMIN") {
           if (!cancelled) setPhase("forbidden");
           return;
         }
-        if (!cancelled) setPhase("ready");
+        if (!cancelled) {
+          setSessionUser({
+            name: me.user?.name ?? "",
+            email: me.user?.email ?? "",
+            role: me.user?.role ?? "ADMIN",
+            profilePictureUrl: me.user?.profilePictureUrl ?? null,
+          });
+          setPhase("ready");
+        }
       } catch {
         if (!cancelled) setPhase("load-error");
       }
@@ -135,8 +148,26 @@ export default function AdminActivityClient() {
     );
   }
 
+  if (!sessionUser) {
+    return (
+      <main>
+        <p>Loading…</p>
+      </main>
+    );
+  }
+
   return (
-    <main style={{ maxWidth: 960 }}>
+    <main className={dash.page} data-dashboard-fullscreen="true">
+      <AdminChromeHeader user={sessionUser} />
+      <div
+        style={{
+          padding: "0 1rem 2rem",
+          maxWidth: 960,
+          margin: "0 auto",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+      >
       <h1>Auth activity</h1>
       <p style={{ color: "#52525b", marginTop: 0 }}>Recent authentication events (newest first).</p>
       <AdminNav />
@@ -201,6 +232,7 @@ export default function AdminActivityClient() {
         >
           Next
         </button>
+      </div>
       </div>
     </main>
   );

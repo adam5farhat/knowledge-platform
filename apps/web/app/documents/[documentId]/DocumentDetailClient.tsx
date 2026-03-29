@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { clearStoredSession, fetchWithAuth } from "../../../lib/authClient";
+import { restrictedHref } from "../../../lib/restrictions";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -63,7 +64,15 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
       router.replace("/login");
       return;
     }
-    const body = (await res.json().catch(() => ({}))) as DocumentPayload & { error?: string };
+    const body = (await res.json().catch(() => ({}))) as DocumentPayload & {
+      error?: string;
+      code?: string;
+      feature?: string;
+    };
+    if (res.status === 403 && body.code === "FEATURE_RESTRICTED" && body.feature) {
+      router.replace(restrictedHref(body.feature));
+      return;
+    }
     if (!res.ok) {
       setError(body.error ?? "Could not load document");
       setPhase("error");

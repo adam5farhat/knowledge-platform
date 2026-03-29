@@ -28,8 +28,16 @@ console.error(
   `[kp dev-web] Missing chunk (./402.js) / CSS 404: "npm run clean:web", restart dev, one server on this port.`,
 );
 
+/** Match API `PUBLIC_API_URL` when only one of the two is set (avatar URLs + `next/image` remotePatterns). */
+const alignedPublicApi =
+  (process.env.NEXT_PUBLIC_API_URL || process.env.PUBLIC_API_URL || "http://localhost:3001").replace(/\/$/, "");
+
 /** Web dev port; ignore shell `PORT` so it never collides with API when using `npm run dev`. */
-const env = { ...process.env, PORT: process.env.WEB_PORT || "3000" };
+const env = {
+  ...process.env,
+  PORT: process.env.WEB_PORT || "3000",
+  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || alignedPublicApi,
+};
 
 const devArgs = env.NEXT_TURBOPACK_DEV === "1" ? ["next", "dev", "--turbopack"] : ["next", "dev"];
 if (env.NEXT_TURBOPACK_DEV === "1") {

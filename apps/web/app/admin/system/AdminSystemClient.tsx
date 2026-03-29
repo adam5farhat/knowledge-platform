@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
+import dash from "../../components/shellNav.module.css";
+import { AdminChromeHeader, type AdminChromeSessionUser } from "../AdminChromeHeader";
 import AdminNav from "../AdminNav";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -22,6 +24,7 @@ export default function AdminSystemClient() {
   const [phase, setPhase] = useState<Phase>("checking");
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sessionUser, setSessionUser] = useState<AdminChromeSessionUser | null>(null);
 
   const loadStats = useCallback(async () => {
     setError(null);
@@ -55,10 +58,20 @@ export default function AdminSystemClient() {
           }
           return;
         }
-        const me = (await meRes.json().catch(() => ({}))) as { user?: { role?: string } };
+        const me = (await meRes.json().catch(() => ({}))) as {
+          user?: { name?: string; email?: string; role?: string; profilePictureUrl?: string | null };
+        };
         if (!meRes.ok || me.user?.role !== "ADMIN") {
           if (!cancelled) setPhase("forbidden");
           return;
+        }
+        if (!cancelled) {
+          setSessionUser({
+            name: me.user?.name ?? "",
+            email: me.user?.email ?? "",
+            role: me.user?.role ?? "ADMIN",
+            profilePictureUrl: me.user?.profilePictureUrl ?? null,
+          });
         }
         await loadStats();
         if (!cancelled) setPhase("ready");
@@ -101,15 +114,36 @@ export default function AdminSystemClient() {
 
   if (phase === "load-error") {
     return (
+      <main className={sessionUser ? dash.page : undefined} data-dashboard-fullscreen={sessionUser ? true : undefined}>
+        {sessionUser ? <AdminChromeHeader user={sessionUser} /> : null}
+        <div style={{ padding: sessionUser ? "0 1rem 2rem" : undefined, maxWidth: 560, margin: "0 auto" }}>
+          <p style={{ color: "var(--error)" }}>Could not verify access.</p>
+          <Link href="/admin">Admin hub</Link>
+        </div>
+      </main>
+    );
+  }
+
+  if (!sessionUser) {
+    return (
       <main>
-        <p style={{ color: "var(--error)" }}>Could not verify access.</p>
-        <Link href="/admin">Admin hub</Link>
+        <p>Loading…</p>
       </main>
     );
   }
 
   return (
-    <main style={{ maxWidth: 560 }}>
+    <main className={dash.page} data-dashboard-fullscreen="true">
+      <AdminChromeHeader user={sessionUser} />
+      <div
+        style={{
+          padding: "0 1rem 2rem",
+          maxWidth: 560,
+          margin: "0 auto",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+      >
       <h1>System overview</h1>
       <p style={{ color: "#52525b", marginTop: 0 }}>Snapshot counts from the database.</p>
       <AdminNav />
@@ -157,6 +191,7 @@ export default function AdminSystemClient() {
       ) : (
         <p style={{ color: "#71717a" }}>No data yet.</p>
       )}
+      </div>
     </main>
   );
 }

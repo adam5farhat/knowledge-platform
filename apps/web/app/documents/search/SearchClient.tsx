@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
+import { DEFAULT_USER_RESTRICTIONS, restrictedHref, type MeUserDto } from "../../../lib/restrictions";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -28,13 +29,44 @@ export default function SearchClient() {
   const [results, setResults] = useState<Result[] | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("kp_access_token");
-    if (!token) {
-      router.replace("/login");
-      setPhase("need-login");
-      return;
-    }
-    setPhase("ready");
+    let cancelled = false;
+    void (async () => {
+      const token = await getValidAccessToken();
+      if (!token) {
+        if (!cancelled) {
+          setPhase("need-login");
+          router.replace("/login");
+        }
+        return;
+      }
+      const meRes = await fetchWithAuth(`${API}/auth/me`);
+      if (meRes.status === 401) {
+        clearStoredSession();
+        if (!cancelled) {
+          setPhase("need-login");
+          router.replace("/login");
+        }
+        return;
+      }
+      if (!meRes.ok) {
+        if (!cancelled) setPhase("need-login");
+        return;
+      }
+      const body = (await meRes.json()) as { user: MeUserDto };
+      const r = body.user.restrictions ?? DEFAULT_USER_RESTRICTIONS;
+      if (!r.accessDocumentsAllowed) {
+        if (!cancelled) router.replace(restrictedHref("accessDocuments"));
+        return;
+      }
+      if (!r.useAiQueriesAllowed) {
+        if (!cancelled) router.replace(restrictedHref("useAiQueries"));
+        return;
+      }
+      if (!cancelled) setPhase("ready");
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   async function onSearch(e: React.FormEvent) {
@@ -61,7 +93,16 @@ export default function SearchClient() {
         router.replace("/login");
         return;
       }
-      const data = (await res.json().catch(() => ({}))) as { error?: string; results?: Result[] };
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        results?: Result[];
+        code?: string;
+        feature?: string;
+      };
+      if (res.status === 403 && data.code === "FEATURE_RESTRICTED" && data.feature) {
+        router.replace(restrictedHref(data.feature));
+        return;
+      }
       if (!res.ok) {
         setError(data.error ?? "Search failed");
         return;
