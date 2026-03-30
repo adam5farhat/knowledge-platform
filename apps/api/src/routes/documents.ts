@@ -263,6 +263,18 @@ documentsRouter.get(
     const allScopeIncludeArchived =
       req.query.includeArchived === "1" || req.query.includeArchived === "true";
 
+    const needsAttention =
+      user.role === RoleName.ADMIN &&
+      (req.query.needsAttention === "1" || req.query.needsAttention === "true");
+
+    let createdById: string | undefined;
+    if (user.role === RoleName.ADMIN && typeof req.query.createdById === "string") {
+      const c = req.query.createdById.trim();
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(c)) {
+        createdById = c;
+      }
+    }
+
     const { documents: docs } = await listDocuments({
       user,
       q,
@@ -278,6 +290,8 @@ documentsRouter.get(
       pageSize: 5000,
       includeDepartmentCounts: false,
       allScopeIncludeArchived,
+      needsAttention: needsAttention || undefined,
+      createdById,
     });
 
     const lines = [
@@ -367,6 +381,18 @@ documentsRouter.get("/", async (req, res) => {
     user.role === RoleName.ADMIN &&
     (req.query.includeArchived === "1" || req.query.includeArchived === "true");
 
+  const needsAttention =
+    user.role === RoleName.ADMIN &&
+    (req.query.needsAttention === "1" || req.query.needsAttention === "true");
+
+  let createdById: string | undefined;
+  if (user.role === RoleName.ADMIN && typeof req.query.createdById === "string") {
+    const c = req.query.createdById.trim();
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(c)) {
+      createdById = c;
+    }
+  }
+
   const { documents: docs, total, departmentCounts } = await listDocuments({
     user,
     q,
@@ -382,6 +408,8 @@ documentsRouter.get("/", async (req, res) => {
     pageSize,
     includeDepartmentCounts: includeMeta && libraryScope === "ALL",
     allScopeIncludeArchived,
+    needsAttention: needsAttention || undefined,
+    createdById,
   });
 
   const flags = await attachFavoriteFlags(user.id, docs);

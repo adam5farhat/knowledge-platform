@@ -1,21 +1,71 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { FileTypeIcon } from "@/components/FileTypeIcon";
 import { ProfileAvatarImage } from "@/components/ProfileAvatarImage";
-import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
+import { fetchWithAuth } from "../../../lib/authClient";
 import { profilePictureDisplayUrl, userInitialsFromName } from "@/lib/profilePicture";
 import dash from "../../components/shellNav.module.css";
-import { AdminChromeHeader, type AdminChromeSessionUser } from "../AdminChromeHeader";
-import AdminNav from "../AdminNav";
+import { AdminChromeHeader } from "../AdminChromeHeader";
+import { useAdminGuard } from "../useAdminGuard";
+import { AdminHubGlyph, type AdminHubGlyphType } from "../AdminHubIcons";
+import u from "../users/adminUsers.module.css";
 import styles from "./adminDocuments.module.css";
+import { normalizeUploadTag } from "../../documents/documentsFormat";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-const PAGE_SIZE = 25;
 
-type Phase = "checking" | "need-login" | "forbidden" | "ready";
+type AdminSortKey =
+  | "updatedAt_desc"
+  | "updatedAt_asc"
+  | "createdAt_desc"
+  | "createdAt_asc"
+  | "title_asc"
+  | "title_desc";
+
+type DeptOption = { id: string; name: string };
+type OwnerOption = { id: string; name: string; email: string };
+
+
+const ADMIN_SIDEBAR_LINKS: { href: string; label: string; icon: AdminHubGlyphType }[] = [
+  { href: "/admin", label: "Hub", icon: "hub" },
+  { href: "/admin/users", label: "Users", icon: "users" },
+  { href: "/admin/departments", label: "Departments", icon: "departments" },
+  { href: "/admin/documents", label: "Documents", icon: "documents" },
+  { href: "/admin/activity", label: "Activity", icon: "activity" },
+  { href: "/admin/document-audit", label: "Doc audit", icon: "audit" },
+  { href: "/admin/system", label: "System", icon: "system" },
+];
+
+function adminNavActive(href: string, pathname: string): boolean {
+  if (href === "/admin") return pathname === "/admin";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function ToolbarIconSearch() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.25" />
+      <path d="M16.5 16.5 21 21" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function LibraryFabIcon() {
+  return (
+    <svg className={styles.libraryFabIcon} width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"
+        stroke="currentColor"
+        strokeWidth="1.65"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 type DocTab = "all" | "active" | "completed" | "archived";
 
@@ -112,6 +162,11 @@ function statusLabel(status: string) {
   }
 }
 
+function processingErrorHoverTitle(status: string, error: string | null | undefined) {
+  if (status === "FAILED" && error?.trim()) return error.trim();
+  return undefined;
+}
+
 function statusPillClass(status: string, archived: boolean) {
   if (archived) return styles.statusArchived;
   switch (status) {
@@ -128,17 +183,31 @@ function statusPillClass(status: string, archived: boolean) {
   }
 }
 
-function IconSearch() {
+function visibilityShort(v: string) {
+  switch (v) {
+    case "DEPARTMENT":
+      return "Department";
+    case "PRIVATE":
+      return "Private";
+    case "ALL":
+    default:
+      return "All users";
+  }
+}
+
+function tagsCellSummary(tags: string[]) {
+  if (tags.length === 0) return "—";
+  const show = tags.slice(0, 2);
+  const rest = tags.length - show.length;
   return (
-    <svg className={styles.searchIcon} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16Zm9 2-4.35-4.35"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <span className={styles.tagsCellInner}>
+      {show.map((t) => (
+        <span key={t} className={styles.tagChipMini}>
+          {t}
+        </span>
+      ))}
+      {rest > 0 ? <span className={styles.tagOverflow}>+{rest}</span> : null}
+    </span>
   );
 }
 
@@ -207,6 +276,63 @@ function PanelIconCopy() {
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function ArchivesIconDownload() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+        stroke="currentColor"
+        strokeWidth="1.65"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <polyline
+        points="7 10 12 15 17 10"
+        stroke="currentColor"
+        strokeWidth="1.65"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ArchivesIconCopy() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="9" y="9" width="11" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.65" />
+      <path
+        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+        stroke="currentColor"
+        strokeWidth="1.65"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function ArchivesIconRefresh() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M23 4v6h-6M1 20v-6h6"
+        stroke="currentColor"
+        strokeWidth="1.65"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+        stroke="currentColor"
+        strokeWidth="1.65"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
@@ -294,9 +420,8 @@ function PanelIconLayers() {
 }
 
 export default function AdminDocumentsClient() {
-  const router = useRouter();
-  const [phase, setPhase] = useState<Phase>("checking");
-  const [sessionUser, setSessionUser] = useState<AdminChromeSessionUser | null>(null);
+  const pathname = usePathname();
+  const { phase: authPhase, sessionUser } = useAdminGuard();
 
   const [tab, setTab] = useState<DocTab>("active");
   const [searchInput, setSearchInput] = useState("");
@@ -308,6 +433,7 @@ export default function AdminDocumentsClient() {
   const [listError, setListError] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [rowBusyId, setRowBusyId] = useState<string | null>(null);
+  const [selectedBulkIds, setSelectedBulkIds] = useState<Set<string>>(() => new Set());
 
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [panelDetail, setPanelDetail] = useState<DocumentDetailPayload | null>(null);
@@ -322,17 +448,50 @@ export default function AdminDocumentsClient() {
   const [archivesUploadBusy, setArchivesUploadBusy] = useState(false);
   const archivesFileInputRef = useRef<HTMLInputElement | null>(null);
   const archivesModalTitleId = useId();
+  const uploadModalTitleId = useId();
 
-  const [includeArchived, setIncludeArchived] = useState(false);
-  const [exportQ, setExportQ] = useState("");
-  const [exportBusy, setExportBusy] = useState(false);
-  const [exportErr, setExportErr] = useState<string | null>(null);
-  const [bulkIds, setBulkIds] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkMsg, setBulkMsg] = useState<string | null>(null);
   const [bulkErr, setBulkErr] = useState<string | null>(null);
 
-  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [pageSize, setPageSize] = useState(25);
+  const [sort, setSort] = useState<AdminSortKey>("updatedAt_desc");
+  const [filterDepartmentId, setFilterDepartmentId] = useState("");
+  const [filterVisibility, setFilterVisibility] = useState<string>("ALL");
+  const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [filterOwnerId, setFilterOwnerId] = useState("");
+  const [filterTag, setFilterTag] = useState("");
+
+  const [departments, setDepartments] = useState<DeptOption[]>([]);
+  const [owners, setOwners] = useState<OwnerOption[]>([]);
+
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadVisibility, setUploadVisibility] = useState("ALL");
+  const [uploadDepartmentId, setUploadDepartmentId] = useState("");
+  const [uploadDescription, setUploadDescription] = useState("");
+  const [uploadTagsRaw, setUploadTagsRaw] = useState("");
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadErr, setUploadErr] = useState<string | null>(null);
+
+  const [archivesAfterPanelLoad, setArchivesAfterPanelLoad] = useState(false);
+  const newDocFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const docMenuBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const [docMenuBox, setDocMenuBox] = useState<{ top: number; left: number } | null>(null);
+  const headerCheckboxRef = useRef<HTMLInputElement | null>(null);
+
+  const resetUploadForm = useCallback(() => {
+    setUploadTitle("");
+    setUploadFile(null);
+    setUploadVisibility("ALL");
+    setUploadDepartmentId(departments[0]?.id ?? "");
+    setUploadDescription("");
+    setUploadTagsRaw("");
+    setUploadErr(null);
+    if (newDocFileInputRef.current) newDocFileInputRef.current.value = "";
+  }, [departments]);
 
   const closePanel = useCallback(() => {
     setSelectedDocId(null);
@@ -341,6 +500,7 @@ export default function AdminDocumentsClient() {
     setOpenMenuId(null);
     setArchivesModalOpen(false);
     setArchivesError(null);
+    setArchivesAfterPanelLoad(false);
   }, []);
 
   const closeArchivesModal = useCallback(() => {
@@ -355,64 +515,77 @@ export default function AdminDocumentsClient() {
 
   useEffect(() => {
     setPage(1);
-  }, [tab, debouncedQ]);
+  }, [
+    tab,
+    debouncedQ,
+    pageSize,
+    sort,
+    filterDepartmentId,
+    filterVisibility,
+    filterStatus,
+    filterOwnerId,
+    filterTag,
+  ]);
 
   useEffect(() => {
+    setSelectedBulkIds(new Set());
+  }, [tab, page, pageSize, sort, filterDepartmentId, filterVisibility, filterStatus, filterOwnerId, filterTag]);
+
+  useEffect(() => {
+    if (authPhase !== "ready") return;
     let cancelled = false;
     void (async () => {
-      const t = await getValidAccessToken();
-      if (!t) {
-        if (!cancelled) {
-          setPhase("need-login");
-          router.replace("/login");
-        }
-        return;
-      }
       try {
-        const meRes = await fetchWithAuth(`${API}/auth/me`);
-        if (meRes.status === 401) {
-          clearStoredSession();
-          if (!cancelled) {
-            setPhase("need-login");
-            router.replace("/login");
+        const [dr, ur] = await Promise.all([
+          fetchWithAuth(`${API}/admin/departments`),
+          fetchWithAuth(`${API}/admin/users?page=1&pageSize=200`),
+        ]);
+        if (cancelled) return;
+        if (dr.ok) {
+          const dj = (await dr.json().catch(() => ({}))) as { departments?: DeptOption[] };
+          if (dj.departments) setDepartments(dj.departments);
+        }
+        if (ur.ok) {
+          const uj = (await ur.json().catch(() => ({}))) as {
+            users?: { id: string; name: string; email: string }[];
+          };
+          if (uj.users) {
+            setOwners(
+              uj.users.map((x) => ({
+                id: x.id,
+                name: x.name?.trim() || x.email,
+                email: x.email,
+              })),
+            );
           }
-          return;
-        }
-        const me = (await meRes.json().catch(() => ({}))) as {
-          user?: { name?: string; email?: string; role?: string; profilePictureUrl?: string | null };
-        };
-        if (!meRes.ok || me.user?.role !== "ADMIN") {
-          if (!cancelled) setPhase("forbidden");
-          return;
-        }
-        if (!cancelled) {
-          setSessionUser({
-            name: me.user?.name ?? "",
-            email: me.user?.email ?? "",
-            role: me.user?.role ?? "ADMIN",
-            profilePictureUrl: me.user?.profilePictureUrl ?? null,
-          });
-          setPhase("ready");
         }
       } catch {
-        if (!cancelled) setPhase("forbidden");
+        /* ignore */
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [authPhase]);
 
   const loadDocuments = useCallback(async () => {
-    if (phase !== "ready") return;
+    if (authPhase !== "ready") return;
     setListLoading(true);
     setListError(null);
     try {
       const params = new URLSearchParams();
       params.set("page", String(page));
-      params.set("pageSize", String(PAGE_SIZE));
-      params.set("sort", "updatedAt_desc");
+      params.set("pageSize", String(pageSize));
+      params.set("sort", sort);
       if (debouncedQ) params.set("q", debouncedQ);
+      if (filterTag.trim()) params.set("tag", filterTag.trim());
+      if (filterVisibility !== "ALL") params.set("visibility", filterVisibility);
+      if (filterDepartmentId === "__general") {
+        params.set("departmentId", "__general");
+      } else if (filterDepartmentId) {
+        params.set("departmentId", filterDepartmentId);
+      }
+      if (filterOwnerId) params.set("createdById", filterOwnerId);
 
       if (tab === "archived") {
         params.set("libraryScope", "ARCHIVED");
@@ -423,6 +596,11 @@ export default function AdminDocumentsClient() {
         }
         if (tab === "completed") {
           params.set("status", "READY");
+        } else if (filterStatus !== "ALL") {
+          params.set("status", filterStatus);
+        }
+        if (tab === "active") {
+          params.set("needsAttention", "1");
         }
       }
 
@@ -441,7 +619,19 @@ export default function AdminDocumentsClient() {
     } finally {
       setListLoading(false);
     }
-  }, [phase, page, debouncedQ, tab]);
+  }, [
+    authPhase,
+    page,
+    pageSize,
+    sort,
+    debouncedQ,
+    tab,
+    filterDepartmentId,
+    filterVisibility,
+    filterStatus,
+    filterOwnerId,
+    filterTag,
+  ]);
 
   useEffect(() => {
     void loadDocuments();
@@ -477,15 +667,61 @@ export default function AdminDocumentsClient() {
   }, [selectedDocId, loadPanelDetail]);
 
   useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      if (!openMenuId) return;
-      const el = menuRef.current;
-      if (el && !el.contains(e.target as Node)) {
-        setOpenMenuId(null);
+    if (!archivesAfterPanelLoad || !selectedDocId || panelLoading) return;
+    if (panelDetail?.document.id !== selectedDocId) return;
+    if (panelError) {
+      setArchivesAfterPanelLoad(false);
+      return;
+    }
+    setArchivesModalOpen(true);
+    setArchivesAfterPanelLoad(false);
+  }, [archivesAfterPanelLoad, selectedDocId, panelLoading, panelDetail, panelError]);
+
+  useEffect(() => {
+    if (!uploadModalOpen || uploadVisibility !== "DEPARTMENT") return;
+    if (uploadDepartmentId) return;
+    if (departments[0]) setUploadDepartmentId(departments[0].id);
+  }, [uploadModalOpen, uploadVisibility, uploadDepartmentId, departments]);
+
+  useLayoutEffect(() => {
+    if (!openMenuId) {
+      setDocMenuBox(null);
+      return;
+    }
+    const openForId = openMenuId;
+    const menuW = 208;
+    function updatePosition() {
+      const btn = docMenuBtnRefs.current.get(openForId);
+      if (!btn) {
+        setDocMenuBox(null);
+        return;
       }
+      const rect = btn.getBoundingClientRect();
+      const left = Math.max(8, Math.min(rect.right - menuW, window.innerWidth - menuW - 8));
+      setDocMenuBox({ top: rect.bottom + 4, left });
+    }
+    updatePosition();
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [openMenuId]);
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.closest("[data-admin-documents-row-menu]")) return;
+      if (openMenuId) setOpenMenuId(null);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      if (uploadModalOpen) {
+        setUploadModalOpen(false);
+        resetUploadForm();
+        return;
+      }
       if (openMenuId) {
         setOpenMenuId(null);
         return;
@@ -502,54 +738,21 @@ export default function AdminDocumentsClient() {
       window.removeEventListener("mousedown", onDown);
       window.removeEventListener("keydown", onKey);
     };
-  }, [openMenuId, archivesModalOpen, selectedDocId, closePanel, closeArchivesModal]);
+  }, [openMenuId, archivesModalOpen, selectedDocId, closePanel, closeArchivesModal, uploadModalOpen, resetUploadForm]);
 
-  async function onExportCsv() {
-    setExportErr(null);
-    setExportBusy(true);
-    try {
-      const params = new URLSearchParams();
-      params.set("libraryScope", "ALL");
-      if (exportQ.trim()) params.set("q", exportQ.trim());
-      if (includeArchived) params.set("includeArchived", "1");
-      const res = await fetchWithAuth(`${API}/documents/export?${params.toString()}`);
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        setExportErr(body.error ?? `Export failed (${res.status})`);
-        return;
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "documents-export.csv";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      setExportErr("Could not download export.");
-    } finally {
-      setExportBusy(false);
-    }
-  }
-
-  async function onBulkDelete() {
+  async function bulkDeleteByIds(ids: string[]) {
+    const unique = [...new Set(ids)];
     setBulkErr(null);
     setBulkMsg(null);
-    const raw = bulkIds
-      .split(/[\s,]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    const ids = raw.filter((id) => uuidRe.test(id));
-    if (ids.length === 0) {
-      setBulkErr("Enter at least one valid document UUID.");
+    if (unique.length === 0) {
+      setBulkErr("Select at least one document.");
       return;
     }
-    if (ids.length > 50) {
-      setBulkErr("You can delete at most 50 documents per request. Split into multiple batches.");
+    if (unique.length > 50) {
+      setBulkErr("You can delete at most 50 documents per request. Clear selection and try a smaller batch.");
       return;
     }
-    if (!window.confirm(`Permanently delete ${ids.length} document(s)? This cannot be undone.`)) {
+    if (!window.confirm(`Permanently delete ${unique.length} document(s)? This cannot be undone.`)) {
       return;
     }
     setBulkBusy(true);
@@ -557,22 +760,46 @@ export default function AdminDocumentsClient() {
       const res = await fetchWithAuth(`${API}/documents/bulk-delete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
+        body: JSON.stringify({ ids: unique }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string; deleted?: number };
       if (!res.ok) {
         setBulkErr(data.error ?? "Bulk delete failed.");
         return;
       }
-      setBulkMsg(`Deleted ${data.deleted ?? ids.length} document(s).`);
-      setBulkIds("");
-      if (selectedDocId && ids.includes(selectedDocId)) closePanel();
+      setBulkMsg(`Deleted ${data.deleted ?? unique.length} document(s).`);
+      setSelectedBulkIds(new Set());
+      if (selectedDocId && unique.includes(selectedDocId)) closePanel();
       void loadDocuments();
     } catch {
       setBulkErr("Could not reach the API.");
     } finally {
       setBulkBusy(false);
     }
+  }
+
+  function toggleBulkSelected(id: string) {
+    setSelectedBulkIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
+  function toggleSelectAllOnPage() {
+    const ids = documents.map((d) => d.id);
+    const allOn = ids.length > 0 && ids.every((id) => selectedBulkIds.has(id));
+    setSelectedBulkIds((prev) => {
+      const n = new Set(prev);
+      if (allOn) ids.forEach((i) => n.delete(i));
+      else ids.forEach((i) => n.add(i));
+      return n;
+    });
+  }
+
+  function clearBulkSelection() {
+    setSelectedBulkIds(new Set());
   }
 
   async function copyId(id: string) {
@@ -739,10 +966,90 @@ export default function AdminDocumentsClient() {
     }
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  async function submitNewDocument(e: React.FormEvent) {
+    e.preventDefault();
+    setUploadErr(null);
+    if (!uploadFile || !uploadTitle.trim()) {
+      setUploadErr("Choose a file and enter a title.");
+      return;
+    }
+    if (uploadVisibility === "DEPARTMENT" && !uploadDepartmentId) {
+      setUploadErr("Pick a department for department-only visibility.");
+      return;
+    }
+    setUploadBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", uploadFile);
+      fd.append("title", uploadTitle.trim());
+      fd.append("visibility", uploadVisibility);
+      if (uploadVisibility === "DEPARTMENT" && uploadDepartmentId) {
+        fd.append("departmentId", uploadDepartmentId);
+      }
+      if (uploadDescription.trim()) {
+        fd.append("description", uploadDescription.trim());
+      }
+      const tagParts = uploadTagsRaw.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+      const tags = tagParts.map(normalizeUploadTag).filter((t): t is string => Boolean(t));
+      if (tags.length > 0) {
+        fd.append("tags", JSON.stringify(tags));
+      }
+      const res = await fetchWithAuth(`${API}/documents/upload`, { method: "POST", body: fd });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setUploadErr(data.error ?? "Upload failed.");
+        return;
+      }
+      setUploadModalOpen(false);
+      resetUploadForm();
+      void loadDocuments();
+    } catch {
+      setUploadErr("Could not reach the API.");
+    } finally {
+      setUploadBusy(false);
+    }
+  }
+
+  function openVersionsForRow(doc: DocRow) {
+    setOpenMenuId(null);
+    setArchivesError(null);
+    if (
+      selectedDocId === doc.id &&
+      panelDetail?.document.id === doc.id &&
+      !panelLoading &&
+      !panelError
+    ) {
+      setArchivesModalOpen(true);
+      return;
+    }
+    setSelectedDocId(doc.id);
+    setArchivesAfterPanelLoad(true);
+  }
+
+  function cycleSort(col: "title" | "createdAt" | "updatedAt") {
+    setSort((prev) => {
+      if (col === "title") {
+        return prev === "title_asc" ? "title_desc" : "title_asc";
+      }
+      if (col === "createdAt") {
+        return prev === "createdAt_asc" ? "createdAt_desc" : "createdAt_asc";
+      }
+      return prev === "updatedAt_asc" ? "updatedAt_desc" : "updatedAt_asc";
+    });
+  }
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const listRowForPanel = selectedDocId ? documents.find((d) => d.id === selectedDocId) : undefined;
 
-  if (phase === "checking") {
+  const pageAllSelected = documents.length > 0 && documents.every((d) => selectedBulkIds.has(d.id));
+  const pageSomeSelected = documents.some((d) => selectedBulkIds.has(d.id));
+
+  useLayoutEffect(() => {
+    const el = headerCheckboxRef.current;
+    if (el) el.indeterminate = pageSomeSelected && !pageAllSelected;
+  }, [pageSomeSelected, pageAllSelected]);
+
+  if (authPhase === "checking") {
     return (
       <main>
         <p>Loading…</p>
@@ -750,7 +1057,7 @@ export default function AdminDocumentsClient() {
     );
   }
 
-  if (phase === "need-login") {
+  if (authPhase === "need-login") {
     return (
       <main style={{ maxWidth: 560 }}>
         <h1>Document administration</h1>
@@ -760,12 +1067,22 @@ export default function AdminDocumentsClient() {
     );
   }
 
-  if (phase === "forbidden") {
+  if (authPhase === "forbidden") {
     return (
       <main style={{ maxWidth: 560 }}>
         <h1>Document administration</h1>
         <p style={{ color: "var(--error)" }}>Administrators only.</p>
         <Link href="/dashboard">Dashboard</Link>
+      </main>
+    );
+  }
+
+  if (authPhase === "load-error") {
+    return (
+      <main style={{ maxWidth: 560 }}>
+        <h1>Document administration</h1>
+        <p style={{ color: "var(--error)" }}>Could not verify access.</p>
+        <Link href="/admin">Admin hub</Link>
       </main>
     );
   }
@@ -779,105 +1096,345 @@ export default function AdminDocumentsClient() {
   }
 
   return (
-    <main className={dash.page} data-dashboard-fullscreen="true">
-      <AdminChromeHeader user={sessionUser} />
+    <main className={u.shell} data-dashboard-fullscreen="true">
+      <AdminChromeHeader user={sessionUser} className={`${dash.navbar} ${u.navbarRow}`} />
       <div className={styles.workspace}>
-        <div className={styles.shell}>
-          <header className={styles.pageHead}>
-            <h1 className={styles.title}>Document administration</h1>
-            <p className={styles.subtitle}>
-              Click a row to open details and management in the side panel—same flow as the document library explorer.
-              Use the row menu for quick actions, or export and bulk tools below.
-            </p>
-          </header>
-
-          <div className={styles.navSlot}>
-            <AdminNav />
-          </div>
-
-          <div className={styles.toolbar}>
-            <div className={styles.tabs} role="tablist" aria-label="Document filters">
-              {(
-                [
-                  ["all", "All"],
-                  ["active", "Active"],
-                  ["completed", "Completed"],
-                  ["archived", "Archived"],
-                ] as const
-              ).map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === key}
-                  className={`${styles.tab} ${tab === key ? styles.tabActive : ""}`}
-                  onClick={() => setTab(key)}
+        <div className={u.adminBody}>
+          <aside className={u.adminSidebar} aria-label="Admin sections">
+            {ADMIN_SIDEBAR_LINKS.map(({ href, label, icon }) => {
+              const active = adminNavActive(href, pathname ?? "");
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={active ? `${u.sidebarLink} ${u.sidebarLinkActive}` : u.sidebarLink}
+                  aria-current={active ? "page" : undefined}
                 >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className={styles.searchWrap}>
-              <IconSearch />
-              <input
-                className={styles.searchInput}
-                type="search"
-                placeholder="Search documents…"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                aria-label="Search documents"
-              />
-            </div>
-          </div>
+                  <AdminHubGlyph type={icon} className={u.sidebarIcon} />
+                  <span className={u.sidebarLabel}>{label}</span>
+                </Link>
+              );
+            })}
+          </aside>
 
-          <p className={styles.countLine}>
-            {listLoading ? "Loading…" : `${total.toLocaleString()} document${total === 1 ? "" : "s"}`}
-          </p>
-
-          {listError ? (
-            <div className={styles.errorBanner} role="alert">
-              {listError}
+          <div className={u.main}>
+            <div className={u.pageHead}>
+              <div>
+                <h1 className={u.pageTitle}>Documents</h1>
+                <p className={u.pageSubtitle}>
+                  Search, filter, and manage the library. Click a row for the side panel. Use New document to upload from
+                  here, or the floating button to open the member library view.
+                </p>
+              </div>
             </div>
-          ) : null}
 
-          <div className={styles.tableCard}>
-            {listLoading && documents.length === 0 ? (
-              <div className={styles.loading}>Loading documents…</div>
-            ) : documents.length === 0 ? (
-              <div className={styles.emptyState}>No documents match the current filters.</div>
-            ) : (
-              <>
-                <div className={styles.tableScroll}>
-                  <table className={styles.table}>
-                    <thead>
+            <div className={u.tableCard}>
+              <div className={u.cardToolbar}>
+                <div className={styles.cardToolbarLeft}>
+                  <h2 className={u.cardToolbarTitle}>Document list</h2>
+                  <div className={styles.tabs} role="tablist" aria-label="Document filters">
+                    {(
+                      [
+                        ["all", "All"],
+                        ["active", "Active"],
+                        ["completed", "Completed"],
+                        ["archived", "Archived"],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        role="tab"
+                        aria-selected={tab === key}
+                        className={`${styles.tab} ${tab === key ? styles.tabActive : ""}`}
+                        onClick={() => setTab(key)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className={u.toolbarRight}>
+                  <button
+                    type="button"
+                    className={u.btnPrimary}
+                    onClick={() => {
+                      resetUploadForm();
+                      setUploadModalOpen(true);
+                    }}
+                  >
+                    New document
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.toolbarDeleteBtn}
+                    disabled={
+                      listLoading || bulkBusy || selectedBulkIds.size === 0 || selectedBulkIds.size > 50
+                    }
+                    title={
+                      selectedBulkIds.size > 50
+                        ? "Select at most 50 documents per delete"
+                        : selectedBulkIds.size === 0
+                          ? "Select documents with the row checkboxes"
+                          : `Permanently delete ${selectedBulkIds.size} selected`
+                    }
+                    onClick={() => void bulkDeleteByIds([...selectedBulkIds])}
+                  >
+                    Delete
+                  </button>
+                  <div className={u.toolbarSearch}>
+                    <ToolbarIconSearch />
+                    <input
+                      type="search"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder="Filter list…"
+                      aria-label="Filter document list"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.filterBar} role="group" aria-label="List filters">
+                <label className={styles.filterField}>
+                  <span className={styles.filterLabel}>Department</span>
+                  <select
+                    className={styles.filterSelect}
+                    value={filterDepartmentId}
+                    onChange={(e) => setFilterDepartmentId(e.target.value)}
+                    aria-label="Filter by department"
+                  >
+                    <option value="">All departments</option>
+                    <option value="__general">General (no department)</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.filterField}>
+                  <span className={styles.filterLabel}>Visibility</span>
+                  <select
+                    className={styles.filterSelect}
+                    value={filterVisibility}
+                    onChange={(e) => setFilterVisibility(e.target.value)}
+                    aria-label="Filter by visibility"
+                  >
+                    <option value="ALL">All users</option>
+                    <option value="DEPARTMENT">Department</option>
+                    <option value="PRIVATE">Private</option>
+                  </select>
+                </label>
+                <label className={styles.filterField}>
+                  <span className={styles.filterLabel}>Processing</span>
+                  <select
+                    className={styles.filterSelect}
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    disabled={tab === "completed"}
+                    aria-label="Filter by processing status"
+                  >
+                    <option value="ALL">Any status</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="PROCESSING">Processing</option>
+                    <option value="READY">Ready</option>
+                    <option value="FAILED">Failed</option>
+                  </select>
+                </label>
+                <label className={styles.filterField}>
+                  <span className={styles.filterLabel}>Owner</span>
+                  <select
+                    className={styles.filterSelect}
+                    value={filterOwnerId}
+                    onChange={(e) => setFilterOwnerId(e.target.value)}
+                    aria-label="Filter by document owner"
+                  >
+                    <option value="">Any owner</option>
+                    {owners.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.filterField}>
+                  <span className={styles.filterLabel}>Tag</span>
+                  <input
+                    type="search"
+                    className={styles.filterTagInput}
+                    value={filterTag}
+                    onChange={(e) => setFilterTag(e.target.value)}
+                    placeholder="Exact tag…"
+                    aria-label="Filter by tag name"
+                  />
+                </label>
+                <label className={styles.filterField}>
+                  <span className={styles.filterLabel}>Sort</span>
+                  <select
+                    className={styles.filterSelect}
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value as AdminSortKey)}
+                    aria-label="Sort list"
+                  >
+                    <option value="updatedAt_desc">Last updated · Newest</option>
+                    <option value="updatedAt_asc">Last updated · Oldest</option>
+                    <option value="createdAt_desc">Uploaded · Newest</option>
+                    <option value="createdAt_asc">Uploaded · Oldest</option>
+                    <option value="title_asc">Title A–Z</option>
+                    <option value="title_desc">Title Z–A</option>
+                  </select>
+                </label>
+                <label className={styles.filterField}>
+                  <span className={styles.filterLabel}>Page size</span>
+                  <select
+                    className={styles.filterSelect}
+                    value={String(pageSize)}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    aria-label="Rows per page"
+                  >
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                </label>
+              </div>
+
+              {selectedBulkIds.size > 0 ? (
+                <div className={styles.bulkSelectionBar}>
+                  <span className={styles.bulkSelectionCount}>
+                    {selectedBulkIds.size} selected
+                    {selectedBulkIds.size > 50 ? (
+                      <span className={styles.bulkSelectionWarn}> (max 50 per delete)</span>
+                    ) : null}
+                  </span>
+                  <button type="button" className={u.btnGhost} onClick={clearBulkSelection}>
+                    Clear selection
+                  </button>
+                </div>
+              ) : null}
+
+              {bulkErr ? (
+                <p role="alert" className={styles.tableFeedbackErr}>
+                  {bulkErr}
+                </p>
+              ) : null}
+              {bulkMsg ? (
+                <p role="status" className={styles.tableFeedbackOk}>
+                  {bulkMsg}
+                </p>
+              ) : null}
+
+              {listError ? (
+                <p role="alert" style={{ color: "var(--error)", padding: "0 1.1rem" }}>
+                  {listError}
+                </p>
+              ) : null}
+
+              <div className={`${u.tableScroll} ${styles.docTableWrap}`}>
+                <table className={u.dataTable}>
+                  <thead>
+                    <tr>
+                      <th className={u.checkboxTh} scope="col">
+                        <input
+                          ref={headerCheckboxRef}
+                          type="checkbox"
+                          checked={pageAllSelected}
+                          onChange={() => toggleSelectAllOnPage()}
+                          aria-label="Select all documents on this page"
+                        />
+                      </th>
+                      <th scope="col">
+                        <button
+                          type="button"
+                          className={styles.sortThBtn}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cycleSort("title");
+                          }}
+                          aria-label={`Sort by title; current: ${sort.startsWith("title") ? sort : "other"}`}
+                        >
+                          Document
+                          {sort === "title_asc" ? " ↑" : sort === "title_desc" ? " ↓" : ""}
+                        </button>
+                      </th>
+                      <th scope="col">Tags</th>
+                      <th scope="col">Department</th>
+                      <th scope="col">Visibility</th>
+                      <th scope="col">
+                        <button
+                          type="button"
+                          className={styles.sortThBtn}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cycleSort("createdAt");
+                          }}
+                          aria-label="Sort by upload date"
+                        >
+                          Uploaded
+                          {sort === "createdAt_asc" ? " ↑" : sort === "createdAt_desc" ? " ↓" : ""}
+                        </button>
+                      </th>
+                      <th scope="col">
+                        <button
+                          type="button"
+                          className={styles.sortThBtn}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cycleSort("updatedAt");
+                          }}
+                          aria-label="Sort by last updated"
+                        >
+                          Last updated
+                          {sort === "updatedAt_asc" ? " ↑" : sort === "updatedAt_desc" ? " ↓" : ""}
+                        </button>
+                      </th>
+                      <th scope="col">Owner</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {documents.length === 0 ? (
                       <tr>
-                        <th className={styles.th}>Document</th>
-                        <th className={styles.th}>Uploaded</th>
-                        <th className={styles.th}>Last updated</th>
-                        <th className={styles.th}>Owner</th>
-                        <th className={styles.th}>Status</th>
-                        <th className={styles.th} aria-label="Actions" />
+                        <td colSpan={10} className={u.cellMuted} style={{ padding: "1.25rem" }}>
+                          {listLoading ? "Loading…" : "No documents match the current filters."}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {documents.map((d) => {
+                    ) : (
+                      documents.map((d) => {
                         const fileName = d.latestVersion?.fileName ?? "—";
                         const st = d.latestVersion?.processingStatus ?? "";
                         const archived = d.isArchived === true;
                         const ownerSrc = profilePictureDisplayUrl(d.createdBy.profilePictureUrl ?? null);
                         const busy = rowBusyId === d.id;
-                        const selected = selectedDocId === d.id;
+                        const panelOpen = selectedDocId === d.id;
+                        const bulkOn = selectedBulkIds.has(d.id);
 
                         return (
                           <tr
                             key={d.id}
-                            className={`${styles.row} ${selected ? styles.rowSelected : ""}`}
+                            className={`${u.clickableRow}${bulkOn ? ` ${u.rowSelected}` : ""}${
+                              panelOpen ? ` ${styles.rowPanelOpen}` : ""
+                            }`}
                             onClick={() => {
                               setSelectedDocId(d.id);
                               setOpenMenuId(null);
                             }}
                           >
-                            <td className={`${styles.td} ${styles.docCell}`}>
+                            <td
+                              className={u.checkboxCell}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={bulkOn}
+                                onChange={() => toggleBulkSelected(d.id)}
+                                aria-label={`Select ${d.title}`}
+                              />
+                            </td>
+                            <td className={styles.docCell}>
                               <div className={styles.docRow}>
                                 <span className={styles.docIcon}>
                                   <FileTypeIcon fileName={fileName} variant="row" />
@@ -898,11 +1455,12 @@ export default function AdminDocumentsClient() {
                                 </div>
                               </div>
                             </td>
-                            <td className={`${styles.td} ${styles.dateCell}`}>{formatUploadedDate(d.createdAt)}</td>
-                            <td className={`${styles.td} ${styles.dateCell}`}>
-                              {formatRelativeUpdated(d.updatedAt, d.createdAt)}
-                            </td>
-                            <td className={`${styles.td} ${styles.ownerCell}`}>
+                            <td className={styles.tagsCell}>{tagsCellSummary(d.tags)}</td>
+                            <td className={u.cellMuted}>{d.departmentName ?? "General"}</td>
+                            <td className={u.cellMuted}>{visibilityShort(d.visibility)}</td>
+                            <td className={u.cellMuted}>{formatUploadedDate(d.createdAt)}</td>
+                            <td className={u.cellMuted}>{formatRelativeUpdated(d.updatedAt, d.createdAt)}</td>
+                            <td className={styles.ownerCell}>
                               <div className={styles.owner}>
                                 {ownerSrc ? (
                                   <ProfileAvatarImage
@@ -923,20 +1481,21 @@ export default function AdminDocumentsClient() {
                                 </span>
                               </div>
                             </td>
-                            <td className={styles.td}>
+                            <td>
                               <span className={`${styles.statusPill} ${statusPillClass(st, archived)}`}>
                                 {archived ? "Archived" : statusLabel(st)}
                               </span>
                             </td>
-                            <td
-                              className={`${styles.td} ${styles.actionsCell}`}
-                              onClick={(e) => e.stopPropagation()}
-                              onKeyDown={(e) => e.stopPropagation()}
-                            >
-                              <div className={styles.menuWrap} ref={openMenuId === d.id ? menuRef : undefined}>
+                            <td onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                              <div className={styles.menuWrap} data-admin-documents-row-menu>
                                 <button
                                   type="button"
-                                  className={styles.menuBtn}
+                                  ref={(el) => {
+                                    const m = docMenuBtnRefs.current;
+                                    if (el) m.set(d.id, el);
+                                    else m.delete(d.id);
+                                  }}
+                                  className={u.rowMenuBtn}
                                   aria-expanded={openMenuId === d.id}
                                   aria-haspopup="menu"
                                   aria-label={`Actions for ${d.title}`}
@@ -945,8 +1504,12 @@ export default function AdminDocumentsClient() {
                                 >
                                   <IconDots />
                                 </button>
-                                {openMenuId === d.id ? (
-                                  <div className={styles.menuPanel} role="menu">
+                                {openMenuId === d.id && docMenuBox ? (
+                                  <div
+                                    className={styles.menuPanelFixed}
+                                    style={{ top: docMenuBox.top, left: docMenuBox.left, minWidth: 208 }}
+                                    role="menu"
+                                  >
                                     <Link
                                       href={`/documents/${d.id}`}
                                       className={styles.menuItem}
@@ -962,6 +1525,15 @@ export default function AdminDocumentsClient() {
                                       onClick={() => void copyId(d.id)}
                                     >
                                       Copy document ID
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={styles.menuItem}
+                                      role="menuitem"
+                                      disabled={busy}
+                                      onClick={() => openVersionsForRow(d)}
+                                    >
+                                      Versions…
                                     </button>
                                     <button
                                       type="button"
@@ -987,118 +1559,171 @@ export default function AdminDocumentsClient() {
                             </td>
                           </tr>
                         );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                {totalPages > 1 ? (
-                  <div className={styles.pagination}>
-                    <span className={styles.pageInfo}>
-                      Page {page} of {totalPages}
-                    </span>
-                    <div className={styles.pageBtns}>
-                      <button
-                        type="button"
-                        className={styles.pageBtn}
-                        disabled={page <= 1 || listLoading}
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      >
-                        Previous
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.pageBtn}
-                        disabled={page >= totalPages || listLoading}
-                        onClick={() => setPage((p) => p + 1)}
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </>
-            )}
-          </div>
-
-          <details className={styles.advanced}>
-            <summary className={styles.advancedSummary}>CSV export & bulk delete</summary>
-            <div className={styles.advancedBody}>
-              <div className={styles.toolBlock}>
-                <h2 className={styles.toolTitle}>CSV export</h2>
-                <p className={styles.toolDesc}>
-                  Exports up to 5,000 rows. Optional search filter; include archived to add archived files when the library
-                  scope is “all”.
-                </p>
-                <label className={styles.fieldLabel}>
-                  Optional title or description search
-                  <input
-                    className={styles.textInput}
-                    value={exportQ}
-                    onChange={(e) => setExportQ(e.target.value)}
-                  />
-                </label>
-                <label className={styles.checkboxRow}>
-                  <input
-                    type="checkbox"
-                    checked={includeArchived}
-                    onChange={(e) => setIncludeArchived(e.target.checked)}
-                  />
-                  <span>Include archived documents</span>
-                </label>
-                {exportErr ? (
-                  <p className={styles.toolError} role="alert">
-                    {exportErr}
-                  </p>
-                ) : null}
-                <button
-                  type="button"
-                  className={styles.primaryBtn}
-                  disabled={exportBusy}
-                  onClick={() => void onExportCsv()}
-                >
-                  {exportBusy ? "Downloading…" : "Download CSV"}
-                </button>
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
 
-              <div className={styles.toolBlock}>
-                <h2 className={styles.toolTitle}>Bulk delete by ID</h2>
-                <p className={styles.toolDesc}>
-                  Paste document UUIDs, separated by commas or new lines. Maximum 50 per request. Storage files are removed.
-                </p>
-                <textarea
-                  className={styles.textarea}
-                  value={bulkIds}
-                  onChange={(e) => setBulkIds(e.target.value)}
-                  rows={5}
-                  placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
-                  aria-label="Document IDs for bulk delete"
-                />
-                {bulkErr ? (
-                  <p className={styles.toolError} role="alert">
-                    {bulkErr}
-                  </p>
-                ) : null}
-                {bulkMsg ? (
-                  <p className={styles.toolOk} role="status">
-                    {bulkMsg}
-                  </p>
-                ) : null}
-                <button
-                  type="button"
-                  className={styles.dangerBtn}
-                  disabled={bulkBusy}
-                  onClick={() => void onBulkDelete()}
-                >
-                  {bulkBusy ? "Deleting…" : "Delete documents"}
+              <div className={u.paginationBar}>
+                <button type="button" disabled={page <= 1 || listLoading} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                  Previous
+                </button>
+                <span>
+                  Page {page} of {totalPages} ({total} document{total === 1 ? "" : "s"})
+                </span>
+                <button type="button" disabled={page >= totalPages || listLoading} onClick={() => setPage((p) => p + 1)}>
+                  Next
                 </button>
               </div>
             </div>
-          </details>
-
-          <p className={styles.libraryLink}>
-            <Link href="/documents">Open document library (user view)</Link>
-          </p>
+          </div>
         </div>
+
+        {uploadModalOpen ? (
+          <>
+            <button
+              type="button"
+              className={styles.uploadModalBackdrop}
+              aria-label="Close upload dialog"
+              onClick={() => {
+                setUploadModalOpen(false);
+                resetUploadForm();
+              }}
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={uploadModalTitleId}
+              className={styles.uploadModal}
+            >
+              <div className={styles.uploadModalHeader}>
+                <h2 id={uploadModalTitleId} className={styles.uploadModalTitle}>
+                  New document
+                </h2>
+                <button
+                  type="button"
+                  className={styles.uploadModalClose}
+                  aria-label="Close"
+                  onClick={() => {
+                    setUploadModalOpen(false);
+                    resetUploadForm();
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <form className={styles.uploadModalBody} onSubmit={(e) => void submitNewDocument(e)}>
+                {uploadErr ? (
+                  <p className={styles.uploadModalErr} role="alert">
+                    {uploadErr}
+                  </p>
+                ) : null}
+                <label className={styles.uploadModalField}>
+                  <span className={styles.uploadModalLabel}>Title</span>
+                  <input
+                    type="text"
+                    className={styles.uploadModalInput}
+                    value={uploadTitle}
+                    onChange={(e) => setUploadTitle(e.target.value)}
+                    autoComplete="off"
+                    required
+                  />
+                </label>
+                <label className={styles.uploadModalField}>
+                  <span className={styles.uploadModalLabel}>File</span>
+                  <input
+                    ref={newDocFileInputRef}
+                    type="file"
+                    className={styles.uploadModalFile}
+                    accept=".pdf,.doc,.docx,.txt,.html,.htm,.md,.csv,.xlsx,.xls,.pptx,.png,.jpg,.jpeg,.gif,.webp"
+                    onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                    required
+                  />
+                </label>
+                <label className={styles.uploadModalField}>
+                  <span className={styles.uploadModalLabel}>Visibility</span>
+                  <select
+                    className={styles.uploadModalInput}
+                    value={uploadVisibility}
+                    onChange={(e) => setUploadVisibility(e.target.value)}
+                  >
+                    <option value="ALL">All users</option>
+                    <option value="DEPARTMENT">Department</option>
+                    <option value="PRIVATE">Private</option>
+                  </select>
+                </label>
+                {uploadVisibility === "DEPARTMENT" ? (
+                  <label className={styles.uploadModalField}>
+                    <span className={styles.uploadModalLabel}>Department</span>
+                    <select
+                      className={styles.uploadModalInput}
+                      value={uploadDepartmentId}
+                      onChange={(e) => setUploadDepartmentId(e.target.value)}
+                      required
+                    >
+                      {departments.length === 0 ? (
+                        <option value="">Loading…</option>
+                      ) : (
+                        departments.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </label>
+                ) : null}
+                <label className={styles.uploadModalField}>
+                  <span className={styles.uploadModalLabel}>Description (optional)</span>
+                  <textarea
+                    className={styles.uploadModalTextarea}
+                    value={uploadDescription}
+                    onChange={(e) => setUploadDescription(e.target.value)}
+                    rows={3}
+                  />
+                </label>
+                <label className={styles.uploadModalField}>
+                  <span className={styles.uploadModalLabel}>Tags (optional, comma-separated)</span>
+                  <input
+                    type="text"
+                    className={styles.uploadModalInput}
+                    value={uploadTagsRaw}
+                    onChange={(e) => setUploadTagsRaw(e.target.value)}
+                    placeholder="design, guide"
+                  />
+                </label>
+                <div className={styles.uploadModalActions}>
+                  <button
+                    type="button"
+                    className={u.btnGhost}
+                    disabled={uploadBusy}
+                    onClick={() => {
+                      setUploadModalOpen(false);
+                      resetUploadForm();
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className={u.btnPrimary} disabled={uploadBusy}>
+                    {uploadBusy ? "Uploading…" : "Upload"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </>
+        ) : null}
+
+        <Link
+          href="/documents"
+          className={styles.libraryFab}
+          aria-label="Open document library"
+          title="Document library"
+        >
+          <span className={styles.libraryFabInner}>
+            <LibraryFabIcon />
+          </span>
+        </Link>
 
         <button
           type="button"
@@ -1180,6 +1805,7 @@ export default function AdminDocumentsClient() {
                                     className={`${styles.panelDescDd} ${
                                       latest.processingStatus === "FAILED" ? styles.panelStatusFailed : ""
                                     }`}
+                                    title={processingErrorHoverTitle(latest.processingStatus, latest.processingError)}
                                   >
                                     {statusLabel(latest.processingStatus)}
                                   </dd>
@@ -1246,32 +1872,24 @@ export default function AdminDocumentsClient() {
                             <h4 className={styles.panelBlockTitle}>All versions</h4>
                             <ul className={styles.versionsList}>
                               {doc.versions.map((v) => (
-                                <li
-                                  key={v.id}
-                                  className={`${styles.versionRow} ${v.processingStatus === "FAILED" ? styles.versionRowFailed : ""}`}
-                                >
-                                  <div className={styles.versionMain}>
-                                    <div className={styles.versionTitle}>
-                                      v{v.versionNumber} {v.fileName}
+                                <li key={v.id} className={styles.versionRow}>
+                                  <div className={styles.versionRowInner}>
+                                    <span className={styles.docIcon}>
+                                      <FileTypeIcon fileName={v.fileName} variant="row" />
+                                    </span>
+                                    <div className={styles.docText}>
+                                      <p className={styles.docTitle}>{v.fileName}</p>
+                                      <p className={styles.docMeta}>
+                                        v{v.versionNumber} · {formatDocSize(v.sizeBytes)} · {statusLabel(v.processingStatus)}
+                                      </p>
                                     </div>
-                                    <div className={styles.versionMeta}>
-                                      {formatDocSize(v.sizeBytes)} · {statusLabel(v.processingStatus)}
-                                    </div>
-                                    {panelDetail.canManage && v.processingError ? (
-                                      <div className={styles.procErrBox}>{v.processingError}</div>
-                                    ) : null}
                                   </div>
-                                  <div className={styles.versionMeta}>
-                                    <time dateTime={v.createdAt}>{new Date(v.createdAt).toLocaleString()}</time>
-                                  </div>
+                                  <time className={styles.versionRowTime} dateTime={v.createdAt}>
+                                    {formatUploadedDate(v.createdAt)}
+                                  </time>
                                 </li>
                               ))}
                             </ul>
-                          </section>
-                        ) : latest && panelDetail.canManage && latest.processingError ? (
-                          <section className={styles.panelBlock}>
-                            <h4 className={styles.panelBlockTitle}>Processing detail</h4>
-                            <div className={styles.procErrBox}>{latest.processingError}</div>
                           </section>
                         ) : null}
 
@@ -1414,9 +2032,7 @@ export default function AdminDocumentsClient() {
                 <table className={styles.archivesTable}>
                   <thead>
                     <tr>
-                      <th className={styles.archivesTh}>Ver</th>
                       <th className={styles.archivesTh}>File</th>
-                      <th className={styles.archivesTh}>Size</th>
                       <th className={styles.archivesTh}>Status</th>
                       <th className={styles.archivesTh}>Uploaded</th>
                       <th className={styles.archivesTh}>Actions</th>
@@ -1425,7 +2041,7 @@ export default function AdminDocumentsClient() {
                   <tbody>
                     {panelDetail.document.versions.length === 0 ? (
                       <tr>
-                        <td className={styles.archivesTd} colSpan={6}>
+                        <td className={styles.archivesTd} colSpan={4}>
                           No versions yet.
                         </td>
                       </tr>
@@ -1439,68 +2055,85 @@ export default function AdminDocumentsClient() {
                             key={v.id}
                             className={`${styles.archivesTr} ${isLatest ? styles.archivesTrLatest : ""}`}
                           >
-                            <td className={styles.archivesTd}>
-                              <span className={styles.archivesVer}>v{v.versionNumber}</span>
-                              {isLatest ? (
-                                <span className={styles.archivesLatestBadge}>Latest</span>
-                              ) : null}
+                            <td className={`${styles.archivesTd} ${styles.archivesFileCell}`}>
+                              <div className={styles.docRow}>
+                                <span className={styles.docIcon}>
+                                  <FileTypeIcon fileName={v.fileName} variant="row" />
+                                </span>
+                                <div className={styles.docText}>
+                                  <p className={styles.docTitle}>{v.fileName}</p>
+                                  <p className={styles.docMeta}>
+                                    v{v.versionNumber} · {formatDocSize(v.sizeBytes)}
+                                    {isLatest ? (
+                                      <>
+                                        {" "}
+                                        · <span className={styles.archivesLatestBadge}>Latest</span>
+                                      </>
+                                    ) : null}
+                                  </p>
+                                </div>
+                              </div>
                             </td>
-                            <td className={styles.archivesTd}>
-                              <span className={styles.archivesFileName}>{v.fileName}</span>
-                            </td>
-                            <td className={styles.archivesTd}>{formatDocSize(v.sizeBytes)}</td>
                             <td className={styles.archivesTd}>
                               <span
-                                className={
-                                  v.processingStatus === "FAILED"
-                                    ? styles.archivesStatusFailed
-                                    : styles.archivesStatus
-                                }
+                                className={`${styles.statusPill} ${statusPillClass(v.processingStatus, false)}`}
+                                title={processingErrorHoverTitle(v.processingStatus, v.processingError)}
                               >
                                 {statusLabel(v.processingStatus)}
                               </span>
                             </td>
                             <td className={styles.archivesTd}>
                               <time className={styles.archivesTime} dateTime={v.createdAt}>
-                                {new Date(v.createdAt).toLocaleString()}
+                                {formatUploadedDate(v.createdAt)}
                               </time>
                             </td>
                             <td className={styles.archivesTd}>
                               <div className={styles.archivesActions}>
                                 <button
                                   type="button"
-                                  className={styles.archivesBtn}
+                                  className={styles.archivesIconBtn}
+                                  title="Download this version"
+                                  aria-label={`Download ${v.fileName}`}
                                   disabled={!!archivesDownloadingId || archivesUploadBusy}
                                   onClick={() =>
                                     void downloadVersionFromArchives(selectedDocId, v.id, v.fileName)
                                   }
                                 >
-                                  {archivesDownloadingId === v.id ? "…" : "Download"}
+                                  {archivesDownloadingId === v.id ? (
+                                    <span className={styles.archivesIconSpinner} aria-hidden />
+                                  ) : (
+                                    <ArchivesIconDownload />
+                                  )}
                                 </button>
                                 <button
                                   type="button"
-                                  className={styles.archivesBtn}
+                                  className={styles.archivesIconBtn}
+                                  title="Copy version ID"
+                                  aria-label="Copy version ID to clipboard"
                                   disabled={rowBusy}
                                   onClick={() => void copyVersionId(v.id)}
                                 >
-                                  Copy ver. ID
+                                  <ArchivesIconCopy />
                                 </button>
                                 {panelDetail.canManage && v.processingStatus !== "PROCESSING" ? (
                                   <button
                                     type="button"
-                                    className={styles.archivesBtn}
+                                    className={styles.archivesIconBtn}
+                                    title="Reprocess this version"
+                                    aria-label="Reprocess file"
                                     disabled={!!archivesReprocessId || archivesUploadBusy}
                                     onClick={() =>
                                       void reprocessVersion(selectedDocId, v.id, "archives")
                                     }
                                   >
-                                    {archivesReprocessId === v.id ? "…" : "Reprocess"}
+                                    {archivesReprocessId === v.id ? (
+                                      <span className={styles.archivesIconSpinner} aria-hidden />
+                                    ) : (
+                                      <ArchivesIconRefresh />
+                                    )}
                                   </button>
                                 ) : null}
                               </div>
-                              {panelDetail.canManage && v.processingError ? (
-                                <p className={styles.archivesRowErr}>{v.processingError}</p>
-                              ) : null}
                             </td>
                           </tr>
                         );

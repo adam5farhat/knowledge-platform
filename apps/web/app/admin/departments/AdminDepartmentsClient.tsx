@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
+import { fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
 import type { UserRestrictionsDto } from "../../../lib/restrictions";
 import { FileTypeIcon } from "@/components/FileTypeIcon";
 import { ProfileAvatarImage } from "@/components/ProfileAvatarImage";
 import { ProfilePhotoUploader } from "@/components/ProfilePhotoUploader";
 import { profilePictureDisplayUrl } from "@/lib/profilePicture";
 import { AdminChromeHeader } from "../AdminChromeHeader";
+import { useAdminGuard } from "../useAdminGuard";
 import { AdminHubGlyph, type AdminHubGlyphType } from "../AdminHubIcons";
 import dash from "../../components/shellNav.module.css";
 import hubStyles from "../users/adminUsers.module.css";
@@ -48,8 +49,6 @@ type DeptRow = {
   memberPreview: MemberPreview[];
   memberCount: number;
 };
-
-type Phase = "checking" | "need-login" | "forbidden" | "load-error" | "ready";
 
 type AdminUserRow = {
   id: string;
@@ -164,7 +163,8 @@ type SessionUser = { id: string; name: string; email: string; role: string; prof
 export default function AdminDepartmentsClient() {
   const router = useRouter();
   const pathname = usePathname();
-  const [phase, setPhase] = useState<Phase>("checking");
+  const { phase: authPhase, sessionUser: guardSession } = useAdminGuard();
+  const [dataPhase, setDataPhase] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
   const [departments, setDepartments] = useState<DeptRow[]>([]);
   const [departmentName, setDepartmentName] = useState("");
@@ -207,6 +207,20 @@ export default function AdminDepartmentsClient() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createModalError, setCreateModalError] = useState<string | null>(null);
+  useEffect(() => {
+    if (authPhase !== "ready" || !guardSession?.id) {
+      setSessionUser(null);
+      return;
+    }
+    setSessionUser({
+      id: guardSession.id,
+      name: guardSession.name,
+      email: guardSession.email,
+      role: guardSession.role,
+      profilePictureUrl: guardSession.profilePictureUrl ?? null,
+    });
+  }, [authPhase, guardSession]);
+
   const bumpUserProfilePicture = useCallback((userId: string, url: string | null) => {
     setDrillUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, profilePictureUrl: url } : u)));
     setPanelUser((p) => (p && p.id === userId ? { ...p, profilePictureUrl: url } : p));
@@ -239,52 +253,24 @@ export default function AdminDepartmentsClient() {
   }, [departments, selectedDeptId]);
 
   useEffect(() => {
+    if (authPhase !== "ready") {
+      setDataPhase("idle");
+      return;
+    }
     let cancelled = false;
+    setDataPhase("loading");
     void (async () => {
-      const t = await getValidAccessToken();
-      if (!t) {
-        if (!cancelled) {
-          setPhase("need-login");
-          router.replace("/login");
-        }
-        return;
-      }
       try {
-        const meRes = await fetchWithAuth(`${API}/auth/me`);
-        if (meRes.status === 401) {
-          clearStoredSession();
-          if (!cancelled) {
-            setPhase("need-login");
-            router.replace("/login");
-          }
-          return;
-        }
-        const me = (await meRes.json().catch(() => ({}))) as {
-          user?: { role?: string; id?: string; name?: string; email?: string; profilePictureUrl?: string | null };
-        };
-        if (!meRes.ok || me.user?.role !== "ADMIN") {
-          if (!cancelled) setPhase("forbidden");
-          return;
-        }
-        if (me.user?.id) {
-          setSessionUser({
-            id: me.user.id,
-            name: me.user.name ?? "",
-            email: me.user.email ?? "",
-            role: me.user.role ?? "ADMIN",
-            profilePictureUrl: me.user.profilePictureUrl ?? null,
-          });
-        }
         const ok = await reload();
-        if (!cancelled) setPhase(ok ? "ready" : "load-error");
+        if (!cancelled) setDataPhase(ok ? "ready" : "error");
       } catch {
-        if (!cancelled) setPhase("load-error");
+        if (!cancelled) setDataPhase("error");
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [router, reload]);
+  }, [authPhase, reload]);
 
   useEffect(() => {
     if (!restrictionToast) return;
@@ -552,7 +538,6 @@ export default function AdminDepartmentsClient() {
     const authToken = await getValidAccessToken();
     if (!authToken) {
       setCreateModalError("Not signed in. Please sign in again.");
-      setPhase("need-login");
       router.replace("/login");
       return;
     }
@@ -681,7 +666,7 @@ export default function AdminDepartmentsClient() {
     return () => window.clearTimeout(id);
   }, [departmentSuccess]);
 
-  if (phase === "checking") {
+  if (authPhase === "checking") {
     return (
       <main>
         <p>Loading…</p>
@@ -689,7 +674,7 @@ export default function AdminDepartmentsClient() {
     );
   }
 
-  if (phase === "need-login") {
+  if (authPhase === "need-login") {
     return (
       <main style={{ maxWidth: 520 }}>
         <h1>Departments</h1>
@@ -703,7 +688,7 @@ export default function AdminDepartmentsClient() {
     );
   }
 
-  if (phase === "forbidden") {
+  if (authPhase === "forbidden") {
     return (
       <main style={{ maxWidth: 520 }}>
         <h1>Departments</h1>
@@ -717,11 +702,33 @@ export default function AdminDepartmentsClient() {
     );
   }
 
-  if (phase === "load-error") {
+  if (authPhase === "load-error") {
+    return (
+      <main style={{ maxWidth: 520 }}>
+        <h1>Departments</h1>
+        <p style={{ color: "var(--error)" }}>Could not verify access.</p>
+        <p style={{ marginTop: "1rem" }}>
+          <Link href="/login">Sign in</Link>
+          {" · "}
+          <Link href="/admin">Admin hub</Link>
+        </p>
+      </main>
+    );
+  }
+
+  if (authPhase === "ready" && dataPhase === "error") {
     return (
       <main>
         <p style={{ color: "var(--error)" }}>Could not load departments.</p>
         <Link href="/dashboard">Dashboard</Link>
+      </main>
+    );
+  }
+
+  if (authPhase === "ready" && dataPhase !== "ready") {
+    return (
+      <main>
+        <p>Loading…</p>
       </main>
     );
   }

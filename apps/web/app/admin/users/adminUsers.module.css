@@ -946,6 +946,73 @@
   filter: brightness(1.06);
 }
 
+.profilePhotoBtn {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  margin: 0.85rem auto 1rem;
+  padding: 0.7rem 1.25rem;
+  border: 1.5px solid color-mix(in srgb, var(--interactive) 32%, var(--border));
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    color-mix(in srgb, var(--interactive) 5%, #fff) 100%
+  );
+  color: var(--interactive);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-sizing: border-box;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 2px 10px color-mix(in srgb, var(--interactive) 14%, transparent);
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease,
+    filter 0.18s ease;
+}
+
+.profilePhotoBtn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--interactive) 58%, var(--border));
+  color: var(--interactive);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--interactive) 8%, #fff) 0%,
+    color-mix(in srgb, var(--interactive) 14%, #fff) 100%
+  );
+  box-shadow:
+    0 2px 6px rgba(15, 23, 42, 0.07),
+    0 6px 18px color-mix(in srgb, var(--interactive) 26%, transparent);
+  filter: brightness(1.02);
+  transform: translateY(-1px);
+}
+
+.profilePhotoBtn:active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(0.99);
+  box-shadow:
+    0 1px 3px rgba(15, 23, 42, 0.08),
+    0 2px 8px color-mix(in srgb, var(--interactive) 18%, transparent);
+}
+
+.profilePhotoBtn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--interactive) 55%, transparent);
+  outline-offset: 3px;
+}
+
+.profilePhotoBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .profileFieldsCard {
   margin: 1.1rem 1rem 0;
   padding: 0.85rem 0.75rem;

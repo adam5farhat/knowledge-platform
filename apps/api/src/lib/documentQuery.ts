@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { DocumentProcessingStatus, DocumentVisibility } from "@prisma/client";
+import { DocumentProcessingStatus, DocumentVisibility, RoleName } from "@prisma/client";
 import type { AuthContext } from "./documentAccess.js";
 import { prisma } from "./prisma.js";
 import { normalizeTagName } from "./tags.js";
@@ -147,6 +147,10 @@ export function parseDocumentListSort(raw: unknown): Prisma.DocumentOrderByWithR
   switch (s) {
     case "updatedAt_asc":
       return { updatedAt: "asc" };
+    case "createdAt_asc":
+      return { createdAt: "asc" };
+    case "createdAt_desc":
+      return { createdAt: "desc" };
     case "title_asc":
       return { title: "asc" };
     case "title_desc":
@@ -173,7 +177,28 @@ export type ListDocumentsParams = {
   includeDepartmentCounts: boolean;
   /** Admin-only: when scope is ALL, do not exclude archived documents. */
   allScopeIncludeArchived?: boolean;
+  /** Admin-only: latest version is not READY, or document has no versions. */
+  needsAttention?: boolean;
+  /** Admin-only: filter by document creator. */
+  createdById?: string;
 };
+
+/** Documents whose latest version is not READY (or have no versions). */
+async function documentIdsWhereLatestNotReady(): Promise<string[]> {
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT d.id FROM "Document" d
+    WHERE d."isArchived" = false
+    AND NOT EXISTS (
+      SELECT 1 FROM "DocumentVersion" v
+      WHERE v."documentId" = d.id
+        AND v."processingStatus" = 'READY'::"DocumentProcessingStatus"
+        AND v."versionNumber" = (
+          SELECT MAX(v2."versionNumber") FROM "DocumentVersion" v2 WHERE v2."documentId" = d.id
+        )
+    )
+  `;
+  return rows.map((r) => r.id);
+}
 
 export async function listDocuments(p: ListDocumentsParams): Promise<{
   documents: Prisma.DocumentGetPayload<{ include: typeof docListInclude }>[];
@@ -238,6 +263,18 @@ export async function listDocuments(p: ListDocumentsParams): Promise<{
     if (st) {
       andParts.push({ versions: { some: { processingStatus: st } } });
     }
+  }
+
+  if (p.createdById && p.user.role === RoleName.ADMIN) {
+    andParts.push({ createdById: p.createdById });
+  }
+
+  if (p.needsAttention && p.user.role === RoleName.ADMIN) {
+    const attentionIds = await documentIdsWhereLatestNotReady();
+    if (attentionIds.length === 0) {
+      return { documents: [], total: 0, departmentCounts: undefined };
+    }
+    andParts.push({ id: { in: attentionIds } });
   }
 
   const where: Prisma.DocumentWhereInput =

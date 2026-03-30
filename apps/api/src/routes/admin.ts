@@ -1,4 +1,4 @@
-import { Prisma, RoleName } from "@prisma/client";
+import { AuthEventType, DocumentAuditAction, Prisma, RoleName } from "@prisma/client";
 import { Router } from "express";
 import multer from "multer";
 import { z } from "zod";
@@ -11,6 +11,9 @@ import { isAllowedProfilePictureUrlForUser } from "../lib/avatar.js";
 import { clearUserAvatar, commitAvatarUpload } from "../lib/avatarOps.js";
 
 export const adminRouter = Router();
+
+const ADMIN_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const adminAvatarUpload = multer({
   storage: multer.memoryStorage(),
@@ -1136,22 +1139,509 @@ adminRouter.get("/stats", authenticateToken, requireRole(RoleName.ADMIN), async 
   });
 });
 
+const kpiPeriodSchema = z.enum(["daily", "weekly", "monthly", "yearly"]);
+
+function kpiRollingWindows(period: z.infer<typeof kpiPeriodSchema>): {
+  current: { start: Date; end: Date };
+  previous: { start: Date; end: Date };
+  periodLabel: string;
+} {
+  const end = new Date();
+  const day = 86400000;
+  const lenMs =
+    period === "daily" ? day : period === "weekly" ? 7 * day : period === "monthly" ? 30 * day : 365 * day;
+  const currentStart = new Date(end.getTime() - lenMs);
+  const previousEnd = currentStart;
+  const previousStart = new Date(previousEnd.getTime() - lenMs);
+  const periodLabel =
+    period === "daily"
+      ? "24h vs prior 24h"
+      : period === "weekly"
+        ? "7d vs prior 7d"
+        : period === "monthly"
+          ? "30d vs prior 30d"
+          : "365d vs prior 365d";
+  return {
+    current: { start: currentStart, end },
+    previous: { start: previousStart, end: previousEnd },
+    periodLabel,
+  };
+}
+
+/**
+ * Period-over-period change. When the prior window had 0 events and the current has some,
+ * we do not use +100% (misleading); we set fromZeroBaseline so the UI can show "New" instead.
+ */
+function kpiChange(current: number, previous: number): {
+  changePercent: number | null;
+  fromZeroBaseline: boolean;
+  trend: "up" | "down" | "flat";
+} {
+  if (previous === 0 && current === 0) {
+    return { changePercent: 0, fromZeroBaseline: false, trend: "flat" };
+  }
+  if (previous === 0 && current > 0) {
+    return { changePercent: null, fromZeroBaseline: true, trend: "up" };
+  }
+  if (previous === 0) {
+    return { changePercent: 0, fromZeroBaseline: false, trend: "down" };
+  }
+  const raw = ((current - previous) / previous) * 100;
+  const pct = Math.round(raw * 10) / 10;
+  if (Math.abs(pct) < 0.05) {
+    return { changePercent: 0, fromZeroBaseline: false, trend: "flat" };
+  }
+  return {
+    changePercent: pct,
+    fromZeroBaseline: false,
+    trend: current > previous ? "up" : "down",
+  };
+}
+
+type AdminKpiModule = "users" | "documents" | "departments" | "system" | "ai";
+
+type AdminKpiPayload = {
+  id: string;
+  module: AdminKpiModule;
+  label: string;
+  value: string;
+  basis: string;
+  /** Null when fromZeroBaseline (avoid fake +100%). */
+  changePercent: number | null;
+  fromZeroBaseline?: boolean;
+  trend: "up" | "down" | "flat";
+  invertTrend?: boolean;
+};
+
+const KPI_TIMESERIES_IDS = new Set([
+  "users_total",
+  "users_active",
+  "logins",
+  "documents_total",
+  "documents_archived",
+  "document_activity",
+  "departments",
+  "versions_failed",
+  "ai_chunks",
+]);
+
+/** Last 12 calendar months (oldest → newest), local midnight bounds. */
+function last12CalendarMonthBuckets(): { start: Date; end: Date; label: string }[] {
+  const now = new Date();
+  const buckets: { start: Date; end: Date; label: string }[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+    const monthShort = start.toLocaleString("en-US", { month: "short" });
+    const y = start.getFullYear();
+    buckets.push({
+      start,
+      end,
+      label: `${monthShort} ${y}`,
+    });
+  }
+  return buckets;
+}
+
+adminRouter.get("/stats/kpis/:kpiId/timeseries", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+  const kpiId = typeof req.params.kpiId === "string" ? req.params.kpiId.trim() : "";
+  if (!KPI_TIMESERIES_IDS.has(kpiId)) {
+    res.status(400).json({ error: "Unknown KPI id" });
+    return;
+  }
+
+  const buckets = last12CalendarMonthBuckets();
+  const range = (fn: (b: { start: Date; end: Date }) => Promise<number>) => Promise.all(buckets.map(fn));
+
+  let title: string;
+  let seriesLabel: string;
+  let values: number[];
+
+  switch (kpiId) {
+    case "users_total":
+      title = "Total users";
+      seriesLabel = "New registrations per month";
+      values = await range((b) =>
+        prisma.user.count({ where: { createdAt: { gte: b.start, lte: b.end } } }),
+      );
+      break;
+    case "users_active":
+      title = "Active users";
+      seriesLabel = "Distinct users with login per month";
+      values = await range((b) =>
+        prisma.user.count({
+          where: { lastLoginAt: { gte: b.start, lte: b.end } },
+        }),
+      );
+      break;
+    case "logins":
+      title = "Successful logins";
+      seriesLabel = "Login events per month";
+      values = await range((b) =>
+        prisma.authEvent.count({
+          where: {
+            eventType: AuthEventType.LOGIN_SUCCESS,
+            createdAt: { gte: b.start, lte: b.end },
+          },
+        }),
+      );
+      break;
+    case "documents_total":
+      title = "Documents";
+      seriesLabel = "New documents per month";
+      values = await range((b) =>
+        prisma.document.count({ where: { createdAt: { gte: b.start, lte: b.end } } }),
+      );
+      break;
+    case "documents_archived":
+      title = "Archived documents";
+      seriesLabel = "Archive events per month";
+      values = await range((b) =>
+        prisma.documentAuditLog.count({
+          where: {
+            action: DocumentAuditAction.ARCHIVED,
+            createdAt: { gte: b.start, lte: b.end },
+          },
+        }),
+      );
+      break;
+    case "document_activity":
+      title = "Document activity";
+      seriesLabel = "Audit events per month";
+      values = await range((b) =>
+        prisma.documentAuditLog.count({ where: { createdAt: { gte: b.start, lte: b.end } } }),
+      );
+      break;
+    case "departments":
+      title = "Departments";
+      seriesLabel = "New departments per month";
+      values = await range((b) =>
+        prisma.department.count({ where: { createdAt: { gte: b.start, lte: b.end } } }),
+      );
+      break;
+    case "versions_failed":
+      title = "Failed processing";
+      seriesLabel = "New failures per month";
+      values = await range((b) =>
+        prisma.documentVersion.count({
+          where: {
+            processingStatus: "FAILED",
+            createdAt: { gte: b.start, lte: b.end },
+          },
+        }),
+      );
+      break;
+    case "ai_chunks":
+      title = "Embedding chunks";
+      seriesLabel = "Chunks added per month (by version upload)";
+      values = await range((b) =>
+        prisma.documentChunk.count({
+          where: {
+            documentVersion: {
+              createdAt: { gte: b.start, lte: b.end },
+            },
+          },
+        }),
+      );
+      break;
+    default:
+      res.status(400).json({ error: "Unknown KPI id" });
+      return;
+  }
+
+  res.json({
+    kpiId,
+    title,
+    seriesLabel,
+    labels: buckets.map((b) => b.label),
+    values,
+  });
+});
+
+adminRouter.get("/stats/kpis", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+  const parsed = kpiPeriodSchema.safeParse(typeof req.query.period === "string" ? req.query.period : "weekly");
+  const period = parsed.success ? parsed.data : "weekly";
+  const { current, previous, periodLabel } = kpiRollingWindows(period);
+
+  const [
+    totalUsers,
+    activeUsers,
+    totalDocuments,
+    archivedDocuments,
+    totalDepartments,
+    failedVersionsTotal,
+    newUsersCurr,
+    newUsersPrev,
+    loginsCurr,
+    loginsPrev,
+    activeWithLoginCurr,
+    activeWithLoginPrev,
+    newDocsCurr,
+    newDocsPrev,
+    archivedEventsCurr,
+    archivedEventsPrev,
+    newDeptsCurr,
+    newDeptsPrev,
+    failedVerCurr,
+    failedVerPrev,
+    auditCurr,
+    auditPrev,
+    embeddingChunksTotal,
+  ] = await Promise.all([
+    prisma.user.count(),
+    prisma.user.count({ where: { isActive: true } }),
+    prisma.document.count(),
+    prisma.document.count({ where: { isArchived: true } }),
+    prisma.department.count(),
+    prisma.documentVersion.count({ where: { processingStatus: "FAILED" } }),
+    prisma.user.count({ where: { createdAt: { gte: current.start, lte: current.end } } }),
+    prisma.user.count({ where: { createdAt: { gte: previous.start, lte: previous.end } } }),
+    prisma.authEvent.count({
+      where: { eventType: AuthEventType.LOGIN_SUCCESS, createdAt: { gte: current.start, lte: current.end } },
+    }),
+    prisma.authEvent.count({
+      where: { eventType: AuthEventType.LOGIN_SUCCESS, createdAt: { gte: previous.start, lte: previous.end } },
+    }),
+    prisma.user.count({
+      where: { lastLoginAt: { gte: current.start, lte: current.end } },
+    }),
+    prisma.user.count({
+      where: { lastLoginAt: { gte: previous.start, lte: previous.end } },
+    }),
+    prisma.document.count({ where: { createdAt: { gte: current.start, lte: current.end } } }),
+    prisma.document.count({ where: { createdAt: { gte: previous.start, lte: previous.end } } }),
+    prisma.documentAuditLog.count({
+      where: { action: DocumentAuditAction.ARCHIVED, createdAt: { gte: current.start, lte: current.end } },
+    }),
+    prisma.documentAuditLog.count({
+      where: { action: DocumentAuditAction.ARCHIVED, createdAt: { gte: previous.start, lte: previous.end } },
+    }),
+    prisma.department.count({ where: { createdAt: { gte: current.start, lte: current.end } } }),
+    prisma.department.count({ where: { createdAt: { gte: previous.start, lte: previous.end } } }),
+    prisma.documentVersion.count({
+      where: {
+        processingStatus: "FAILED",
+        createdAt: { gte: current.start, lte: current.end },
+      },
+    }),
+    prisma.documentVersion.count({
+      where: {
+        processingStatus: "FAILED",
+        createdAt: { gte: previous.start, lte: previous.end },
+      },
+    }),
+    prisma.documentAuditLog.count({ where: { createdAt: { gte: current.start, lte: current.end } } }),
+    prisma.documentAuditLog.count({ where: { createdAt: { gte: previous.start, lte: previous.end } } }),
+    prisma.documentChunk.count(),
+  ]);
+
+  const kpiUsersTotal: AdminKpiPayload = {
+    id: "users_total",
+    module: "users",
+    label: "Total users",
+    value: String(totalUsers),
+    basis: "New registrations",
+    ...kpiChange(newUsersCurr, newUsersPrev),
+  };
+  const kpiUsersActive: AdminKpiPayload = {
+    id: "users_active",
+    module: "users",
+    label: "Active users",
+    value: String(activeUsers),
+    basis: "Accounts with login in period",
+    ...kpiChange(activeWithLoginCurr, activeWithLoginPrev),
+  };
+  const kpiLogins: AdminKpiPayload = {
+    id: "logins",
+    module: "users",
+    label: "Successful logins",
+    value: String(loginsCurr),
+    basis: "Auth events",
+    ...kpiChange(loginsCurr, loginsPrev),
+  };
+  const kpiDocumentsTotal: AdminKpiPayload = {
+    id: "documents_total",
+    module: "documents",
+    label: "Documents",
+    value: String(totalDocuments),
+    basis: "New documents",
+    ...kpiChange(newDocsCurr, newDocsPrev),
+  };
+  const kpiDocumentsArchived: AdminKpiPayload = {
+    id: "documents_archived",
+    module: "documents",
+    label: "Archived documents",
+    value: String(archivedDocuments),
+    basis: "Archive events",
+    ...kpiChange(archivedEventsCurr, archivedEventsPrev),
+  };
+  const kpiDocumentActivity: AdminKpiPayload = {
+    id: "document_activity",
+    module: "documents",
+    label: "Document activity",
+    value: String(auditCurr),
+    basis: "Audit events",
+    ...kpiChange(auditCurr, auditPrev),
+  };
+  const kpiDepartments: AdminKpiPayload = {
+    id: "departments",
+    module: "departments",
+    label: "Departments",
+    value: String(totalDepartments),
+    basis: "New departments",
+    ...kpiChange(newDeptsCurr, newDeptsPrev),
+  };
+  const kpiVersionsFailed: AdminKpiPayload = {
+    id: "versions_failed",
+    module: "system",
+    label: "Failed processing",
+    value: String(failedVersionsTotal),
+    basis: "New failures",
+    ...kpiChange(failedVerCurr, failedVerPrev),
+    invertTrend: true,
+  };
+  const kpiAiChunks: AdminKpiPayload = {
+    id: "ai_chunks",
+    module: "ai",
+    label: "Embedding chunks",
+    value: String(embeddingChunksTotal),
+    basis: "Vectors in index",
+    changePercent: 0,
+    fromZeroBaseline: false,
+    trend: "flat",
+  };
+
+  const modules: { id: string; title: string; kpis: AdminKpiPayload[] }[] = [
+    { id: "users", title: "Users", kpis: [kpiUsersTotal, kpiUsersActive, kpiLogins] },
+    { id: "documents", title: "Documents", kpis: [kpiDocumentsTotal, kpiDocumentsArchived, kpiDocumentActivity] },
+    { id: "departments", title: "Departments", kpis: [kpiDepartments] },
+    { id: "system", title: "System", kpis: [kpiVersionsFailed] },
+    { id: "ai", title: "AI & search", kpis: [kpiAiChunks] },
+  ];
+
+  const kpis = modules.flatMap((m) => m.kpis);
+
+  res.json({ period, periodLabel, modules, kpis });
+});
+
+function buildDocumentAuditWhere(query: Record<string, unknown>): {
+  where: Prisma.DocumentAuditLogWhereInput;
+  orderBy: { createdAt: "asc" | "desc" };
+} {
+  const q = typeof query.q === "string" ? query.q.trim() : "";
+  const actionRaw = typeof query.action === "string" ? query.action.trim() : "";
+  const userIdRaw = typeof query.userId === "string" ? query.userId.trim() : "";
+  const documentIdRaw = typeof query.documentId === "string" ? query.documentId.trim() : "";
+  const fromRaw = typeof query.from === "string" ? query.from.trim() : "";
+  const toRaw = typeof query.to === "string" ? query.to.trim() : "";
+
+  const and: Prisma.DocumentAuditLogWhereInput[] = [];
+
+  if (documentIdRaw.length > 0 && ADMIN_UUID_RE.test(documentIdRaw)) {
+    and.push({ documentId: documentIdRaw });
+  }
+
+  if (actionRaw.length > 0 && Object.values(DocumentAuditAction).includes(actionRaw as DocumentAuditAction)) {
+    and.push({ action: actionRaw as DocumentAuditAction });
+  }
+
+  if (ADMIN_UUID_RE.test(userIdRaw)) {
+    and.push({ userId: userIdRaw });
+  }
+
+  if (fromRaw.length > 0) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fromRaw)) {
+      const [y, m, d] = fromRaw.split("-").map(Number) as [number, number, number];
+      and.push({ createdAt: { gte: new Date(y, m - 1, d, 0, 0, 0, 0) } });
+    } else {
+      const from = new Date(fromRaw);
+      if (!Number.isNaN(from.getTime())) {
+        and.push({ createdAt: { gte: from } });
+      }
+    }
+  }
+  if (toRaw.length > 0) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(toRaw)) {
+      const [y, m, d] = toRaw.split("-").map(Number) as [number, number, number];
+      and.push({ createdAt: { lte: new Date(y, m - 1, d, 23, 59, 59, 999) } });
+    } else {
+      const to = new Date(toRaw);
+      if (!Number.isNaN(to.getTime())) {
+        and.push({ createdAt: { lte: to } });
+      }
+    }
+  }
+
+  if (q.length > 0) {
+    and.push({
+      OR: [
+        { document: { is: { title: { contains: q, mode: "insensitive" } } } },
+        { user: { is: { email: { contains: q, mode: "insensitive" } } } },
+        { user: { is: { name: { contains: q, mode: "insensitive" } } } },
+      ],
+    });
+  }
+
+  const where: Prisma.DocumentAuditLogWhereInput =
+    and.length === 0 ? {} : and.length === 1 ? and[0]! : { AND: and };
+
+  const sortAsc = query.sort === "createdAt_asc";
+  const orderBy = { createdAt: sortAsc ? ("asc" as const) : ("desc" as const) };
+
+  return { where, orderBy };
+}
+
+adminRouter.get("/document-audit/export", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+  const { where, orderBy } = buildDocumentAuditWhere(req.query as Record<string, unknown>);
+  const rows = await prisma.documentAuditLog.findMany({
+    where,
+    orderBy,
+    take: 5000,
+    include: {
+      user: { select: { id: true, email: true, name: true, profilePictureUrl: true } },
+      document: { select: { id: true, title: true } },
+    },
+  });
+
+  const esc = (s: string) => `"${String(s).replace(/"/g, '""')}"`;
+  const lines = [
+    "id,createdAt,action,documentId,documentTitle,userId,userEmail,userName,metadata",
+    ...rows.map((e) => {
+      const meta = e.metadata == null ? "" : JSON.stringify(e.metadata);
+      return [
+        e.id,
+        e.createdAt.toISOString(),
+        e.action,
+        e.documentId ?? "",
+        e.document ? esc(e.document.title) : "",
+        e.userId ?? "",
+        e.user ? esc(e.user.email) : "",
+        e.user ? esc(e.user.name) : "",
+        esc(meta),
+      ].join(",");
+    }),
+  ];
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="document-audit-export.csv"');
+  res.send(lines.join("\n"));
+});
+
 adminRouter.get("/document-audit", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
   const page = Math.max(1, Number.parseInt(String(req.query.page ?? "1"), 10) || 1);
   const pageSize = Math.min(100, Math.max(1, Number.parseInt(String(req.query.pageSize ?? "40"), 10) || 40));
-  const documentId = typeof req.query.documentId === "string" && req.query.documentId.length > 0 ? req.query.documentId : undefined;
-
-  const where = documentId ? { documentId } : {};
+  const { where, orderBy } = buildDocumentAuditWhere(req.query as Record<string, unknown>);
 
   const [total, logs] = await Promise.all([
     prisma.documentAuditLog.count({ where }),
     prisma.documentAuditLog.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
       include: {
-        user: { select: { id: true, email: true, name: true } },
+        user: { select: { id: true, email: true, name: true, profilePictureUrl: true } },
         document: { select: { id: true, title: true } },
       },
     }),
@@ -1168,19 +1658,131 @@ adminRouter.get("/document-audit", authenticateToken, requireRole(RoleName.ADMIN
       metadata: e.metadata,
       documentId: e.documentId,
       document: e.document ? { id: e.document.id, title: e.document.title } : null,
-      user: e.user ? { id: e.user.id, email: e.user.email, name: e.user.name } : null,
+      user: e.user
+        ? {
+            id: e.user.id,
+            email: e.user.email,
+            name: e.user.name,
+            profilePictureUrl: e.user.profilePictureUrl ?? null,
+          }
+        : null,
     })),
   });
+});
+
+function buildAuthActivityWhere(query: Record<string, unknown>): {
+  where: Prisma.AuthEventWhereInput;
+  orderBy: { createdAt: "asc" | "desc" };
+} {
+  const q = typeof query.q === "string" ? query.q.trim() : "";
+  const eventTypeRaw = typeof query.eventType === "string" ? query.eventType.trim() : "";
+  const ip = typeof query.ip === "string" ? query.ip.trim() : "";
+  const userIdRaw = typeof query.userId === "string" ? query.userId.trim() : "";
+  const fromRaw = typeof query.from === "string" ? query.from.trim() : "";
+  const toRaw = typeof query.to === "string" ? query.to.trim() : "";
+
+  const and: Prisma.AuthEventWhereInput[] = [];
+
+  if (eventTypeRaw.length > 0 && Object.values(AuthEventType).includes(eventTypeRaw as AuthEventType)) {
+    and.push({ eventType: eventTypeRaw as AuthEventType });
+  }
+
+  if (ADMIN_UUID_RE.test(userIdRaw)) {
+    and.push({ userId: userIdRaw });
+  }
+
+  if (ip.length > 0) {
+    and.push({ ipAddress: { contains: ip, mode: "insensitive" } });
+  }
+
+  if (fromRaw.length > 0) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fromRaw)) {
+      const [y, m, d] = fromRaw.split("-").map(Number) as [number, number, number];
+      and.push({ createdAt: { gte: new Date(y, m - 1, d, 0, 0, 0, 0) } });
+    } else {
+      const from = new Date(fromRaw);
+      if (!Number.isNaN(from.getTime())) {
+        and.push({ createdAt: { gte: from } });
+      }
+    }
+  }
+  if (toRaw.length > 0) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(toRaw)) {
+      const [y, m, d] = toRaw.split("-").map(Number) as [number, number, number];
+      and.push({ createdAt: { lte: new Date(y, m - 1, d, 23, 59, 59, 999) } });
+    } else {
+      const to = new Date(toRaw);
+      if (!Number.isNaN(to.getTime())) {
+        and.push({ createdAt: { lte: to } });
+      }
+    }
+  }
+
+  if (q.length > 0) {
+    and.push({
+      OR: [
+        { user: { is: { email: { contains: q, mode: "insensitive" } } } },
+        { user: { is: { name: { contains: q, mode: "insensitive" } } } },
+        { ipAddress: { contains: q, mode: "insensitive" } },
+        { userAgent: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+
+  const where: Prisma.AuthEventWhereInput =
+    and.length === 0 ? {} : and.length === 1 ? and[0]! : { AND: and };
+
+  const sortAsc = query.sort === "createdAt_asc";
+  const orderBy = { createdAt: sortAsc ? ("asc" as const) : ("desc" as const) };
+
+  return { where, orderBy };
+}
+
+adminRouter.get("/activity/export", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+  const { where, orderBy } = buildAuthActivityWhere(req.query as Record<string, unknown>);
+  const rows = await prisma.authEvent.findMany({
+    where,
+    orderBy,
+    take: 5000,
+    include: {
+      user: { select: { id: true, email: true, name: true } },
+    },
+  });
+
+  const esc = (s: string) => `"${String(s).replace(/"/g, '""')}"`;
+  const lines = [
+    "id,createdAt,eventType,userId,userEmail,userName,ipAddress,userAgent,metadata",
+    ...rows.map((e) => {
+      const meta = e.metadata == null ? "" : JSON.stringify(e.metadata);
+      return [
+        e.id,
+        e.createdAt.toISOString(),
+        e.eventType,
+        e.userId ?? "",
+        e.user ? esc(e.user.email) : "",
+        e.user ? esc(e.user.name) : "",
+        e.ipAddress ?? "",
+        esc(e.userAgent ?? ""),
+        esc(meta),
+      ].join(",");
+    }),
+  ];
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="auth-activity-export.csv"');
+  res.send(lines.join("\n"));
 });
 
 adminRouter.get("/activity", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
   const page = Math.max(1, Number.parseInt(String(req.query.page ?? "1"), 10) || 1);
   const pageSize = Math.min(100, Math.max(1, Number.parseInt(String(req.query.pageSize ?? "40"), 10) || 40));
+  const { where, orderBy } = buildAuthActivityWhere(req.query as Record<string, unknown>);
 
   const [total, events] = await Promise.all([
-    prisma.authEvent.count(),
+    prisma.authEvent.count({ where }),
     prisma.authEvent.findMany({
-      orderBy: { createdAt: "desc" },
+      where,
+      orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
       include: {

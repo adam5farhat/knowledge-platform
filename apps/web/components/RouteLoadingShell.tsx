@@ -1,14 +1,12 @@
-import styles from "./RouteLoadingShell.module.css";
-
 export function RouteLoadingShell({ label = "Loading…" }: { label?: string }) {
   return (
-    <main className={styles.wrap} role="status" aria-live="polite">
-      <div className={styles.skeleton} aria-hidden>
-        <div className={`${styles.bar} ${styles.barLong}`} />
-        <div className={`${styles.bar} ${styles.barLong}`} />
-        <div className={`${styles.bar} ${styles.barShort}`} />
+    <main className="kp-route-loading" role="status" aria-live="polite">
+      <div className="kp-route-loading__skeleton" aria-hidden>
+        <div className="kp-route-loading__bar kp-route-loading__bar--long" />
+        <div className="kp-route-loading__bar kp-route-loading__bar--long" />
+        <div className="kp-route-loading__bar kp-route-loading__bar--short" />
       </div>
-      <p className={styles.label}>{label}</p>
+      <p className="kp-route-loading__label">{label}</p>
     </main>
   );
 }

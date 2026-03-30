@@ -4,11 +4,12 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ProfileAvatarImage } from "@/components/ProfileAvatarImage";
-import { ProfilePhotoUploader } from "@/components/ProfilePhotoUploader";
+import { ProfilePhotoModal } from "@/components/ProfilePhotoModal";
 import { profilePictureDisplayUrl } from "@/lib/profilePicture";
-import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
+import { fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
 import type { UserRestrictionsDto } from "../../../lib/restrictions";
 import { AdminChromeHeader } from "../AdminChromeHeader";
+import { useAdminGuard } from "../useAdminGuard";
 import { AdminHubGlyph, type AdminHubGlyphType } from "../AdminHubIcons";
 import dash from "../../components/shellNav.module.css";
 import styles from "./adminUsers.module.css";
@@ -190,8 +191,6 @@ const RESTRICTION_PILLS: { key: keyof UserRestrictionsDto; label: string; toolti
   { key: "useAiQueriesAllowed", label: "Use AI queries", tooltip: "Run semantic (embedding) search over documents." },
 ];
 
-type Phase = "checking" | "need-login" | "forbidden" | "load-error" | "ready";
-
 type SessionUser = { id: string; name: string; email: string; role: string; profilePictureUrl?: string | null };
 
 function fmtDateTime(iso: string | null | undefined): string {
@@ -216,7 +215,8 @@ function userInitials(name: string): string {
 export default function AdminUsersClient() {
   const router = useRouter();
   const pathname = usePathname();
-  const [phase, setPhase] = useState<Phase>("checking");
+  const { phase: authPhase, sessionUser: guardSession } = useAdminGuard();
+  const [bootstrapPhase, setBootstrapPhase] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [departments, setDepartments] = useState<DeptOption[]>([]);
@@ -274,6 +274,10 @@ export default function AdminUsersClient() {
   const [importBusy, setImportBusy] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [forcePwdAfterSet, setForcePwdAfterSet] = useState(false);
+  const [panelPhotoModalOpen, setPanelPhotoModalOpen] = useState(false);
+  const [panelPhotoUrlDraft, setPanelPhotoUrlDraft] = useState("");
+  const [editPhotoModalOpen, setEditPhotoModalOpen] = useState(false);
+  const [editPhotoUrlDraft, setEditPhotoUrlDraft] = useState("");
 
   const bumpUserProfilePicture = useCallback((userId: string, url: string | null) => {
     setDirectoryUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, profilePictureUrl: url } : u)));
@@ -281,6 +285,28 @@ export default function AdminUsersClient() {
     setEditUser((e) => (e && e.id === userId ? { ...e, profilePictureUrl: url } : e));
     setSessionUser((s) => (s && s.id === userId ? { ...s, profilePictureUrl: url } : s));
   }, []);
+
+  useEffect(() => {
+    if (authPhase !== "ready" || !guardSession?.id) {
+      setSessionUser(null);
+      return;
+    }
+    setSessionUser({
+      id: guardSession.id,
+      name: guardSession.name,
+      email: guardSession.email,
+      role: guardSession.role,
+      profilePictureUrl: guardSession.profilePictureUrl ?? null,
+    });
+  }, [authPhase, guardSession]);
+
+  useEffect(() => {
+    if (!panelUser) setPanelPhotoModalOpen(false);
+  }, [panelUser]);
+
+  useEffect(() => {
+    if (!editUser) setEditPhotoModalOpen(false);
+  }, [editUser]);
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -385,61 +411,21 @@ export default function AdminUsersClient() {
   ]);
 
   useEffect(() => {
+    if (authPhase !== "ready") {
+      setBootstrapPhase("idle");
+      return;
+    }
     let cancelled = false;
-
+    setBootstrapPhase("loading");
     void (async () => {
-      const t = await getValidAccessToken();
-      if (!t) {
-        if (!cancelled) {
-          setPhase("need-login");
-          router.replace("/login");
-        }
-        return;
-      }
-
       try {
-        const meRes = await fetchWithAuth(`${API}/auth/me`);
-        if (meRes.status === 401) {
-          clearStoredSession();
-          if (!cancelled) {
-            setPhase("need-login");
-            router.replace("/login");
-          }
-          return;
-        }
-
-        let me: { user?: { id: string; role: string; name?: string; email?: string; profilePictureUrl?: string | null } };
-        try {
-          me = (await meRes.json()) as {
-            user?: { id: string; role: string; name?: string; email?: string; profilePictureUrl?: string | null };
-          };
-        } catch {
-          if (!cancelled) setPhase("load-error");
-          return;
-        }
-
-        if (!meRes.ok || me.user?.role !== "ADMIN") {
-          if (!cancelled) setPhase("forbidden");
-          return;
-        }
-
-        if (!cancelled) {
-          setSessionUser({
-            id: me.user?.id ?? "",
-            name: me.user?.name ?? "",
-            email: me.user?.email ?? "",
-            role: me.user?.role ?? "ADMIN",
-            profilePictureUrl: me.user?.profilePictureUrl ?? null,
-          });
-        }
-
         const [dr, rr] = await Promise.all([
           fetchWithAuth(`${API}/admin/departments`),
           fetchWithAuth(`${API}/admin/roles`),
         ]);
 
         if (!dr.ok || !rr.ok) {
-          if (!cancelled) setPhase("load-error");
+          if (!cancelled) setBootstrapPhase("error");
           return;
         }
 
@@ -449,7 +435,7 @@ export default function AdminUsersClient() {
           dJson = (await dr.json()) as { departments: DeptOption[] };
           rJson = (await rr.json()) as { roles: RoleOption[] };
         } catch {
-          if (!cancelled) setPhase("load-error");
+          if (!cancelled) setBootstrapPhase("error");
           return;
         }
 
@@ -459,10 +445,20 @@ export default function AdminUsersClient() {
           if (dJson.departments.length > 0 && !departmentId) {
             setDepartmentId(dJson.departments[0].id);
           }
-          setPhase("ready");
+          try {
+            const sp = new URLSearchParams(window.location.search);
+            const qParam = sp.get("q");
+            if (qParam) {
+              setUserSearch(qParam);
+              setUserQ(qParam.trim());
+            }
+          } catch {
+            /* ignore */
+          }
+          setBootstrapPhase("ready");
         }
       } catch {
-        if (!cancelled) setPhase("load-error");
+        if (!cancelled) setBootstrapPhase("error");
       }
     })();
 
@@ -470,12 +466,14 @@ export default function AdminUsersClient() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authPhase]);
+
+  const adminReady = authPhase === "ready" && bootstrapPhase === "ready";
 
   useEffect(() => {
-    if (phase !== "ready") return;
+    if (!adminReady) return;
     void loadDirectory();
-  }, [phase, loadDirectory]);
+  }, [adminReady, loadDirectory]);
 
   useEffect(() => {
     setPanelUser((prev) => {
@@ -507,7 +505,6 @@ export default function AdminUsersClient() {
     const authToken = await getValidAccessToken();
     if (!authToken) {
       setSubmitError("Not signed in. Please sign in again.");
-      setPhase("need-login");
       router.replace("/login");
       return;
     }
@@ -1045,7 +1042,7 @@ export default function AdminUsersClient() {
     if (el) el.indeterminate = pageSomeSelected && !pageAllSelected;
   }, [pageSomeSelected, pageAllSelected]);
 
-  if (phase === "checking") {
+  if (authPhase === "checking") {
     return (
       <main>
         <p>Loading…</p>
@@ -1053,7 +1050,7 @@ export default function AdminUsersClient() {
     );
   }
 
-  if (phase === "need-login") {
+  if (authPhase === "need-login") {
     return (
       <main style={{ maxWidth: 480 }}>
         <h1>Users</h1>
@@ -1067,16 +1064,7 @@ export default function AdminUsersClient() {
     );
   }
 
-  if (phase === "load-error") {
-    return (
-      <main>
-        <p style={{ color: "var(--error)" }}>Could not load departments or roles.</p>
-        <Link href="/dashboard">Dashboard</Link>
-      </main>
-    );
-  }
-
-  if (phase === "forbidden") {
+  if (authPhase === "forbidden") {
     return (
       <main style={{ maxWidth: 480 }}>
         <h1>Users</h1>
@@ -1086,6 +1074,37 @@ export default function AdminUsersClient() {
           {" · "}
           <Link href="/documents">Home</Link>
         </p>
+      </main>
+    );
+  }
+
+  if (authPhase === "load-error") {
+    return (
+      <main style={{ maxWidth: 480 }}>
+        <h1>Users</h1>
+        <p style={{ color: "var(--error)" }}>Could not verify access.</p>
+        <p style={{ marginTop: "1rem" }}>
+          <Link href="/login">Sign in</Link>
+          {" · "}
+          <Link href="/admin">Admin hub</Link>
+        </p>
+      </main>
+    );
+  }
+
+  if (authPhase === "ready" && bootstrapPhase === "error") {
+    return (
+      <main>
+        <p style={{ color: "var(--error)" }}>Could not load departments or roles.</p>
+        <Link href="/dashboard">Dashboard</Link>
+      </main>
+    );
+  }
+
+  if (authPhase === "ready" && bootstrapPhase !== "ready") {
+    return (
+      <main>
+        <p>Loading…</p>
       </main>
     );
   }
@@ -1670,16 +1689,29 @@ export default function AdminUsersClient() {
                   Last sign-in {fmtDateTime(panelUser.lastLoginAt)}
                 </p>
                 {!panelUser.deletedAt ? (
-                  <div style={{ marginTop: "0.85rem", width: "100%", maxWidth: 320 }}>
-                    <ProfilePhotoUploader
+                  <>
+                    <button
+                      type="button"
+                      className={styles.profilePhotoBtn}
+                      onClick={() => {
+                        setPanelPhotoUrlDraft(panelUser.profilePictureUrl ?? "");
+                        setPanelPhotoModalOpen(true);
+                      }}
+                    >
+                      Change photo
+                    </button>
+                    <ProfilePhotoModal
+                      open={panelPhotoModalOpen}
+                      onClose={() => setPanelPhotoModalOpen(false)}
                       mode="admin"
                       targetUserId={panelUser.id}
                       displayName={panelUser.name}
                       pictureUrl={panelUser.profilePictureUrl}
-                      compact
+                      pictureUrlDraft={panelPhotoUrlDraft}
+                      onPictureUrlDraftChange={setPanelPhotoUrlDraft}
                       onPictureUpdated={(url) => bumpUserProfilePicture(panelUser.id, url)}
                     />
-                  </div>
+                  </>
                 ) : null}
                 <button
                   type="button"
@@ -2006,12 +2038,26 @@ export default function AdminUsersClient() {
                 <span style={{ fontWeight: 600, fontSize: "0.9rem", display: "block", marginBottom: "0.5rem" }}>
                   Profile photo
                 </span>
-                <ProfilePhotoUploader
+                <button
+                  type="button"
+                  className={styles.profilePhotoBtn}
+                  disabled={!!editUser.deletedAt}
+                  onClick={() => {
+                    setEditPhotoUrlDraft(editUser.profilePictureUrl ?? "");
+                    setEditPhotoModalOpen(true);
+                  }}
+                >
+                  Change photo
+                </button>
+                <ProfilePhotoModal
+                  open={editPhotoModalOpen && !!editUser}
+                  onClose={() => setEditPhotoModalOpen(false)}
                   mode="admin"
                   targetUserId={editUser.id}
                   displayName={editUser.name}
                   pictureUrl={editUser.profilePictureUrl}
-                  disabled={!!editUser.deletedAt}
+                  pictureUrlDraft={editPhotoUrlDraft}
+                  onPictureUrlDraftChange={setEditPhotoUrlDraft}
                   onPictureUpdated={(url) => bumpUserProfilePicture(editUser.id, url)}
                 />
               </div>

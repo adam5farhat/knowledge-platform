@@ -10,6 +10,8 @@ import dash from "../components/shellNav.module.css";
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 export type AdminChromeSessionUser = {
+  /** Present when loaded from `/auth/me` (used by admin screens that compare acting user id). */
+  id?: string;
   name: string;
   email: string;
   role: string;

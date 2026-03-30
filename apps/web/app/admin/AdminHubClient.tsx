@@ -1,24 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "@/lib/authClient";
+import { useAdminGuard } from "./useAdminGuard";
 import dash from "../components/shellNav.module.css";
 import { AdminChromeHeader } from "./AdminChromeHeader";
 import { AdminHubGlyph } from "./AdminHubIcons";
 import styles from "./adminHub.module.css";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-
-type Phase = "checking" | "need-login" | "forbidden" | "ready";
-
-type HubUser = {
-  name: string;
-  email: string;
-  role: string;
-  profilePictureUrl?: string | null;
-};
 
 type HubCard = {
   href: string;
@@ -74,55 +61,7 @@ const cards: HubCard[] = [
 ];
 
 export default function AdminHubClient() {
-  const router = useRouter();
-  const [phase, setPhase] = useState<Phase>("checking");
-  const [user, setUser] = useState<HubUser | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const t = await getValidAccessToken();
-      if (!t) {
-        if (!cancelled) {
-          setPhase("need-login");
-          router.replace("/login");
-        }
-        return;
-      }
-      try {
-        const meRes = await fetchWithAuth(`${API}/auth/me`);
-        if (meRes.status === 401) {
-          clearStoredSession();
-          if (!cancelled) {
-            setPhase("need-login");
-            router.replace("/login");
-          }
-          return;
-        }
-        const me = (await meRes.json().catch(() => ({}))) as {
-          user?: { name?: string; email?: string; role?: string; profilePictureUrl?: string | null };
-        };
-        if (!meRes.ok || me.user?.role !== "ADMIN") {
-          if (!cancelled) setPhase("forbidden");
-          return;
-        }
-        if (!cancelled) {
-          setUser({
-            name: me.user?.name ?? "",
-            email: me.user?.email ?? "",
-            role: me.user?.role ?? "ADMIN",
-            profilePictureUrl: me.user?.profilePictureUrl ?? null,
-          });
-          setPhase("ready");
-        }
-      } catch {
-        if (!cancelled) setPhase("forbidden");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
+  const { phase, sessionUser } = useAdminGuard();
 
   if (phase === "checking") {
     return (
@@ -160,13 +99,27 @@ export default function AdminHubClient() {
     );
   }
 
-  if (!user) {
+  if (phase === "load-error") {
+    return (
+      <main style={{ maxWidth: 520 }}>
+        <h1>Administration</h1>
+        <p style={{ color: "var(--error)" }}>Could not verify access.</p>
+        <p style={{ marginTop: "1rem" }}>
+          <Link href="/login">Sign in</Link>
+          {" · "}
+          <Link href="/documents">Home</Link>
+        </p>
+      </main>
+    );
+  }
+
+  if (!sessionUser) {
     return null;
   }
 
   return (
     <main className={dash.page} data-dashboard-fullscreen="true">
-      <AdminChromeHeader user={user} />
+      <AdminChromeHeader user={sessionUser} />
 
       <Link
         href="/dashboard"

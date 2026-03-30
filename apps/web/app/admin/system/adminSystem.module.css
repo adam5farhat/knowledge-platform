@@ -1,0 +1,446 @@
+.fallbackWrap {
+  padding: 0 1rem 2rem;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.refreshBtn {
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  height: 34px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.refreshBtn:hover {
+  background: #f4f4f6;
+  border-color: color-mix(in srgb, var(--interactive) 35%, var(--border));
+}
+
+.errorText {
+  padding: 0 0 1rem;
+  color: var(--error);
+}
+
+.emptyText {
+  padding: 0 0 1rem;
+  color: var(--muted);
+}
+
+.kpiToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.periodGroup {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+}
+
+.periodBtn {
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.4rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.periodBtn:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--interactive) 6%, transparent);
+}
+
+.periodBtnActive {
+  background: color-mix(in srgb, var(--interactive) 14%, var(--card-bg));
+  color: var(--text);
+}
+
+.periodHint {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.periodHint strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.moduleStack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.moduleSection {
+  margin: 0;
+}
+
+.moduleTitle {
+  margin: 0 0 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.kpiCard {
+  position: relative;
+  padding: 1.25rem 1.25rem 1.35rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 6%, transparent);
+  cursor: default;
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.22s ease,
+    border-color 0.22s ease,
+    background-color 0.22s ease;
+}
+
+.kpiCardInteractive {
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.kpiCardInteractive:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--interactive) 55%, var(--border));
+  outline-offset: 2px;
+}
+
+.kpiCard:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--interactive) 28%, var(--border));
+  box-shadow:
+    0 4px 6px -1px color-mix(in srgb, var(--text) 8%, transparent),
+    0 14px 28px -8px color-mix(in srgb, var(--text) 14%, transparent);
+  background: color-mix(in srgb, var(--card-bg) 92%, #fff);
+}
+
+.kpiIconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  margin-bottom: 0.85rem;
+  color: #fff;
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.22s ease;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.kpiCard:hover .kpiIconWrap {
+  transform: scale(1.06) rotate(-2deg);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--text) 16%, transparent);
+}
+
+/* Module accent gradients — icon tiles */
+.iconModUsers {
+  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 55%, #1d4ed8 100%);
+}
+
+.iconModDocuments {
+  background: linear-gradient(135deg, #fb923c 0%, #ea580c 50%, #c2410c 100%);
+}
+
+.iconModDepartments {
+  background: linear-gradient(135deg, #c4b5fd 0%, #7c3aed 45%, #5b21b6 100%);
+}
+
+.iconModSystem {
+  background: linear-gradient(135deg, #94a3b8 0%, #64748b 40%, #475569 100%);
+}
+
+.iconModAi {
+  background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 45%, #0891b2 100%);
+}
+
+.kpiLabel {
+  margin: 0 0 0.65rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.kpiTrendRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.4rem;
+  margin-bottom: 0.35rem;
+}
+
+.trendArrow {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.trendPct {
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.trendGood {
+  color: #16a34a;
+}
+
+.trendBad {
+  color: #dc2626;
+}
+
+.trendFlat {
+  color: var(--muted);
+}
+
+.kpiBasis {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.kpiValue {
+  margin: 0;
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  line-height: 1.15;
+}
+
+@media (min-width: 1200px) {
+  .kpiGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kpiCard,
+  .kpiIconWrap {
+    transition: none;
+  }
+
+  .kpiCard:hover {
+    transform: none;
+  }
+
+  .kpiCard:hover .kpiIconWrap {
+    transform: none;
+  }
+}
+
+/* KPI analytics modal */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--text) 35%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.modalPanel {
+  width: min(640px, 100%);
+  max-height: min(90vh, 720px);
+  overflow: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px color-mix(in srgb, var(--text) 18%, transparent);
+}
+
+.modalHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.modalSubtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.modalHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.viewToggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text) 4%, var(--card-bg));
+}
+
+.viewToggleBtn {
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.viewToggleBtn:hover {
+  color: var(--text);
+}
+
+.viewToggleBtnActive {
+  background: #2563eb;
+  color: #fff;
+}
+
+.modalClose {
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.modalClose:hover {
+  background: color-mix(in srgb, var(--text) 5%, var(--card-bg));
+}
+
+.modalBody {
+  padding: 1rem 1.1rem 1.25rem;
+}
+
+.chartWrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.chartSvg {
+  display: block;
+  min-width: 520px;
+  width: 100%;
+  height: auto;
+}
+
+.chartLine {
+  fill: none;
+  stroke: #2563eb;
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chartGrid {
+  stroke: color-mix(in srgb, var(--text) 12%, transparent);
+  stroke-width: 1;
+}
+
+.chartAxisText {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
+.chartDot {
+  fill: #2563eb;
+  stroke: var(--card-bg);
+  stroke-width: 2;
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.dataTable th,
+.dataTable td {
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.dataTable th {
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dataTable td:last-child {
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+}
+
+.modalLoading,
+.modalError {
+  margin: 0;
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.modalError {
+  color: var(--error);
+}

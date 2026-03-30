@@ -1,7 +1,8 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  /* Above admin slide-over panels (e.g. user profile ~4600) and other modals */
+  z-index: 6000;
   display: flex;
   align-items: center;
   justify-content: center;

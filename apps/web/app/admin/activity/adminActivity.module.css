@@ -1,0 +1,301 @@
+/* Activity log — toolbar alignment with admin Users/Documents */
+
+.workspace {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbarEventType {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.toolbarEventTypeLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.toolbarEventSelect {
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 0 0.55rem;
+  height: 38px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: #fafafa;
+  color: var(--text);
+  min-width: 10.5rem;
+  max-width: 15rem;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.toolbarEventSelect:hover {
+  border-color: color-mix(in srgb, var(--interactive) 35%, var(--border));
+}
+
+.toolbarEventSelect:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--interactive) 55%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--interactive) 35%, transparent);
+}
+
+.eventPill {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 50%, var(--card-bg));
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.eventOk {
+  background: color-mix(in srgb, var(--success) 12%, var(--card-bg));
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border));
+  color: color-mix(in srgb, #166534 88%, var(--text));
+}
+
+.eventErr {
+  background: color-mix(in srgb, var(--error) 10%, var(--card-bg));
+  border-color: color-mix(in srgb, var(--error) 35%, var(--border));
+  color: color-mix(in srgb, #991b1b 90%, var(--text));
+}
+
+.eventWarn {
+  background: color-mix(in srgb, #f59e0b 14%, var(--card-bg));
+  border-color: color-mix(in srgb, #d97706 35%, var(--border));
+  color: #92400e;
+}
+
+.userAgentCell {
+  max-width: 220px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  word-break: break-word;
+}
+
+.filterStrip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem 1rem;
+  padding: 0.65rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 48%, var(--card-bg));
+}
+
+.filterStripField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.filterStripLabel {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.filterStripInput {
+  font: inherit;
+  font-size: 0.8125rem;
+  padding: 0.35rem 0.5rem;
+  height: 34px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--card-bg);
+  color: var(--text);
+  min-width: 8rem;
+}
+
+.filterStripInput:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--interactive) 55%, var(--border));
+}
+
+.toolbarBtn {
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  height: 34px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.toolbarBtn:hover:not(:disabled) {
+  background: #f4f4f6;
+  border-color: color-mix(in srgb, var(--interactive) 35%, var(--border));
+}
+
+.toolbarBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.clickRow {
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.clickRow:hover td {
+  background: #fafafa;
+}
+
+.userLink {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.userLink:hover {
+  color: var(--interactive);
+  text-decoration: underline;
+}
+
+.detailBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: color-mix(in srgb, #0f172a 42%, transparent);
+  cursor: pointer;
+  backdrop-filter: blur(2px);
+}
+
+.detailDialog {
+  position: fixed;
+  z-index: 85;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+  width: min(560px, calc(100vw - 1.5rem));
+  max-height: min(85vh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.22);
+  overflow: hidden;
+}
+
+.detailHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 40%, var(--card-bg));
+}
+
+.detailTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.detailClose {
+  font: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card-bg);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.detailBody {
+  padding: 1rem 1.1rem 1.15rem;
+  overflow: auto;
+  font-size: 0.875rem;
+}
+
+.detailDl {
+  margin: 0 0 1rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.detailRow {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.detailDt {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.detailDd {
+  margin: 0;
+  word-break: break-word;
+}
+
+.detailActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.detailCode {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  font-family: ui-monospace, monospace;
+  background: color-mix(in srgb, var(--bg) 55%, var(--card-bg));
+  border: 1px solid var(--border);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 240px;
+  overflow: auto;
+}
+
+@media (max-width: 900px) {
+  .hideNarrow {
+    display: none;
+  }
+}
