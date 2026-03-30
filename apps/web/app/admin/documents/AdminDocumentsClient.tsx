@@ -2028,6 +2028,34 @@ export default function AdminDocumentsClient() {
                 </div>
               ) : null}
 
+              {panelDetail.canManage ? (
+                <div className={styles.archivesUploadBar}>
+                  <span className={styles.archivesUploadLabel}>New version</span>
+                  <input
+                    ref={archivesFileInputRef}
+                    type="file"
+                    className={styles.archivesFileInput}
+                    accept=".pdf,.doc,.docx,.txt,.html,.htm,.md,.csv,.xlsx,.xls,.pptx,.png,.jpg,.jpeg,.gif,.webp"
+                    disabled={archivesUploadBusy}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void uploadArchivesVersion(selectedDocId, f);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className={styles.archivesUploadBtn}
+                    disabled={archivesUploadBusy}
+                    onClick={() => archivesFileInputRef.current?.click()}
+                  >
+                    {archivesUploadBusy ? "Uploading…" : "Upload file…"}
+                  </button>
+                  <span className={styles.archivesUploadHint}>
+                    Same rules as the document library (supported types, max 50 MB).
+                  </span>
+                </div>
+              ) : null}
+
               <div className={styles.archivesTableWrap}>
                 <table className={styles.archivesTable}>
                   <thead>
@@ -2142,34 +2170,6 @@ export default function AdminDocumentsClient() {
                   </tbody>
                 </table>
               </div>
-
-              {panelDetail.canManage ? (
-                <div className={styles.archivesUploadBar}>
-                  <span className={styles.archivesUploadLabel}>New version</span>
-                  <input
-                    ref={archivesFileInputRef}
-                    type="file"
-                    className={styles.archivesFileInput}
-                    accept=".pdf,.doc,.docx,.txt,.html,.htm,.md,.csv,.xlsx,.xls,.pptx,.png,.jpg,.jpeg,.gif,.webp"
-                    disabled={archivesUploadBusy}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) void uploadArchivesVersion(selectedDocId, f);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className={styles.archivesUploadBtn}
-                    disabled={archivesUploadBusy}
-                    onClick={() => archivesFileInputRef.current?.click()}
-                  >
-                    {archivesUploadBusy ? "Uploading…" : "Upload file…"}
-                  </button>
-                  <span className={styles.archivesUploadHint}>
-                    Same rules as the document library (supported types, max 50 MB).
-                  </span>
-                </div>
-              ) : null}
 
               <div className={styles.archivesFooter}>
                 <button type="button" className={styles.archivesDoneBtn} onClick={closeArchivesModal}>
