@@ -570,7 +570,7 @@ export default function AdminSystemClient() {
       <main style={{ maxWidth: 520 }}>
         <h1>System</h1>
         <p style={{ color: "var(--error)" }}>Administrators only.</p>
-        <Link href="/dashboard">Dashboard</Link>
+        <Link prefetch={false} href="/dashboard">Dashboard</Link>
       </main>
     );
   }
@@ -581,7 +581,7 @@ export default function AdminSystemClient() {
         {sessionUser ? <AdminChromeHeader user={sessionUser} /> : null}
         <div className={styles.fallbackWrap}>
           <p style={{ color: "var(--error)" }}>Could not verify access.</p>
-          <Link href="/admin">Admin hub</Link>
+          <Link prefetch={false} href="/admin">Admin hub</Link>
         </div>
       </main>
     );

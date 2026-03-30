@@ -337,7 +337,7 @@ export default function AdminActivityClient() {
       <main style={{ maxWidth: 560 }}>
         <h1>Activity</h1>
         <p style={{ color: "var(--error)" }}>Administrators only.</p>
-        <Link href="/dashboard">Dashboard</Link>
+        <Link prefetch={false} href="/dashboard">Dashboard</Link>
       </main>
     );
   }
@@ -346,7 +346,7 @@ export default function AdminActivityClient() {
     return (
       <main>
         <p style={{ color: "var(--error)" }}>Could not verify access.</p>
-        <Link href="/admin">Admin hub</Link>
+        <Link prefetch={false} href="/admin">Admin hub</Link>
       </main>
     );
   }

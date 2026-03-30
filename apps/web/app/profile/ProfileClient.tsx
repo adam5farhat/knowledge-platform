@@ -215,7 +215,7 @@ export default function ProfileClient() {
     return (
       <main className={p.shell} data-dashboard-fullscreen="true">
         <p style={{ padding: "1.25rem" }}>Could not load profile.</p>
-        <Link href="/dashboard">Dashboard</Link>
+        <Link prefetch={false} href="/dashboard">Dashboard</Link>
       </main>
     );
   }
@@ -253,26 +253,31 @@ export default function ProfileClient() {
                 <div>{user.name}</div>
                 <div>{user.email}</div>
               </div>
-              <Link className={dash.menuItem} href="/profile" role="menuitem" onClick={() => setMenuOpen(false)}>
+              <Link prefetch={false} className={dash.menuItem} href="/profile" role="menuitem" onClick={() => setMenuOpen(false)}>
                 View Profile
               </Link>
               {isManagerOrAdmin ? (
-                <Link className={dash.menuItem} href="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>
+                <Link prefetch={false} className={dash.menuItem} href="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>
                   Dashboard
                 </Link>
               ) : null}
-              <Link className={dash.menuItem} href="/documents" role="menuitem" onClick={() => setMenuOpen(false)}>
+              {user.role === "MANAGER" ? (
+                <Link prefetch={false} className={dash.menuItem} href="/manager" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  Department overview
+                </Link>
+              ) : null}
+              <Link prefetch={false} className={dash.menuItem} href="/documents" role="menuitem" onClick={() => setMenuOpen(false)}>
                 Documents
               </Link>
               {isAdmin ? (
                 <>
-                  <Link className={dash.menuItem} href="/admin" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  <Link prefetch={false} className={dash.menuItem} href="/admin" role="menuitem" onClick={() => setMenuOpen(false)}>
                     Admin hub
                   </Link>
-                  <Link className={dash.menuItem} href="/admin/users" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  <Link prefetch={false} className={dash.menuItem} href="/admin/users" role="menuitem" onClick={() => setMenuOpen(false)}>
                     Users
                   </Link>
-                  <Link className={dash.menuItem} href="/admin/departments" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  <Link prefetch={false} className={dash.menuItem} href="/admin/departments" role="menuitem" onClick={() => setMenuOpen(false)}>
                     Departments
                   </Link>
                 </>

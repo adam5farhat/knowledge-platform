@@ -72,7 +72,11 @@ export default function DashboardClient() {
           const rs = body.user.restrictions ?? DEFAULT_USER_RESTRICTIONS;
           if (!rs.accessDashboardAllowed) {
             router.replace(
-              body.user.role === "ADMIN" ? "/admin" : restrictedHref("accessDashboard"),
+              body.user.role === "ADMIN"
+                ? "/admin"
+                : body.user.role === "MANAGER"
+                  ? "/manager"
+                  : restrictedHref("accessDashboard"),
             );
             return;
           }
@@ -130,7 +134,7 @@ export default function DashboardClient() {
         <p style={{ marginTop: "1rem" }}>
           <Link href="/login">Sign in</Link>
           {" · "}
-          <Link href="/documents">Home</Link>
+          <Link prefetch={false} href="/documents">Home</Link>
         </p>
       </main>
     );
@@ -187,23 +191,29 @@ export default function DashboardClient() {
                 <div>{user.name}</div>
                 <div>{user.email}</div>
               </div>
-              <Link className={styles.menuItem} href="/profile" role="menuitem" onClick={() => setMenuOpen(false)}>
+              <Link prefetch={false} className={styles.menuItem} href="/profile" role="menuitem" onClick={() => setMenuOpen(false)}>
                 View Profile
               </Link>
               {isManagerOrAdmin ? (
-                <Link className={styles.menuItem} href="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>
+                <Link prefetch={false} className={styles.menuItem} href="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>
                   Dashboard
+                </Link>
+              ) : null}
+              {user.role === "MANAGER" ? (
+                <Link prefetch={false} className={styles.menuItem} href="/manager" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  Department overview
                 </Link>
               ) : null}
               {user.role === "ADMIN" ? (
                 <>
-                  <Link className={styles.menuItem} href="/admin" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  <Link prefetch={false} className={styles.menuItem} href="/admin" role="menuitem" onClick={() => setMenuOpen(false)}>
                     Admin hub
                   </Link>
-                  <Link className={styles.menuItem} href="/admin/users" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  <Link prefetch={false} className={styles.menuItem} href="/admin/users" role="menuitem" onClick={() => setMenuOpen(false)}>
                     Users
                   </Link>
                   <Link
+                    prefetch={false}
                     className={styles.menuItem}
                     href="/admin/departments"
                     role="menuitem"
@@ -212,6 +222,7 @@ export default function DashboardClient() {
                     Departments
                   </Link>
                   <Link
+                    prefetch={false}
                     className={styles.menuItem}
                     href="/admin/documents"
                     role="menuitem"
@@ -220,6 +231,7 @@ export default function DashboardClient() {
                     Document tools
                   </Link>
                   <Link
+                    prefetch={false}
                     className={styles.menuItem}
                     href="/admin/activity"
                     role="menuitem"
@@ -228,6 +240,7 @@ export default function DashboardClient() {
                     Sign-in activity
                   </Link>
                   <Link
+                    prefetch={false}
                     className={styles.menuItem}
                     href="/admin/document-audit"
                     role="menuitem"
@@ -235,7 +248,7 @@ export default function DashboardClient() {
                   >
                     Document audit
                   </Link>
-                  <Link className={styles.menuItem} href="/admin/system" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  <Link prefetch={false} className={styles.menuItem} href="/admin/system" role="menuitem" onClick={() => setMenuOpen(false)}>
                     System stats
                   </Link>
                 </>
@@ -257,10 +270,11 @@ export default function DashboardClient() {
       </header>
 
       <section
-        className={`${styles.cards} ${user.role === "ADMIN" ? styles.cardsWithAdmin : ""}`}
+        className={`${styles.cards} ${user.role === "ADMIN" || user.role === "MANAGER" ? styles.cardsWithAdmin : ""}`}
         aria-label="Core features"
       >
         <Link
+          prefetch={false}
           className={`${styles.card} ${styles.cardDocuments}`}
           href={docHref}
           aria-label="Go to document management"
@@ -284,6 +298,7 @@ export default function DashboardClient() {
         </Link>
 
         <Link
+          prefetch={false}
           className={`${styles.card} ${styles.cardQuestions}`}
           href={searchHref}
           aria-label="Go to semantic search over document embeddings"
@@ -310,8 +325,43 @@ export default function DashboardClient() {
           </div>
         </Link>
 
+        {user.role === "MANAGER" ? (
+          <Link
+            prefetch={false}
+            className={`${styles.card} ${styles.cardAdmin}`}
+            href="/manager"
+            aria-label="Open department manager overview"
+          >
+            <div className={styles.cardInner}>
+              <div className={styles.icon} aria-hidden>
+                <svg className={styles.iconGlyph} viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path
+                    d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.2" />
+                  <path
+                    d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+              <h2 className={styles.cardTitle}>Department overview</h2>
+              <p className={styles.cardHint}>Your team and documents for your department only</p>
+            </div>
+          </Link>
+        ) : null}
         {user.role === "ADMIN" ? (
-          <Link className={`${styles.card} ${styles.cardAdmin}`} href="/admin" aria-label="Open administrator tools">
+          <Link
+            prefetch={false}
+            className={`${styles.card} ${styles.cardAdmin}`}
+            href="/admin"
+            aria-label="Open administrator tools"
+          >
             <div className={styles.cardInner}>
               <div className={styles.icon} aria-hidden>
                 <svg className={styles.iconGlyph} viewBox="0 0 24 24" fill="none" aria-hidden>

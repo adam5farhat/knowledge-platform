@@ -1072,7 +1072,7 @@ export default function AdminDocumentsClient() {
       <main style={{ maxWidth: 560 }}>
         <h1>Document administration</h1>
         <p style={{ color: "var(--error)" }}>Administrators only.</p>
-        <Link href="/dashboard">Dashboard</Link>
+        <Link prefetch={false} href="/dashboard">Dashboard</Link>
       </main>
     );
   }
@@ -1082,7 +1082,7 @@ export default function AdminDocumentsClient() {
       <main style={{ maxWidth: 560 }}>
         <h1>Document administration</h1>
         <p style={{ color: "var(--error)" }}>Could not verify access.</p>
-        <Link href="/admin">Admin hub</Link>
+        <Link prefetch={false} href="/admin">Admin hub</Link>
       </main>
     );
   }
@@ -1715,6 +1715,7 @@ export default function AdminDocumentsClient() {
         ) : null}
 
         <Link
+          prefetch={false}
           href="/documents"
           className={styles.libraryFab}
           aria-label="Open document library"
@@ -1896,7 +1897,7 @@ export default function AdminDocumentsClient() {
                         <section className={styles.panelBlock}>
                           <h4 className={styles.panelBlockTitle}>Action</h4>
                           <div className={styles.panelActionsRow}>
-                            <Link href={`/documents/${doc.id}`} className={styles.panelActionItem}>
+                            <Link prefetch={false} href={`/documents/${doc.id}`} className={styles.panelActionItem}>
                               <span className={styles.panelActionIcon}>
                                 <PanelIconOpen />
                               </span>
@@ -2030,29 +2031,36 @@ export default function AdminDocumentsClient() {
 
               {panelDetail.canManage ? (
                 <div className={styles.archivesUploadBar}>
-                  <span className={styles.archivesUploadLabel}>New version</span>
-                  <input
-                    ref={archivesFileInputRef}
-                    type="file"
-                    className={styles.archivesFileInput}
-                    accept=".pdf,.doc,.docx,.txt,.html,.htm,.md,.csv,.xlsx,.xls,.pptx,.png,.jpg,.jpeg,.gif,.webp"
-                    disabled={archivesUploadBusy}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) void uploadArchivesVersion(selectedDocId, f);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className={styles.archivesUploadBtn}
-                    disabled={archivesUploadBusy}
-                    onClick={() => archivesFileInputRef.current?.click()}
-                  >
-                    {archivesUploadBusy ? "Uploading…" : "Upload file…"}
-                  </button>
-                  <span className={styles.archivesUploadHint}>
+                  <div className={styles.archivesUploadHead}>
+                    <span className={styles.archivesUploadLabel}>New version</span>
+                    <p className={styles.archivesUploadLead}>
+                      Upload a new file to create the next revision.
+                    </p>
+                  </div>
+                  <div className={styles.archivesUploadActions}>
+                    <input
+                      ref={archivesFileInputRef}
+                      type="file"
+                      className={styles.archivesFileInput}
+                      accept=".pdf,.doc,.docx,.txt,.html,.htm,.md,.csv,.xlsx,.xls,.pptx,.png,.jpg,.jpeg,.gif,.webp"
+                      disabled={archivesUploadBusy}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) void uploadArchivesVersion(selectedDocId, f);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className={styles.archivesUploadBtn}
+                      disabled={archivesUploadBusy}
+                      onClick={() => archivesFileInputRef.current?.click()}
+                    >
+                      {archivesUploadBusy ? "Uploading…" : "Upload file…"}
+                    </button>
+                  </div>
+                  <p className={styles.archivesUploadHint}>
                     Same rules as the document library (supported types, max 50 MB).
-                  </span>
+                  </p>
                 </div>
               ) : null}
 

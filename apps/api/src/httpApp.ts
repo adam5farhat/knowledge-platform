@@ -7,6 +7,7 @@ import { getRedis } from "./lib/redis.js";
 import { prisma } from "./lib/prisma.js";
 import { authRouter } from "./routes/auth.js";
 import { adminRouter } from "./routes/admin.js";
+import { managerRouter } from "./routes/manager.js";
 import { documentsRouter } from "./routes/documents.js";
 import { searchRouter } from "./routes/search.js";
 import { avatarsPublicRouter } from "./routes/avatarsPublic.js";
@@ -21,6 +22,7 @@ export function createHttpApp(): express.Application {
   app.use("/avatars", avatarsPublicRouter);
   app.use("/auth", authRouter);
   app.use("/admin", adminRouter);
+  app.use("/manager", managerRouter);
   app.use("/documents", documentsRouter);
   app.use("/search", searchRouter);
 

@@ -181,6 +181,11 @@ export type ListDocumentsParams = {
   needsAttention?: boolean;
   /** Admin-only: filter by document creator. */
   createdById?: string;
+  /**
+   * Admin-only: department drill for a department named like the library "General" bucket.
+   * Matches documents with no department (org-wide / ALL visibility) OR assigned to this department id.
+   */
+  unionGeneralWithDepartmentId?: string;
 };
 
 /** Documents whose latest version is not READY (or have no versions). */
@@ -243,9 +248,15 @@ export async function listDocuments(p: ListDocumentsParams): Promise<{
     }
   }
 
-  const deptW = departmentFilterWhere(p.departmentKey ?? "");
-  if (deptW) {
-    andParts.push(deptW);
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const unionId = p.unionGeneralWithDepartmentId?.trim();
+  if (p.user.role === RoleName.ADMIN && unionId && uuidRe.test(unionId)) {
+    andParts.push({ OR: [{ departmentId: null }, { departmentId: unionId }] });
+  } else {
+    const deptW = departmentFilterWhere(p.departmentKey ?? "");
+    if (deptW) {
+      andParts.push(deptW);
+    }
   }
 
   const ft = fileTypeWhere(p.fileType);

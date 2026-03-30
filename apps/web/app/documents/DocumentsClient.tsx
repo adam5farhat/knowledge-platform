@@ -643,7 +643,7 @@ export default function DocumentsClient() {
     <main className={styles.shell} data-documents-fullscreen="true">
       <header className={styles.docNavbar}>
         <div className={styles.docNavLeft}>
-          <Link href="/dashboard" className={styles.docNavBrand} aria-label="Dashboard">
+          <Link prefetch={false} href="/dashboard" className={styles.docNavBrand} aria-label="Dashboard">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className={styles.docNavLogo} src="/logo-swapped.svg" alt="" />
           </Link>
@@ -668,12 +668,23 @@ export default function DocumentsClient() {
                     <div>{me.name ?? me.email}</div>
                     <div>{me.email}</div>
                   </div>
-                  <Link className={styles.profileMenuItem} href="/profile" role="menuitem" onClick={() => setProfileMenuOpen(false)}>
+                  <Link prefetch={false} className={styles.profileMenuItem} href="/profile" role="menuitem" onClick={() => setProfileMenuOpen(false)}>
                     Profile
                   </Link>
-                  <Link className={styles.profileMenuItem} href="/dashboard" role="menuitem" onClick={() => setProfileMenuOpen(false)}>
+                  <Link prefetch={false} className={styles.profileMenuItem} href="/dashboard" role="menuitem" onClick={() => setProfileMenuOpen(false)}>
                     Dashboard
                   </Link>
+                  {me?.role === "MANAGER" ? (
+                    <Link
+                      prefetch={false}
+                      className={styles.profileMenuItem}
+                      href="/manager"
+                      role="menuitem"
+                      onClick={() => setProfileMenuOpen(false)}
+                    >
+                      Department overview
+                    </Link>
+                  ) : null}
                   <button
                     type="button"
                     className={styles.profileMenuItem}
@@ -960,7 +971,7 @@ export default function DocumentsClient() {
                   >
                     {bulkBusy ? "Deleting…" : "Delete permanently"}
                   </button>
-                  <Link href="/admin/documents" style={{ fontSize: "0.88rem", color: "#2563eb" }}>
+                  <Link prefetch={false} href="/admin/documents" style={{ fontSize: "0.88rem", color: "#2563eb" }}>
                     Advanced tools (CSV export…)
                   </Link>
                   {bulkErr ? (
@@ -1397,6 +1408,7 @@ export default function DocumentsClient() {
               <h2 className={styles.pdfPreviewTitle}>{pdfPreview?.title ?? "Document preview"}</h2>
               <div className={styles.pdfPreviewHeaderActions}>
                 <Link
+                  prefetch={false}
                   className={styles.pdfPreviewLinkBtn}
                   href={pdfPreview ? `/documents/${pdfPreview.documentId}` : "#"}
                   onClick={(e) => {

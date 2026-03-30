@@ -22,9 +22,11 @@ type Props = {
   user: AdminChromeSessionUser;
   /** e.g. `${dash.navbar} ${styles.navbarRow}` */
   className?: string;
+  /** Manager screens: profile, dashboard, documents only (no admin links). */
+  navVariant?: "admin" | "manager";
 };
 
-export function AdminChromeHeader({ user, className }: Props) {
+export function AdminChromeHeader({ user, className, navVariant = "admin" }: Props) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -83,33 +85,41 @@ export function AdminChromeHeader({ user, className }: Props) {
               <div>{user.name}</div>
               <div>{user.email}</div>
             </div>
-            <Link className={dash.menuItem} href="/profile" role="menuitem" onClick={() => setMenuOpen(false)}>
+            <Link prefetch={false} className={dash.menuItem} href="/profile" role="menuitem" onClick={() => setMenuOpen(false)}>
               View Profile
             </Link>
-            <Link className={dash.menuItem} href="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>
+            <Link prefetch={false} className={dash.menuItem} href="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>
               Dashboard
             </Link>
-            <Link className={dash.menuItem} href="/admin" role="menuitem" onClick={() => setMenuOpen(false)}>
-              Admin hub
-            </Link>
-            <Link className={dash.menuItem} href="/admin/users" role="menuitem" onClick={() => setMenuOpen(false)}>
-              Users
-            </Link>
-            <Link className={dash.menuItem} href="/admin/departments" role="menuitem" onClick={() => setMenuOpen(false)}>
-              Departments
-            </Link>
-            <Link className={dash.menuItem} href="/admin/documents" role="menuitem" onClick={() => setMenuOpen(false)}>
-              Document tools
-            </Link>
-            <Link className={dash.menuItem} href="/admin/activity" role="menuitem" onClick={() => setMenuOpen(false)}>
-              Sign-in activity
-            </Link>
-            <Link className={dash.menuItem} href="/admin/document-audit" role="menuitem" onClick={() => setMenuOpen(false)}>
-              Document audit
-            </Link>
-            <Link className={dash.menuItem} href="/admin/system" role="menuitem" onClick={() => setMenuOpen(false)}>
-              System stats
-            </Link>
+            {navVariant === "manager" ? (
+              <Link prefetch={false} className={dash.menuItem} href="/documents" role="menuitem" onClick={() => setMenuOpen(false)}>
+                Documents
+              </Link>
+            ) : (
+              <>
+                <Link prefetch={false} className={dash.menuItem} href="/admin" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  Admin hub
+                </Link>
+                <Link prefetch={false} className={dash.menuItem} href="/admin/users" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  Users
+                </Link>
+                <Link prefetch={false} className={dash.menuItem} href="/admin/departments" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  Departments
+                </Link>
+                <Link prefetch={false} className={dash.menuItem} href="/admin/documents" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  Document tools
+                </Link>
+                <Link prefetch={false} className={dash.menuItem} href="/admin/activity" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  Sign-in activity
+                </Link>
+                <Link prefetch={false} className={dash.menuItem} href="/admin/document-audit" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  Document audit
+                </Link>
+                <Link prefetch={false} className={dash.menuItem} href="/admin/system" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  System stats
+                </Link>
+              </>
+            )}
             <button
               type="button"
               className={dash.menuItem}

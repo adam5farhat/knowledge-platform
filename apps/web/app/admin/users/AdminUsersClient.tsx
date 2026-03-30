@@ -1058,7 +1058,7 @@ export default function AdminUsersClient() {
         <p style={{ marginTop: "1rem" }}>
           <Link href="/login">Sign in</Link>
           {" · "}
-          <Link href="/documents">Home</Link>
+          <Link prefetch={false} href="/documents">Home</Link>
         </p>
       </main>
     );
@@ -1070,9 +1070,9 @@ export default function AdminUsersClient() {
         <h1>Users</h1>
         <p style={{ color: "var(--error)" }}>Only administrators can manage users.</p>
         <p>
-          <Link href="/dashboard">Dashboard</Link>
+          <Link prefetch={false} href="/dashboard">Dashboard</Link>
           {" · "}
-          <Link href="/documents">Home</Link>
+          <Link prefetch={false} href="/documents">Home</Link>
         </p>
       </main>
     );
@@ -1086,7 +1086,7 @@ export default function AdminUsersClient() {
         <p style={{ marginTop: "1rem" }}>
           <Link href="/login">Sign in</Link>
           {" · "}
-          <Link href="/admin">Admin hub</Link>
+          <Link prefetch={false} href="/admin">Admin hub</Link>
         </p>
       </main>
     );
@@ -1096,7 +1096,7 @@ export default function AdminUsersClient() {
     return (
       <main>
         <p style={{ color: "var(--error)" }}>Could not load departments or roles.</p>
-        <Link href="/dashboard">Dashboard</Link>
+        <Link prefetch={false} href="/dashboard">Dashboard</Link>
       </main>
     );
   }
@@ -1972,7 +1972,7 @@ export default function AdminUsersClient() {
                   )}
                 </select>
                 <p className={styles.hint} style={{ marginTop: "0.35rem" }}>
-                  Need a new one? <Link href="/admin/departments">Departments</Link>
+                  Need a new one? <Link prefetch={false} href="/admin/departments">Departments</Link>
                 </p>
               </label>
               <label>

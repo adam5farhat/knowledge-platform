@@ -322,7 +322,7 @@ export default function AdminDocumentAuditClient() {
       <main style={{ maxWidth: 560 }}>
         <h1>Document audit</h1>
         <p style={{ color: "var(--error)" }}>Administrators only.</p>
-        <Link href="/dashboard">Dashboard</Link>
+        <Link prefetch={false} href="/dashboard">Dashboard</Link>
       </main>
     );
   }
@@ -331,7 +331,7 @@ export default function AdminDocumentAuditClient() {
     return (
       <main>
         <p style={{ color: "var(--error)" }}>Could not verify access.</p>
-        <Link href="/admin">Admin hub</Link>
+        <Link prefetch={false} href="/admin">Admin hub</Link>
       </main>
     );
   }
@@ -539,7 +539,7 @@ export default function AdminDocumentAuditClient() {
                           </td>
                           <td onClick={(ev) => ev.stopPropagation()}>
                             {e.document && e.documentId ? (
-                              <Link href={`/documents/${e.documentId}`} className={styles.userLink}>
+                              <Link prefetch={false} href={`/documents/${e.documentId}`} className={styles.userLink}>
                                 {e.document.title}
                               </Link>
                             ) : e.documentId ? (
@@ -652,7 +652,7 @@ export default function AdminDocumentAuditClient() {
                   <dd className={styles.detailDd}>
                     {detailEntry.document && detailEntry.documentId ? (
                       <>
-                        <Link href={`/documents/${detailEntry.documentId}`} className={styles.userLink}>
+                        <Link prefetch={false} href={`/documents/${detailEntry.documentId}`} className={styles.userLink}>
                           {detailEntry.document.title}
                         </Link>
                         <div className={u.cellMuted} style={{ fontSize: "0.8125rem", marginTop: "0.25rem" }}>

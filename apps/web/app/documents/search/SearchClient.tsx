@@ -131,8 +131,8 @@ export default function SearchClient() {
         title to view the full file. This is not a chatbot—there is no generated answer, only similar passages.
       </p>
       <nav style={{ margin: "1rem 0", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-        <Link href="/documents">Documents</Link>
-        <Link href="/dashboard">Dashboard</Link>
+        <Link prefetch={false} href="/documents">Documents</Link>
+        <Link prefetch={false} href="/dashboard">Dashboard</Link>
       </nav>
 
       <form onSubmit={(e) => void onSearch(e)} style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "1rem" }}>
@@ -186,7 +186,7 @@ export default function SearchClient() {
               }}
             >
               <p style={{ margin: "0 0 0.35rem", fontSize: "0.85rem", color: "#52525b" }}>
-                <Link href={`/documents/${r.document.id}`} style={{ fontWeight: 600, color: "#18181b" }}>
+                <Link prefetch={false} href={`/documents/${r.document.id}`} style={{ fontWeight: 600, color: "#18181b" }}>
                   {r.document.title}
                 </Link>
                 <span style={{ marginLeft: "0.5rem" }}>({r.version.fileName})</span>

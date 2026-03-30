@@ -94,6 +94,7 @@ type DocDetail = {
     mimeType: string;
     sizeBytes: number;
     processingStatus: string;
+    processingError?: string | null;
     createdAt: string;
   }[];
 };
@@ -153,6 +154,19 @@ function fmtDateTime(iso: string | null | undefined): string {
   }
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function docVersionStatusPillClass(processingStatus: string): string {
+  if (processingStatus === "READY") return styles.statusReady;
+  if (processingStatus === "FAILED") return styles.statusFailed;
+  if (processingStatus === "PENDING" || processingStatus === "PROCESSING") return styles.statusPending;
+  return styles.statusOther;
+}
+
 function accountStatusLabel(u: AdminUserRow): string {
   if (u.deletedAt) return "Archived";
   return u.isActive ? "Active" : "Inactive";
@@ -199,6 +213,11 @@ export default function AdminDepartmentsClient() {
   const [docForm, setDocForm] = useState({ title: "", description: "", visibility: "ALL", departmentId: "", tags: "" });
   const [docSaveBusy, setDocSaveBusy] = useState(false);
   const [docSaveMsg, setDocSaveMsg] = useState<string | null>(null);
+  const [docPanelBusy, setDocPanelBusy] = useState(false);
+  const [docPanelDownloadingId, setDocPanelDownloadingId] = useState<string | null>(null);
+  const [docVersionUploadFile, setDocVersionUploadFile] = useState<File | null>(null);
+  const [docPanelActionError, setDocPanelActionError] = useState<string | null>(null);
+  const docVersionFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [passwordUserId, setPasswordUserId] = useState<string | null>(null);
   const [passwordValue, setPasswordValue] = useState("");
@@ -278,13 +297,25 @@ export default function AdminDepartmentsClient() {
     return () => window.clearTimeout(id);
   }, [restrictionToast]);
 
+  useEffect(() => {
+    if (!panelDocId) {
+      setDocVersionUploadFile(null);
+      setDocPanelActionError(null);
+      setDocPanelBusy(false);
+      setDocPanelDownloadingId(null);
+    }
+  }, [panelDocId]);
+
   async function fetchDrillForDept(deptId: string) {
     setDrillLoading(true);
     try {
+      const deptMeta = departments.find((d) => d.id === deptId);
+      const generalLibraryUnion =
+        deptMeta && deptMeta.name.trim().toLowerCase() === "general" ? "&unionGeneralLibrary=1" : "";
       const [ur, dr] = await Promise.all([
         fetchWithAuth(`${API}/admin/users?departmentId=${encodeURIComponent(deptId)}&pageSize=500&page=1`),
         fetchWithAuth(
-          `${API}/documents?libraryScope=ALL&departmentId=${encodeURIComponent(deptId)}&pageSize=500&page=1`,
+          `${API}/documents?libraryScope=ALL&departmentId=${encodeURIComponent(deptId)}&pageSize=500&page=1${generalLibraryUnion}`,
         ),
       ]);
       if (ur.ok) {
@@ -330,6 +361,7 @@ export default function AdminDepartmentsClient() {
     setPanelDocLoading(true);
     setPanelDocDetail(null);
     setDocSaveMsg(null);
+    setDocPanelActionError(null);
     try {
       const res = await fetchWithAuth(`${API}/documents/${id}`);
       const data = (await res.json().catch(() => ({}))) as {
@@ -353,6 +385,83 @@ export default function AdminDepartmentsClient() {
       setPanelDocDetail(null);
     } finally {
       setPanelDocLoading(false);
+    }
+  }
+
+  async function docPanelDownload(versionId: string, fileName: string) {
+    if (!panelDocId) return;
+    setDocPanelDownloadingId(versionId);
+    setDocPanelActionError(null);
+    try {
+      const res = await fetchWithAuth(`${API}/documents/${panelDocId}/versions/${versionId}/file`);
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        setDocPanelActionError(body.error ?? "Download failed");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setDocPanelActionError("Could not download file.");
+    } finally {
+      setDocPanelDownloadingId(null);
+    }
+  }
+
+  async function docPanelRetryVersion(versionId: string) {
+    if (!panelDocId || !panelDocDetail?.canManage) return;
+    setDocPanelBusy(true);
+    setDocPanelActionError(null);
+    try {
+      const res = await fetchWithAuth(`${API}/documents/${panelDocId}/versions/${versionId}/reprocess`, {
+        method: "POST",
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setDocPanelActionError(body.error ?? "Retry failed");
+        return;
+      }
+      await openDocPanel(panelDocId);
+      if (selectedDeptId) void fetchDrillForDept(selectedDeptId);
+    } catch {
+      setDocPanelActionError("Could not reach the API.");
+    } finally {
+      setDocPanelBusy(false);
+    }
+  }
+
+  async function docPanelUploadVersion(e: React.FormEvent) {
+    e.preventDefault();
+    if (!panelDocId || !docVersionUploadFile || !panelDocDetail?.canManage) return;
+    setDocPanelBusy(true);
+    setDocPanelActionError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", docVersionUploadFile);
+      const res = await fetchWithAuth(`${API}/documents/${panelDocId}/versions`, {
+        method: "POST",
+        body: fd,
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setDocPanelActionError(body.error ?? "Upload failed");
+        return;
+      }
+      setDocVersionUploadFile(null);
+      if (docVersionFileInputRef.current) docVersionFileInputRef.current.value = "";
+      await openDocPanel(panelDocId);
+      if (selectedDeptId) void fetchDrillForDept(selectedDeptId);
+    } catch {
+      setDocPanelActionError("Could not reach the API.");
+    } finally {
+      setDocPanelBusy(false);
     }
   }
 
@@ -682,7 +791,7 @@ export default function AdminDepartmentsClient() {
         <p style={{ marginTop: "1rem" }}>
           <Link href="/login">Sign in</Link>
           {" · "}
-          <Link href="/documents">Home</Link>
+          <Link prefetch={false} href="/documents">Home</Link>
         </p>
       </main>
     );
@@ -694,9 +803,9 @@ export default function AdminDepartmentsClient() {
         <h1>Departments</h1>
         <p style={{ color: "var(--error)" }}>Only administrators can manage departments.</p>
         <p>
-          <Link href="/dashboard">Dashboard</Link>
+          <Link prefetch={false} href="/dashboard">Dashboard</Link>
           {" · "}
-          <Link href="/documents">Home</Link>
+          <Link prefetch={false} href="/documents">Home</Link>
         </p>
       </main>
     );
@@ -710,7 +819,7 @@ export default function AdminDepartmentsClient() {
         <p style={{ marginTop: "1rem" }}>
           <Link href="/login">Sign in</Link>
           {" · "}
-          <Link href="/admin">Admin hub</Link>
+          <Link prefetch={false} href="/admin">Admin hub</Link>
         </p>
       </main>
     );
@@ -720,7 +829,7 @@ export default function AdminDepartmentsClient() {
     return (
       <main>
         <p style={{ color: "var(--error)" }}>Could not load departments.</p>
-        <Link href="/dashboard">Dashboard</Link>
+        <Link prefetch={false} href="/dashboard">Dashboard</Link>
       </main>
     );
   }
@@ -992,7 +1101,7 @@ export default function AdminDepartmentsClient() {
             <div className={styles.drillPanel}>
               <div className={styles.drillPanelHead}>
                 <span>Users</span>
-                <Link href="/admin/users" className={styles.drillLink}>
+                <Link prefetch={false} href="/admin/users" className={styles.drillLink}>
                   Users admin
                 </Link>
               </div>
@@ -1034,7 +1143,7 @@ export default function AdminDepartmentsClient() {
             <div className={styles.drillPanel}>
               <div className={styles.drillPanelHead}>
                 <span>Documents</span>
-                <Link href="/admin/documents" className={styles.drillLink}>
+                <Link prefetch={false} href="/admin/documents" className={styles.drillLink}>
                   Document tools
                 </Link>
               </div>
@@ -1192,7 +1301,7 @@ export default function AdminDepartmentsClient() {
                     />
                   </div>
                 ) : null}
-                <Link href="/admin/users" className={hubStyles.profileEditCta} style={{ textDecoration: "none", textAlign: "center" }}>
+                <Link prefetch={false} href="/admin/users" className={hubStyles.profileEditCta} style={{ textDecoration: "none", textAlign: "center" }}>
                   Open in Users directory
                 </Link>
               </div>
@@ -1339,7 +1448,7 @@ export default function AdminDepartmentsClient() {
                   ←
                 </button>
                 <h2 id="dept-doc-drawer-title" className={hubStyles.profileTopTitle}>
-                  Document
+                  Document details
                 </h2>
                 <span className={hubStyles.profileTopSpacer} aria-hidden />
               </header>
@@ -1349,18 +1458,73 @@ export default function AdminDepartmentsClient() {
                 <p style={{ padding: "1rem", color: "var(--error)" }}>Could not load document.</p>
               ) : (
                 <>
-                  <div className={hubStyles.profileHero} style={{ paddingTop: "0.75rem" }}>
-                    <h3 className={hubStyles.profileName} style={{ fontSize: "1.15rem" }}>
-                      {panelDocDetail.document.title}
-                    </h3>
-                    <p className={hubStyles.profileEmail}>
-                      {panelDocDetail.document.isArchived ? "Archived · " : ""}
-                      Visibility: {panelDocDetail.document.visibility}
-                    </p>
-                    <p className={hubStyles.profileJoined}>
-                      Updated {fmtDateTime(panelDocDetail.document.updatedAt)}
-                    </p>
+                  {panelDocDetail.document.versions[0] ? (
+                    <div className={styles.docDrawerHero}>
+                      <FileTypeIcon fileName={panelDocDetail.document.versions[0].fileName} variant="row" />
+                      <div className={styles.docDrawerHeroMain}>
+                        <h3 className={styles.docDrawerTitle}>{panelDocDetail.document.title}</h3>
+                        <p className={hubStyles.profileEmail} style={{ margin: 0 }}>
+                          Latest: {panelDocDetail.document.versions[0].fileName}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={styles.docDrawerHero}>
+                      <div className={styles.docDrawerHeroMain}>
+                        <h3 className={styles.docDrawerTitle}>{panelDocDetail.document.title}</h3>
+                        <p className={hubStyles.profileEmail} style={{ margin: 0 }}>
+                          No file versions yet.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <div className={styles.docDrawerLinks}>
+                    <Link
+                      href={`/documents/${panelDocId}`}
+                      className={styles.docDrawerLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open full page
+                    </Link>
+                    <Link prefetch={false} href="/documents" className={styles.docDrawerLink}>
+                      Document library
+                    </Link>
                   </div>
+                  <div className={styles.docMetaRow}>
+                    <span
+                      className={
+                        panelDocDetail.document.isArchived
+                          ? `${styles.docMetaPill} ${styles.docMetaPillWarn}`
+                          : `${styles.docMetaPill} ${styles.docMetaPillAccent}`
+                      }
+                    >
+                      {panelDocDetail.document.visibility}
+                    </span>
+                    {panelDocDetail.document.isArchived ? (
+                      <span className={`${styles.docMetaPill} ${styles.docMetaPillWarn}`}>Archived</span>
+                    ) : null}
+                    <span className={styles.docMetaPill}>
+                      {panelDocDetail.document.departmentId
+                        ? departments.find((d) => d.id === panelDocDetail.document.departmentId)?.name ??
+                          "Department"
+                        : "Org-wide"}
+                    </span>
+                    <span className={styles.docMetaPill}>
+                      Updated {fmtDateTime(panelDocDetail.document.updatedAt)}
+                    </span>
+                  </div>
+                  {panelDocDetail.document.createdBy ? (
+                    <p className={hubStyles.profileJoined} style={{ margin: "0 1rem 0.65rem" }}>
+                      Uploaded by {panelDocDetail.document.createdBy.name} ·{" "}
+                      {fmtDateTime(panelDocDetail.document.createdAt)}
+                    </p>
+                  ) : null}
+                  {docPanelActionError ? (
+                    <div className={styles.docPanelAlert} role="alert">
+                      {docPanelActionError}
+                    </div>
+                  ) : null}
                   {panelDocDetail.canManage ? (
                     <div className={styles.docFormSection}>
                       <label>
@@ -1422,32 +1586,130 @@ export default function AdminDepartmentsClient() {
                           {docSaveMsg}
                         </p>
                       ) : null}
-                      <button type="button" className={hubStyles.btnPrimary} disabled={docSaveBusy} onClick={() => void saveDocForm()}>
+                      <button
+                        type="button"
+                        className={hubStyles.btnPrimary}
+                        disabled={docSaveBusy || docPanelBusy}
+                        onClick={() => void saveDocForm()}
+                      >
                         {docSaveBusy ? "Saving…" : "Save changes"}
                       </button>
                     </div>
                   ) : (
-                    <div className={hubStyles.profileFieldsCard}>
+                    <div className={styles.docFormSection}>
                       <div className={hubStyles.profileField}>
                         <span className={hubStyles.profileFieldLabel}>Description</span>
-                        <div className={hubStyles.profileFieldBox}>{panelDocDetail.document.description ?? "—"}</div>
+                        <div className={hubStyles.profileFieldBox}>
+                          {panelDocDetail.document.description?.trim() ? panelDocDetail.document.description : "—"}
+                        </div>
                       </div>
                       <div className={hubStyles.profileField}>
                         <span className={hubStyles.profileFieldLabel}>Tags</span>
                         <div className={hubStyles.profileFieldBox}>
-                          {panelDocDetail.document.tags.length ? panelDocDetail.document.tags.join(", ") : "—"}
+                          {panelDocDetail.document.tags.length ? (
+                            <span style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                              {panelDocDetail.document.tags.map((t) => (
+                                <span key={t} className={styles.docTagChip}>
+                                  {t}
+                                </span>
+                              ))}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
                         </div>
                       </div>
                     </div>
                   )}
+                  <h3 className={styles.docSectionTitle}>Versions</h3>
                   <ul className={styles.versionsList}>
-                    <li style={{ fontWeight: 600, color: "#18181b" }}>Versions</li>
-                    {panelDocDetail.document.versions.map((v) => (
-                      <li key={v.id}>
-                        v{v.versionNumber} · {v.fileName} · {v.processingStatus}
+                    {panelDocDetail.document.versions.length === 0 ? (
+                      <li className={styles.versionCard}>
+                        <span className={hubStyles.profileEmail}>No versions yet.</span>
                       </li>
-                    ))}
+                    ) : (
+                      panelDocDetail.document.versions.map((v) => (
+                        <li key={v.id} className={styles.versionCard}>
+                          <div className={styles.versionCardMain}>
+                            <FileTypeIcon fileName={v.fileName} variant="row" />
+                            <div className={styles.versionCardText}>
+                              <div className={styles.versionFileName}>
+                                v{v.versionNumber} · {v.fileName}
+                              </div>
+                              <div className={styles.versionMetaLine}>
+                                <span>{formatFileSize(v.sizeBytes)}</span>
+                                <span>·</span>
+                                <time dateTime={v.createdAt}>{fmtDateTime(v.createdAt)}</time>
+                                <span
+                                  className={`${styles.statusPill} ${docVersionStatusPillClass(v.processingStatus)}`}
+                                >
+                                  {v.processingStatus}
+                                </span>
+                              </div>
+                              {panelDocDetail.canManage &&
+                              v.processingStatus === "FAILED" &&
+                              v.processingError ? (
+                                <div className={styles.versionErr}>{v.processingError}</div>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className={styles.versionActions}>
+                            <button
+                              type="button"
+                              className={styles.btnGhost}
+                              disabled={docPanelDownloadingId === v.id}
+                              onClick={() => void docPanelDownload(v.id, v.fileName)}
+                            >
+                              {docPanelDownloadingId === v.id ? "Downloading…" : "Download"}
+                            </button>
+                            {panelDocDetail.canManage && v.processingStatus === "FAILED" ? (
+                              <button
+                                type="button"
+                                className={styles.btnGhost}
+                                disabled={docPanelBusy}
+                                onClick={() => void docPanelRetryVersion(v.id)}
+                              >
+                                Retry processing
+                              </button>
+                            ) : null}
+                          </div>
+                        </li>
+                      ))
+                    )}
                   </ul>
+                  {panelDocDetail.canManage ? (
+                    <div className={styles.docUploadSection}>
+                      <h4 className={styles.docUploadTitle}>Upload new version</h4>
+                      <form onSubmit={(e) => void docPanelUploadVersion(e)} className={styles.docUploadRow}>
+                        <input
+                          ref={docVersionFileInputRef}
+                          type="file"
+                          className={styles.fileInputHidden}
+                          aria-hidden
+                          tabIndex={-1}
+                          onChange={(e) => setDocVersionUploadFile(e.target.files?.[0] ?? null)}
+                        />
+                        <button
+                          type="button"
+                          className={styles.btnGhost}
+                          disabled={docPanelBusy}
+                          onClick={() => docVersionFileInputRef.current?.click()}
+                        >
+                          Choose file
+                        </button>
+                        <span className={hubStyles.profileEmail} style={{ flex: "1 1 120px", minWidth: 0 }}>
+                          {docVersionUploadFile ? docVersionUploadFile.name : "No file selected"}
+                        </span>
+                        <button
+                          type="submit"
+                          className={hubStyles.btnPrimary}
+                          disabled={docPanelBusy || !docVersionUploadFile}
+                        >
+                          {docPanelBusy ? "Uploading…" : "Upload"}
+                        </button>
+                      </form>
+                    </div>
+                  ) : null}
                 </>
               )}
             </div>

@@ -28,6 +28,9 @@ console.error(
   `[kp dev-web] Missing chunk (./402.js) / CSS 404: "npm run clean:web", restart dev, one server on this port.`,
 );
 console.error(
+  `[kp dev-web] 404 on /_next/static/css/app/layout.css, main-app.js, or app-pages-internals.js: only the Next DEV server serves those URLs (they are not real files on disk). Fix: stop "next start" and anything else bound to WEB_PORT; run "npm run dev" from repo root (uses apps/web cwd); then hard-refresh or Application → Clear site data for localhost. Use "npm run dev:clean" if the problem persists.`,
+);
+console.error(
   `[kp dev-web] "__webpack_modules__[moduleId] is not a function" in the browser: run "npm run clean:web", hard-refresh; if using dev:turbo, try "npm run dev" (Webpack). Disable wallet/SES extensions on localhost if it persists.`,
 );
 

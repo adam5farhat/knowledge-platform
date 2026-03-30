@@ -197,7 +197,7 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
       <main>
         <p style={{ color: "var(--error)" }}>{error ?? "Unable to load document"}</p>
         <p>
-          <Link href="/documents">Back to documents</Link>
+          <Link prefetch={false} href="/documents">Back to documents</Link>
         </p>
       </main>
     );
@@ -242,9 +242,9 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
         </div>
       ) : null}
       <nav style={{ margin: "1rem 0", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-        <Link href="/documents">Documents</Link>
-        <Link href="/documents/search">Semantic search</Link>
-        <Link href="/dashboard">Dashboard</Link>
+        <Link prefetch={false} href="/documents">Documents</Link>
+        <Link prefetch={false} href="/documents/search">Semantic search</Link>
+        <Link prefetch={false} href="/dashboard">Dashboard</Link>
       </nav>
 
       <section style={{ marginTop: "1rem", padding: "1rem", background: "#f4f4f5", borderRadius: 0 }}>

@@ -23,6 +23,22 @@ import { normalizeTagName, parseTagListInput } from "../lib/tags.js";
 
 export const documentsRouter = Router();
 
+/** Admin departments drill: "General" dept card + org-wide docs (`departmentId` null). */
+const DEPT_FILTER_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function unionGeneralDepartmentIdForQuery(
+  user: { role: RoleName },
+  query: Record<string, unknown>,
+  departmentKey: string | undefined,
+): string | undefined {
+  if (user.role !== RoleName.ADMIN) return undefined;
+  const on = query.unionGeneralLibrary === "1" || query.unionGeneralLibrary === "true";
+  if (!on || !departmentKey || departmentKey === "__general") return undefined;
+  if (!DEPT_FILTER_UUID_RE.test(departmentKey)) return undefined;
+  return departmentKey;
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
@@ -257,7 +273,13 @@ documentsRouter.get(
     const visibilityRaw = typeof req.query.visibility === "string" ? req.query.visibility : "ALL";
     const statusRaw = typeof req.query.status === "string" ? req.query.status : "ALL";
     const libraryScope = parseLibraryScope(req.query.libraryScope);
-    const departmentKey = typeof req.query.departmentId === "string" ? req.query.departmentId : undefined;
+    const departmentKey =
+      typeof req.query.departmentId === "string" ? req.query.departmentId.trim() : undefined;
+    const unionGeneralWithDepartmentId = unionGeneralDepartmentIdForQuery(
+      user,
+      req.query as Record<string, unknown>,
+      departmentKey,
+    );
     const fileType = typeof req.query.fileType === "string" ? req.query.fileType : "ALL";
     const dateFilter = typeof req.query.dateFilter === "string" ? req.query.dateFilter : "ALL";
     const allScopeIncludeArchived =
@@ -284,6 +306,7 @@ documentsRouter.get(
       sortRaw: req.query.sort,
       libraryScope,
       departmentKey,
+      unionGeneralWithDepartmentId,
       fileType,
       dateFilter,
       page: 1,
@@ -373,7 +396,22 @@ documentsRouter.get("/", async (req, res) => {
   const visibilityRaw = typeof req.query.visibility === "string" ? req.query.visibility : "ALL";
   const statusRaw = typeof req.query.status === "string" ? req.query.status : "ALL";
   const libraryScope = parseLibraryScope(req.query.libraryScope);
-  const departmentKey = typeof req.query.departmentId === "string" ? req.query.departmentId : undefined;
+  let departmentKey = typeof req.query.departmentId === "string" ? req.query.departmentId.trim() : undefined;
+  if (user.role === RoleName.MANAGER) {
+    if (departmentKey === "__general") {
+      res.status(403).json({ error: "Managers can only view documents assigned to their department." });
+      return;
+    }
+    if (departmentKey && departmentKey !== user.departmentId) {
+      res.status(403).json({ error: "You can only filter by your own department." });
+      return;
+    }
+  }
+  const unionGeneralWithDepartmentId = unionGeneralDepartmentIdForQuery(
+    user,
+    req.query as Record<string, unknown>,
+    departmentKey,
+  );
   const fileType = typeof req.query.fileType === "string" ? req.query.fileType : "ALL";
   const dateFilter = typeof req.query.dateFilter === "string" ? req.query.dateFilter : "ALL";
   const includeMeta = req.query.includeMeta === "1" || req.query.includeMeta === "true";
@@ -402,6 +440,7 @@ documentsRouter.get("/", async (req, res) => {
     sortRaw: req.query.sort,
     libraryScope,
     departmentKey,
+    unionGeneralWithDepartmentId,
     fileType,
     dateFilter,
     page,

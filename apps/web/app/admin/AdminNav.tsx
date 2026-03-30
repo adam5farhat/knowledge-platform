@@ -16,21 +16,21 @@ export default function AdminNav() {
         color: "#52525b",
       }}
     >
-      <Link href="/admin">Hub</Link>
+      <Link prefetch={false} href="/admin">Hub</Link>
       <span aria-hidden>·</span>
-      <Link href="/admin/users">Users</Link>
+      <Link prefetch={false} href="/admin/users">Users</Link>
       <span aria-hidden>·</span>
-      <Link href="/admin/departments">Departments</Link>
+      <Link prefetch={false} href="/admin/departments">Departments</Link>
       <span aria-hidden>·</span>
-      <Link href="/admin/documents">Documents</Link>
+      <Link prefetch={false} href="/admin/documents">Documents</Link>
       <span aria-hidden>·</span>
-      <Link href="/admin/activity">Activity</Link>
+      <Link prefetch={false} href="/admin/activity">Activity</Link>
       <span aria-hidden>·</span>
-      <Link href="/admin/document-audit">Doc audit</Link>
+      <Link prefetch={false} href="/admin/document-audit">Doc audit</Link>
       <span aria-hidden>·</span>
-      <Link href="/admin/system">System</Link>
+      <Link prefetch={false} href="/admin/system">System</Link>
       <span aria-hidden>·</span>
-      <Link href="/dashboard">Dashboard</Link>
+      <Link prefetch={false} href="/dashboard">Dashboard</Link>
     </nav>
   );
 }

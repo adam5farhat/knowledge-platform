@@ -79,7 +79,7 @@ export default function AdminHubClient() {
         <p style={{ marginTop: "1rem" }}>
           <Link href="/login">Sign in</Link>
           {" · "}
-          <Link href="/documents">Home</Link>
+          <Link prefetch={false} href="/documents">Home</Link>
         </p>
       </main>
     );
@@ -91,9 +91,9 @@ export default function AdminHubClient() {
         <h1>Administration</h1>
         <p style={{ color: "var(--error)" }}>This area is only available to administrators.</p>
         <p style={{ marginTop: "1rem" }}>
-          <Link href="/dashboard">Dashboard</Link>
+          <Link prefetch={false} href="/dashboard">Dashboard</Link>
           {" · "}
-          <Link href="/documents">Home</Link>
+          <Link prefetch={false} href="/documents">Home</Link>
         </p>
       </main>
     );
@@ -107,7 +107,7 @@ export default function AdminHubClient() {
         <p style={{ marginTop: "1rem" }}>
           <Link href="/login">Sign in</Link>
           {" · "}
-          <Link href="/documents">Home</Link>
+          <Link prefetch={false} href="/documents">Home</Link>
         </p>
       </main>
     );
@@ -122,6 +122,7 @@ export default function AdminHubClient() {
       <AdminChromeHeader user={sessionUser} />
 
       <Link
+        prefetch={false}
         href="/dashboard"
         className={styles.hubBackFab}
         aria-label="Back to dashboard"

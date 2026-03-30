@@ -12,7 +12,7 @@ export default function AboutPage() {
         operations.
       </p>
       <p style={{ marginTop: "1rem" }}>
-        <Link href="/documents">Documents</Link>
+        <Link prefetch={false} href="/documents">Documents</Link>
       </p>
     </main>
   );

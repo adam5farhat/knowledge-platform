@@ -1295,27 +1295,49 @@
 
 .archivesUploadBar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.65rem 1rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.85rem;
   margin: 0.75rem 1.15rem 0.85rem;
-  padding: 1rem 1.15rem;
+  padding: 1.1rem 1.2rem;
   flex-shrink: 0;
-  border: 1px solid color-mix(in srgb, var(--interactive) 28%, var(--border));
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--interactive) 11%, var(--card-bg)) 0%,
-    color-mix(in srgb, var(--bg) 40%, var(--card-bg)) 100%
-  );
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  border-left: 3px solid var(--interactive);
+  background: color-mix(in srgb, var(--interactive) 5%, var(--card-bg));
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.archivesUploadHead {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
 .archivesUploadLabel {
-  font-size: 0.72rem;
+  margin: 0;
+  font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--interactive) 55%, var(--muted));
+  color: var(--muted);
+}
+
+.archivesUploadLead {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--text);
+  max-width: 52ch;
+}
+
+.archivesUploadActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .archivesFileInput {
@@ -1332,49 +1354,50 @@
 
 .archivesUploadBtn {
   font: inherit;
-  font-size: 0.9rem;
-  font-weight: 700;
-  padding: 0.55rem 1.35rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.5rem 1.15rem;
   border-radius: 0;
-  border: 1px solid #1d4ed8;
-  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 55%, #1d4ed8 100%);
+  border: 1px solid color-mix(in srgb, var(--interactive) 88%, #0a4d66);
+  background: var(--interactive);
   color: #fff;
   cursor: pointer;
-  box-shadow:
-    0 2px 10px rgba(37, 99, 235, 0.45),
-    0 1px 0 rgba(255, 255, 255, 0.2) inset;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 10%, transparent);
   transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
     transform 0.12s ease;
 }
 
 .archivesUploadBtn:hover:not(:disabled) {
-  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
-  border-color: #1e40af;
-  box-shadow:
-    0 4px 16px rgba(37, 99, 235, 0.45),
-    0 1px 0 rgba(255, 255, 255, 0.2) inset;
+  background: color-mix(in srgb, var(--interactive) 88%, #000);
+  border-color: color-mix(in srgb, var(--interactive) 75%, #000);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive) 35%, transparent);
+}
+
+.archivesUploadBtn:focus-visible {
+  outline: 2px solid var(--interactive);
+  outline-offset: 2px;
 }
 
 .archivesUploadBtn:active:not(:disabled) {
   transform: translateY(1px);
-  box-shadow: 0 1px 6px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 12%, transparent);
 }
 
 .archivesUploadBtn:disabled {
   opacity: 0.55;
   cursor: wait;
-  border-color: rgba(37, 99, 235, 0.45);
 }
 
 .archivesUploadHint {
-  flex: 1 1 100%;
   margin: 0;
+  padding-top: 0.65rem;
   font-size: 0.75rem;
+  line-height: 1.5;
   color: var(--muted);
-  line-height: 1.45;
+  border-top: 1px solid color-mix(in srgb, var(--border) 90%, var(--interactive) 8%);
 }
 
 .archivesFooter {

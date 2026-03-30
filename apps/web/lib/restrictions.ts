@@ -40,5 +40,6 @@ export function homePathForUser(user: MeUserDto): string {
   const r = user.restrictions ?? DEFAULT_USER_RESTRICTIONS;
   if (r.accessDashboardAllowed) return "/dashboard";
   if (user.role === "ADMIN") return "/admin";
+  if (user.role === "MANAGER") return "/manager";
   return restrictedHref("accessDashboard");
 }

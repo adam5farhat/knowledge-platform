@@ -81,13 +81,14 @@ export default function RestrictedClient() {
         <h1 className={styles.title}>{copy.title}</h1>
         <p className={styles.message}>{copy.message}</p>
         {copy.hint ? <p className={styles.hint}>{copy.hint}</p> : null}
-        <Link href={dashboardHref} className={styles.primary}>
-          {(me?.restrictions ?? DEFAULT_USER_RESTRICTIONS).accessDashboardAllowed === false &&
-          me?.role === "ADMIN"
+        <Link prefetch={false} href={dashboardHref} className={styles.primary}>
+          {(me?.restrictions ?? DEFAULT_USER_RESTRICTIONS).accessDashboardAllowed === false && me?.role === "ADMIN"
             ? "Go to admin hub"
-            : "Go back to dashboard"}
+            : (me?.restrictions ?? DEFAULT_USER_RESTRICTIONS).accessDashboardAllowed === false && me?.role === "MANAGER"
+              ? "Go to department overview"
+              : "Go back to dashboard"}
         </Link>
-        <Link href="/profile" className={styles.secondary}>
+        <Link prefetch={false} href="/profile" className={styles.secondary}>
           View profile
         </Link>
       </div>
