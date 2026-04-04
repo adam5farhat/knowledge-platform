@@ -36,6 +36,11 @@ body:has([data-documents-fullscreen="true"]) {
   overflow: hidden;
 }
 
+body:has([data-ask-fullscreen="true"]) {
+  padding: 0;
+  overflow: hidden;
+}
+
 a.logoLink {
   display: inline-flex;
   align-items: center;

@@ -125,37 +125,41 @@ documentsRouter.post(
     const tagNames = parseTagListInput(req.body.tags);
 
     try {
-      const doc = await prisma.document.create({
-        data: {
-          title: parsed.data.title.trim(),
-          description: parsed.data.description?.trim() || null,
-          createdById: user.id,
-          departmentId: visibility === DocumentVisibility.DEPARTMENT ? departmentId : null,
-          visibility,
-          ...(tagNames.length > 0
-            ? {
-                tags: {
-                  connectOrCreate: tagNames.map((name) => ({
-                    where: { name },
-                    create: { name },
-                  })),
-                },
-              }
-            : {}),
-        },
-      });
+      const { doc, version } = await prisma.$transaction(async (tx) => {
+        const doc = await tx.document.create({
+          data: {
+            title: parsed.data.title.trim(),
+            description: parsed.data.description?.trim() || null,
+            createdById: user.id,
+            departmentId: visibility === DocumentVisibility.DEPARTMENT ? departmentId : null,
+            visibility,
+            ...(tagNames.length > 0
+              ? {
+                  tags: {
+                    connectOrCreate: tagNames.map((name) => ({
+                      where: { name },
+                      create: { name },
+                    })),
+                  },
+                }
+              : {}),
+          },
+        });
 
-      const version = await prisma.documentVersion.create({
-        data: {
-          documentId: doc.id,
-          versionNumber: 1,
-          fileName: file.originalname,
-          mimeType,
-          storageKey,
-          sizeBytes: file.size,
-          sha256,
-          createdById: user.id,
-        },
+        const version = await tx.documentVersion.create({
+          data: {
+            documentId: doc.id,
+            versionNumber: 1,
+            fileName: file.originalname,
+            mimeType,
+            storageKey,
+            sizeBytes: file.size,
+            sha256,
+            createdById: user.id,
+          },
+        });
+
+        return { doc, version };
       });
 
       await enqueueDocumentIngest(version.id);
@@ -180,6 +184,7 @@ documentsRouter.post(
           id: version.id,
           versionNumber: version.versionNumber,
           processingStatus: version.processingStatus,
+          processingProgress: version.processingProgress,
           fileName: version.fileName,
         },
       });
@@ -373,10 +378,11 @@ documentsRouter.post(
         action: DocumentAuditAction.BULK_DELETED,
         metadata: { bulk: true },
       });
-      for (const v of doc.versions) {
-        await deleteFileIfExists(v.storageKey);
-      }
+      const storageKeys = doc.versions.map((v) => v.storageKey);
       await prisma.document.delete({ where: { id: doc.id } });
+      for (const key of storageKeys) {
+        await deleteFileIfExists(key);
+      }
       deleted += 1;
     }
     res.json({ deleted });
@@ -586,6 +592,7 @@ documentsRouter.patch("/:documentId", async (req, res) => {
         mimeType: v.mimeType,
         sizeBytes: v.sizeBytes,
         processingStatus: v.processingStatus,
+        processingProgress: v.processingProgress,
         processingError: v.processingError,
         createdAt: v.createdAt,
       })),
@@ -649,11 +656,16 @@ documentsRouter.delete("/:documentId/favorite", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
+  const doc = await prisma.document.findUnique({ where: { id: req.params.documentId } });
+  if (!doc || !canReadDocument(user, doc)) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   await prisma.documentUserFavorite.deleteMany({
-    where: { userId: user.id, documentId: req.params.documentId },
+    where: { userId: user.id, documentId: doc.id },
   });
   await logDocumentAudit(prisma, {
-    documentId: req.params.documentId,
+    documentId: doc.id,
     userId: user.id,
     action: DocumentAuditAction.UNFAVORITED,
     metadata: {},
@@ -806,6 +818,7 @@ documentsRouter.get("/:documentId", async (req, res) => {
         mimeType: v.mimeType,
         sizeBytes: v.sizeBytes,
         processingStatus: v.processingStatus,
+        processingProgress: v.processingProgress,
         processingError: canManage ? v.processingError : null,
         createdAt: v.createdAt,
       })),
@@ -936,6 +949,7 @@ documentsRouter.post(
           id: version.id,
           versionNumber: version.versionNumber,
           processingStatus: version.processingStatus,
+          processingProgress: version.processingProgress,
           fileName: version.fileName,
         },
       });
@@ -975,7 +989,15 @@ documentsRouter.get("/:documentId/versions/:versionId/file", async (req, res) =>
     "Content-Disposition",
     `${inline ? "inline" : "attachment"}; filename="${encodeURIComponent(version.fileName)}"`,
   );
-  createReadStream(abs).pipe(res);
+  const stream = createReadStream(abs);
+  stream.on("error", () => {
+    if (!res.headersSent) {
+      res.status(500).json({ error: "File could not be read" });
+    } else {
+      res.destroy();
+    }
+  });
+  stream.pipe(res);
 });
 
 documentsRouter.delete("/:documentId", async (req, res) => {
@@ -1007,11 +1029,13 @@ documentsRouter.delete("/:documentId", async (req, res) => {
     metadata: { title: doc.title },
   });
 
-  for (const v of doc.versions) {
-    await deleteFileIfExists(v.storageKey);
-  }
+  const storageKeys = doc.versions.map((v) => v.storageKey);
 
   await prisma.document.delete({ where: { id: doc.id } });
+
+  for (const key of storageKeys) {
+    await deleteFileIfExists(key);
+  }
 
   res.status(204).send();
 });

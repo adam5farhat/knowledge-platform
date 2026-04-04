@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Queue, Worker, type Job } from "bullmq";
 import type { DocumentProcessingStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
-import { chunkText } from "../lib/chunkText.js";
+import { chunkText, type ChunkWithMeta } from "../lib/chunkText.js";
 import { embedTexts } from "../lib/embeddings.js";
 import { extractPlainText, resolveMimeType } from "../lib/extractText.js";
 import { readFileBuffer } from "../lib/storage.js";
@@ -40,10 +40,22 @@ async function setVersionStatus(
   id: string,
   status: DocumentProcessingStatus,
   error: string | null,
+  progress?: number,
 ): Promise<void> {
   await prisma.documentVersion.update({
     where: { id },
-    data: { processingStatus: status, processingError: error },
+    data: {
+      processingStatus: status,
+      processingError: error,
+      ...(progress !== undefined ? { processingProgress: progress } : {}),
+    },
+  });
+}
+
+async function setProgress(id: string, progress: number): Promise<void> {
+  await prisma.documentVersion.update({
+    where: { id },
+    data: { processingProgress: progress },
   });
 }
 
@@ -60,44 +72,82 @@ async function processIngest(job: Job<{ documentVersionId: string }>): Promise<v
     return;
   }
 
-  await setVersionStatus(version.id, "PROCESSING", null);
+  await setVersionStatus(version.id, "PROCESSING", null, 0);
 
   await prisma.documentChunk.deleteMany({ where: { documentVersionId: version.id } });
 
   try {
+    await setProgress(version.id, 5);
     const buffer = await readFileBuffer(version.storageKey);
+
+    await setProgress(version.id, 10);
     const mime = resolveMimeType(version.fileName, version.mimeType);
     const text = await extractPlainText(buffer, mime, version.fileName);
-    const chunks = chunkText(text);
+
+    await setProgress(version.id, 25);
+    const chunks: ChunkWithMeta[] = chunkText(text);
 
     if (chunks.length === 0) {
-      await setVersionStatus(version.id, "FAILED", "No extractable text in this file.");
+      await setVersionStatus(version.id, "FAILED", "No extractable text in this file.", 0);
       return;
     }
 
-    const embeddings = await embedTexts(chunks);
+    await setProgress(version.id, 30);
 
-    for (let i = 0; i < chunks.length; i++) {
-      const id = randomUUID();
-      const vec = embeddings[i];
-      if (!vec) throw new Error("Embedding batch mismatch");
-      const literal = `[${vec.join(",")}]`;
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO "DocumentChunk" (id, "documentVersionId", "chunkIndex", content, embedding)
-         VALUES ($1::uuid, $2::uuid, $3::int, $4::text, $5::vector)`,
-        id,
-        version.id,
-        i,
-        chunks[i],
-        literal,
-      );
+    const EMBED_BATCH = 100;
+    const chunkTexts = chunks.map((c) => c.content);
+    const totalBatches = Math.ceil(chunkTexts.length / EMBED_BATCH);
+    const embeddings: number[][] = [];
+
+    for (let b = 0; b < totalBatches; b++) {
+      const slice = chunkTexts.slice(b * EMBED_BATCH, (b + 1) * EMBED_BATCH);
+      const batchResult = await embedTexts(slice);
+      embeddings.push(...batchResult);
+
+      const batchProgress = 30 + Math.round(((b + 1) / totalBatches) * 50);
+      await setProgress(version.id, Math.min(batchProgress, 80));
     }
 
-    await setVersionStatus(version.id, "READY", null);
+    await setProgress(version.id, 82);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.documentChunk.deleteMany({ where: { documentVersionId: version.id } });
+
+      for (let i = 0; i < chunks.length; i++) {
+        const id = randomUUID();
+        const vec = embeddings[i];
+        if (!vec) throw new Error("Embedding batch mismatch");
+        const literal = `[${vec.join(",")}]`;
+        await tx.$executeRawUnsafe(
+          `INSERT INTO "DocumentChunk" (id, "documentVersionId", "chunkIndex", content, "sectionTitle", embedding)
+           VALUES ($1::uuid, $2::uuid, $3::int, $4::text, $5::text, $6::vector)`,
+          id,
+          version.id,
+          i,
+          chunks[i]!.content,
+          chunks[i]!.sectionTitle,
+          literal,
+        );
+      }
+    });
+
+    await setProgress(version.id, 92);
+
+    const olderVersionIds = await prisma.documentVersion.findMany({
+      where: { documentId: version.documentId, id: { not: version.id } },
+      select: { id: true },
+    });
+    if (olderVersionIds.length > 0) {
+      await prisma.documentChunk.deleteMany({
+        where: { documentVersionId: { in: olderVersionIds.map((v) => v.id) } },
+      });
+    }
+
+    await setVersionStatus(version.id, "READY", null, 100);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[ingest]", documentVersionId, msg);
-    await setVersionStatus(version.id, "FAILED", msg);
+    await setVersionStatus(version.id, "FAILED", msg, 0);
     throw e;
   }
 }

@@ -59,7 +59,6 @@ export default function DocumentsClient() {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [q, setQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
   const [visibilityFilter, setVisibilityFilter] = useState("ALL");
   const [fileTypeFilter, setFileTypeFilter] = useState("ALL");
   const [dateFilter, setDateFilter] = useState("ALL");
@@ -112,7 +111,6 @@ export default function DocumentsClient() {
     async (pageNum: number, forDeptGridOnly?: boolean) => {
       const params = new URLSearchParams();
       if (q.trim()) params.set("q", q.trim());
-      if (statusFilter !== "ALL") params.set("status", statusFilter);
       if (visibilityFilter !== "ALL") params.set("visibility", visibilityFilter);
       if (fileTypeFilter !== "ALL") params.set("fileType", fileTypeFilter);
       if (dateFilter !== "ALL") params.set("dateFilter", dateFilter);
@@ -160,7 +158,6 @@ export default function DocumentsClient() {
     [
       q,
       sort,
-      statusFilter,
       visibilityFilter,
       fileTypeFilter,
       dateFilter,
@@ -191,7 +188,6 @@ export default function DocumentsClient() {
     selectedDepartment,
     q,
     sort,
-    statusFilter,
     visibilityFilter,
     fileTypeFilter,
     dateFilter,
@@ -208,7 +204,7 @@ export default function DocumentsClient() {
     if (!busy) return;
     const id = window.setInterval(() => {
       void loadDocuments(listPage, false).catch(() => {});
-    }, 10000);
+    }, 4000);
     return () => window.clearInterval(id);
   }, [phase, documents, listPage, loadDocuments]);
 
@@ -1026,6 +1022,19 @@ export default function DocumentsClient() {
                         <p className={styles.fileCardMeta}>
                           {formatSize(d.latestVersion?.sizeBytes)} · {new Date(d.createdAt).toLocaleDateString()}
                         </p>
+                        {d.latestVersion && (d.latestVersion.processingStatus === "PROCESSING" || d.latestVersion.processingStatus === "PENDING") ? (
+                          <div className={styles.fileCardProgress}>
+                            <div
+                              className={styles.fileCardProgressBar}
+                              style={{ width: `${d.latestVersion.processingProgress}%` }}
+                            />
+                            <span className={styles.fileCardProgressLabel}>
+                              {d.latestVersion.processingStatus === "PENDING"
+                                ? "Queued"
+                                : `${d.latestVersion.processingProgress}%`}
+                            </span>
+                          </div>
+                        ) : null}
                       </div>
                     </article>
                   ))}
@@ -1263,7 +1272,7 @@ export default function DocumentsClient() {
                           <div className={styles.detailsDescRow}>
                             <dt className={styles.detailsDescRowLabel}>Processing status</dt>
                             <dd className={styles.detailsDescRowValue}>
-                              <StatusLabel status={selectedDoc.latestVersion.processingStatus} error={null} />
+                              <StatusLabel status={selectedDoc.latestVersion.processingStatus} error={null} progress={selectedDoc.latestVersion.processingProgress} />
                             </dd>
                           </div>
                           <div className={styles.detailsDescRow}>

@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import * as cheerio from "cheerio";
 import { XMLParser } from "fast-xml-parser";
 import JSZip from "jszip";
@@ -51,14 +52,8 @@ export async function extractPlainText(buffer: Buffer, mimeType: string, fileNam
   const mt = mimeType.toLowerCase();
 
   if (mt === "application/pdf") {
-    const { PDFParse } = await import("pdf-parse");
-    const parser = new PDFParse({ data: new Uint8Array(buffer) });
-    try {
-      const data = await parser.getText();
-      return normalizeText(data.text);
-    } finally {
-      await parser.destroy();
-    }
+    const text = await extractPdfText(buffer);
+    return normalizeText(text);
   }
 
   if (mt === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
@@ -208,4 +203,62 @@ async function extractOdtText(buffer: Buffer): Promise<string> {
   const doc = XML.parse(content);
   const texts = collectTextNodes(doc);
   return texts.join("\n");
+}
+
+const COMMON_WORDS = new Set([
+  "the", "and", "for", "that", "this", "with", "from", "have", "are",
+  "was", "were", "been", "being", "which", "their", "will", "would",
+  "shall", "should", "not", "but", "all", "can", "has", "its", "may",
+]);
+
+/**
+ * Returns true when extracted text appears garbled — e.g. PDFs with broken
+ * Type3 font encodings that produce Caesar-shifted characters.
+ */
+function looksLikeGarbledText(text: string): boolean {
+  if (text.length < 100) return false;
+  const words = text.toLowerCase().replace(/[^a-z\s]/g, "").split(/\s+/).filter(w => w.length >= 3);
+  if (words.length === 0) return true;
+  const hits = words.filter((w) => COMMON_WORDS.has(w)).length;
+  return hits / words.length < 0.02;
+}
+
+async function extractPdfText(buffer: Buffer): Promise<string> {
+  const { PDFParse } = await import("pdf-parse");
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  try {
+    const data = await parser.getText();
+    const text = data.text;
+    if (text.length > 50 && !looksLikeGarbledText(text)) {
+      return text;
+    }
+  } finally {
+    await parser.destroy();
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "PDF has broken font encoding and GEMINI_API_KEY is not set for OCR fallback.",
+    );
+  }
+  console.log("[extractText] PDF text appears garbled — falling back to Gemini OCR");
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: process.env.GEMINI_CHAT_MODEL ?? "gemini-2.5-flash" });
+  const result = await model.generateContent([
+    {
+      inlineData: {
+        mimeType: "application/pdf",
+        data: buffer.toString("base64"),
+      },
+    },
+    {
+      text:
+        "Extract ALL text from this PDF document. Return ONLY the raw text " +
+        "content, preserving the original structure (headings, paragraphs, " +
+        "lists, numbering). Do not summarize, interpret, or add anything. " +
+        "Output the full text exactly as it appears in the document.",
+    },
+  ]);
+  return result.response.text();
 }

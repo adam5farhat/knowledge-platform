@@ -15,6 +15,7 @@ type Version = {
   mimeType: string;
   sizeBytes: number;
   processingStatus: string;
+  processingProgress: number;
   processingError: string | null;
   createdAt: string;
 };
@@ -99,6 +100,17 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId]);
 
+  useEffect(() => {
+    if (!data) return;
+    const hasProcessing = data.document.versions.some(
+      (v) => v.processingStatus === "PROCESSING" || v.processingStatus === "PENDING",
+    );
+    if (!hasProcessing) return;
+    const id = window.setInterval(() => { void load(); }, 4000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
   async function onUploadVersion(e: React.FormEvent) {
     e.preventDefault();
     if (!file) return;
@@ -165,8 +177,8 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
     setDownloadingId(versionId);
     try {
       const res = await fetchWithAuth(`${API}/documents/${documentId}/versions/${versionId}/file`);
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
         setError(body.error ?? "Download failed");
         return;
       }
@@ -243,6 +255,7 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
       ) : null}
       <nav style={{ margin: "1rem 0", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
         <Link prefetch={false} href="/documents">Documents</Link>
+        <Link prefetch={false} href="/documents/ask">Ask</Link>
         <Link prefetch={false} href="/documents/search">Semantic search</Link>
         <Link prefetch={false} href="/dashboard">Dashboard</Link>
       </nav>
@@ -371,9 +384,28 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
                   <strong>v{v.versionNumber}</strong> · {v.fileName}
                 </div>
                 <div style={{ fontSize: "0.87rem", color: "#52525b", marginTop: 4 }}>
-                  {Math.round(v.sizeBytes / 1024)} KB · {v.processingStatus}
+                  {Math.round(v.sizeBytes / 1024)} KB ·{" "}
+                  {v.processingStatus === "PROCESSING"
+                    ? `Processing ${v.processingProgress}%`
+                    : v.processingStatus === "PENDING"
+                      ? "Queued"
+                      : v.processingStatus}
                   {canManage && v.processingStatus === "FAILED" && v.processingError ? ` — ${v.processingError}` : ""}
                 </div>
+                {(v.processingStatus === "PROCESSING" || v.processingStatus === "PENDING") ? (
+                  <div style={{ height: 5, background: "#e4e4e7", borderRadius: 3, marginTop: 6, overflow: "hidden" }}>
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${v.processingProgress}%`,
+                        background: v.processingStatus === "PENDING" ? "#a1a1aa" : "#2563eb",
+                        borderRadius: 3,
+                        transition: "width 0.4s ease",
+                        minWidth: 2,
+                      }}
+                    />
+                  </div>
+                ) : null}
               </div>
               <div style={{ display: "flex", gap: "0.55rem" }}>
                 <button

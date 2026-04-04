@@ -96,6 +96,7 @@ model User {
   passwordResetTokens     PasswordResetToken[]
   refreshSessions         RefreshSession[]
   authEvents              AuthEvent[]
+  conversations           Conversation[]
 
   @@index([email])
   @@index([departmentId])
@@ -233,8 +234,9 @@ model DocumentVersion {
   storageKey       String                   @unique
   sizeBytes        Int
   sha256           String
-  processingStatus DocumentProcessingStatus @default(PENDING)
-  processingError  String?
+  processingStatus   DocumentProcessingStatus @default(PENDING)
+  processingProgress Int                      @default(0)
+  processingError    String?
   createdById      String
   createdBy        User                     @relation("DocumentVersionCreatedBy", fields: [createdById], references: [id])
   createdAt        DateTime                 @default(now())
@@ -250,8 +252,35 @@ model DocumentChunk {
   documentVersion   DocumentVersion @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
   chunkIndex        Int
   content           String          @db.Text
-  embedding         Unsupported("vector(1536)")
+  sectionTitle      String?
+  embedding         Unsupported("vector(768)")
+  searchVector      Unsupported("tsvector")?
 
   @@unique([documentVersionId, chunkIndex])
   @@index([documentVersionId])
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String   @default("New conversation")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messages  ConversationMessage[]
+
+  @@index([userId, updatedAt])
+}
+
+model ConversationMessage {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String
+  content        String       @db.Text
+  sources        Json?
+  confidence     String?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
 }

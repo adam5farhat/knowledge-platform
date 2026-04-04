@@ -25,6 +25,7 @@ export type DocRow = {
     mimeType: string;
     sizeBytes: number;
     processingStatus: string;
+    processingProgress: number;
     processingError: string | null;
     createdAt: string;
   } | null;

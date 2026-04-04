@@ -131,6 +131,7 @@ export default function SearchClient() {
         title to view the full file. This is not a chatbot—there is no generated answer, only similar passages.
       </p>
       <nav style={{ margin: "1rem 0", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+        <Link prefetch={false} href="/documents/ask">Ask the Knowledge Base</Link>
         <Link prefetch={false} href="/documents">Documents</Link>
         <Link prefetch={false} href="/dashboard">Dashboard</Link>
       </nav>

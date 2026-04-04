@@ -401,6 +401,7 @@ export function mapDocumentRow(
           mimeType: d.versions[0].mimeType,
           sizeBytes: d.versions[0].sizeBytes,
           processingStatus: d.versions[0].processingStatus,
+          processingProgress: d.versions[0].processingProgress,
           processingError: d.versions[0].processingError,
           createdAt: d.versions[0].createdAt,
         }

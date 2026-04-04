@@ -22,11 +22,11 @@ function documentsCardHref(user: MeUserDto): string {
   return r.accessDocumentsAllowed ? "/documents" : restrictedHref("accessDocuments");
 }
 
-function semanticSearchCardHref(user: MeUserDto): string {
+function askCardHref(user: MeUserDto): string {
   const r = user.restrictions ?? DEFAULT_USER_RESTRICTIONS;
   if (!r.useAiQueriesAllowed) return restrictedHref("useAiQueries");
   if (!r.accessDocumentsAllowed) return restrictedHref("accessDocuments");
-  return "/documents/search";
+  return "/documents/ask";
 }
 
 export default function DashboardClient() {
@@ -161,7 +161,7 @@ export default function DashboardClient() {
   const rs = user.restrictions ?? DEFAULT_USER_RESTRICTIONS;
   const isManagerOrAdmin = user.role === "ADMIN" || user.role === "MANAGER";
   const docHref = documentsCardHref(user);
-  const searchHref = semanticSearchCardHref(user);
+  const ragHref = askCardHref(user);
 
   return (
     <main className={styles.page} data-dashboard-fullscreen="true">
@@ -300,28 +300,29 @@ export default function DashboardClient() {
         <Link
           prefetch={false}
           className={`${styles.card} ${styles.cardQuestions}`}
-          href={searchHref}
-          aria-label="Go to semantic search over document embeddings"
+          href={ragHref}
+          aria-label="Ask questions answered by documents"
           style={{
             opacity: rs.accessDocumentsAllowed && rs.useAiQueriesAllowed ? 1 : 0.55,
           }}
           title={
             !rs.useAiQueriesAllowed
-              ? "AI search is disabled for your account."
+              ? "AI queries are disabled for your account."
               : !rs.accessDocumentsAllowed
-                ? "Document library access is required for semantic search."
+                ? "Document library access is required."
                 : undefined
           }
         >
           <div className={styles.cardInner}>
             <div className={styles.icon} aria-hidden>
               <svg className={styles.iconGlyph} viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path d="M5 6.5h14v9H9l-4 3z" stroke="currentColor" strokeWidth="1.2" />
-                <path d="M9 10.5h6" stroke="currentColor" strokeWidth="1.2" />
+                <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" stroke="currentColor" strokeWidth="1.2" />
+                <path d="M9 9a3 3 0 1 1 3.5 2.96V14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                <circle cx="12" cy="17" r="0.5" fill="currentColor" />
               </svg>
             </div>
-            <h2 className={styles.cardTitle}>Semantic search</h2>
-            <p className={styles.cardHint}>Find relevant passages by meaning (embeddings + pgvector)</p>
+            <h2 className={styles.cardTitle}>Ask the Knowledge Base</h2>
+            <p className={styles.cardHint}>Get natural-language answers from your documents with source citations</p>
           </div>
         </Link>
 

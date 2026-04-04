@@ -10,6 +10,7 @@ import { adminRouter } from "./routes/admin.js";
 import { managerRouter } from "./routes/manager.js";
 import { documentsRouter } from "./routes/documents.js";
 import { searchRouter } from "./routes/search.js";
+import { conversationsRouter } from "./routes/conversations.js";
 import { avatarsPublicRouter } from "./routes/avatarsPublic.js";
 
 /** Express app (no listen, no background workers). Used by `index.ts` and tests. */
@@ -25,6 +26,7 @@ export function createHttpApp(): express.Application {
   app.use("/manager", managerRouter);
   app.use("/documents", documentsRouter);
   app.use("/search", searchRouter);
+  app.use("/conversations", conversationsRouter);
 
   app.get("/", (_req, res) => {
     res.json({ ok: true, service: "knowledge-platform-api" });

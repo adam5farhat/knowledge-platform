@@ -98,9 +98,48 @@ export function SideIconArchive() {
   );
 }
 
-export function StatusLabel({ status, error }: { status: string; error: string | null }) {
+export function StatusLabel({
+  status,
+  error,
+  progress,
+}: {
+  status: string;
+  error: string | null;
+  progress?: number;
+}) {
   const color =
     status === "READY" ? "#15803d" : status === "FAILED" ? "var(--error)" : status === "PROCESSING" ? "#a16207" : "#52525b";
+
+  if ((status === "PROCESSING" || status === "PENDING") && typeof progress === "number") {
+    const pct = Math.max(0, Math.min(100, progress));
+    const label = status === "PENDING" ? "Queued" : `Processing ${pct}%`;
+    return (
+      <span style={{ display: "flex", flexDirection: "column", gap: "0.3rem", minWidth: 120 }}>
+        <span style={{ color, fontSize: "0.85rem", fontWeight: 600 }}>{label}</span>
+        <span
+          style={{
+            height: 6,
+            background: "#e4e4e7",
+            borderRadius: 3,
+            overflow: "hidden",
+            width: "100%",
+          }}
+        >
+          <span
+            style={{
+              display: "block",
+              height: "100%",
+              width: `${pct}%`,
+              background: status === "PENDING" ? "#a1a1aa" : "#2563eb",
+              borderRadius: 3,
+              transition: "width 0.4s ease",
+            }}
+          />
+        </span>
+      </span>
+    );
+  }
+
   return (
     <span style={{ color }}>
       {status}

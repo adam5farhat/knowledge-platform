@@ -1,43 +1,46 @@
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const MODEL = process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small";
-const DIM = 1536;
+const MODEL = process.env.GEMINI_EMBEDDING_MODEL ?? "gemini-embedding-001";
+const DIM = 768;
 
-let client: OpenAI | null = null;
+let genAI: GoogleGenerativeAI | null = null;
 
-function getClient(): OpenAI {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY is not set; embeddings are required for the RAG pipeline.");
+function getClient(): GoogleGenerativeAI {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) {
+    throw new Error("GEMINI_API_KEY is not set; embeddings are required for the RAG pipeline.");
   }
-  if (!client) {
-    client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  if (!genAI) {
+    genAI = new GoogleGenerativeAI(key);
   }
-  return client;
+  return genAI;
 }
 
 export const EMBEDDING_DIMENSIONS = DIM;
 
-/** Batch embeddings (OpenAI allows many inputs per request; we chunk to stay within limits). */
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
-  const openai = getClient();
+  const client = getClient();
+  const model = client.getGenerativeModel({ model: MODEL });
   const batchSize = 100;
   const out: number[][] = [];
+
   for (let i = 0; i < texts.length; i += batchSize) {
     const slice = texts.slice(i, i + batchSize);
-    const res = await openai.embeddings.create({
-      model: MODEL,
-      input: slice,
-      dimensions: DIM,
+    const result = await model.batchEmbedContents({
+      requests: slice.map((text) => ({
+        content: { role: "user", parts: [{ text }] },
+        outputDimensionality: DIM,
+      })),
     });
-    const sorted = [...res.data].sort((a, b) => a.index - b.index);
-    for (const row of sorted) {
-      if (!row.embedding || row.embedding.length !== DIM) {
-        throw new Error(`Unexpected embedding length: expected ${DIM}`);
+    for (const emb of result.embeddings) {
+      if (!emb.values || emb.values.length !== DIM) {
+        throw new Error(`Unexpected embedding length: expected ${DIM}, got ${emb.values?.length}`);
       }
-      out.push(row.embedding);
+      out.push(emb.values);
     }
   }
+
   return out;
 }
 

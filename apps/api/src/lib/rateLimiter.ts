@@ -21,3 +21,13 @@ export const forgotPasswordRateLimiter = rateLimit({
   skip: skipInTest,
   message: { error: "Too many reset requests. Try again later." },
 });
+
+/** Throttle expensive LLM-powered Q&A (per IP). */
+export const askRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  message: { error: "Too many AI questions. Please wait a moment before asking again." },
+});
