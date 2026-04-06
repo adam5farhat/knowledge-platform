@@ -45,7 +45,7 @@ This repository is the **integrated production-style codebase**: a TypeScript **
 ## What this platform does
 
 - **Central document store**: Upload and version documents (multiple formats), tag them, control visibility (org-wide, department-scoped, or private), archive, favorites, recents, and audit logging.
-- **Semantic search & ask**: Users with permission can run **vector search** and a **hybrid RAG “ask”** flow over documents they are allowed to read, with **Server-Sent Events (SSE)** streaming (sources, tokens, optional correction), source citations, and optional **conversation history**.
+- **Semantic search & ask**: Users with permission can run **vector search** and a **hybrid RAG "ask"** flow over documents they are allowed to read, with **Server-Sent Events (SSE)** streaming (sources, tokens, optional correction), source citations, and optional **conversation history**.
 - **Feedback loop**: Users can submit **thumbs up/down (and comments)** on assistant messages; the system can use **negative feedback patterns** to steer future answers (`feedbackMemory.ts`).
 - **Organizational structure**: **Departments** support a **parent/child hierarchy**. Users have a **primary department** plus optional **multi-department access** with levels: `MEMBER`, `MANAGER`, `VIEWER`, including **inherited** access down the tree for managers and viewers where implemented in `departmentAccess.ts`.
 - **Administration**: User lifecycle, bulk restrictions, imports, avatars, department CRUD/merge, KPI-style stats, activity and document-audit views, exports, and **per-user department access** management.
@@ -64,12 +64,10 @@ The codebase reflects a **mature single product** rather than a minimal demo. Th
 - **Post-answer quality pass**: After streaming, an optional **critique / correction** step can emit a `correction` event if the model proposes a materially better answer (`ragEvaluation.ts` integration in `search.ts`).
 - **Conversations**: Persisted threads and messages with **sources** and **confidence** on assistant turns; title generation endpoint.
 - **Answer feedback**: `AnswerFeedback` model (one rating per message per user flow) plus **stats** endpoint for analytics-style views.
-- **Multi-department access**: `UserDepartmentAccess` junction table with **migration backfill** from legacy “single primary department” users; auth middleware attaches **`readableDepartmentIds`** and **`manageableDepartmentIds`** for consistent enforcement.
+- **Multi-department access**: `UserDepartmentAccess` junction table with **migration backfill** from legacy "single primary department" users; auth middleware attaches **`readableDepartmentIds`** and **`manageableDepartmentIds`** for consistent enforcement.
 - **Embeddings**: **768-dimensional** vectors (see migration `switch_embedding_768`); HNSW-style vector index migration for performance.
-- **Async ingest**: **BullMQ** worker embedded in the API process: extract → chunk → embed → persist chunks.
-- **Hardening**: Rate limits on ask-style traffic, **TTL cache** and **retry with backoff** for Gemini rate limits (`cache.ts`, `geminiRetry.ts`), coordinated **refresh token** handling in the web client to avoid double-refresh races.
-
-Earlier experiments (for example standalone answer-validation helpers) have been **folded into** the RAG pipeline and evaluation utilities where relevant; the **source of truth** for “what runs in production paths” is `routes/search.ts`, `lib/ragCompletion.ts`, and related libs above.
+- **Async ingest**: **BullMQ** worker embedded in the API process: extract → chunk → embed → persist chunks. Failed jobs are retained with a 7-day TTL and 500-count cap for debugging.
+- **Hardening**: Comprehensive security audit and fixes applied (see [Security](#security-access-control-and-departments) below), including rate limiting on all sensitive endpoints, **TTL cache** and **retry with backoff** for Gemini rate limits (`cache.ts`), coordinated **refresh token** handling in the web client to avoid double-refresh races, CSP headers, CSV injection protection, and timing-attack mitigations.
 
 ---
 
@@ -127,10 +125,11 @@ flowchart LR
 | **API** | Node.js, Express 4, TypeScript (ESM), Zod validation |
 | **Database** | PostgreSQL 16 + **pgvector** (Prisma ORM) |
 | **Cache / queue** | Redis 7, BullMQ |
-| **Auth** | JWT access tokens, hashed refresh tokens in DB, `authVersion` invalidation on password change |
+| **Auth** | JWT access tokens (HS256, 15-minute default TTL), hashed refresh tokens in DB, `authVersion` invalidation on password/role/email changes |
+| **Security** | Helmet (CSP enabled), CORS origin validation, rate limiting on all sensitive endpoints, bcrypt-12 password hashing, timing-attack mitigations, CSV injection protection |
 | **AI** | **Google Gemini** (`@google/generative-ai`): embeddings (768-dim), query optimization, chunk reranking, streaming answers |
 | **Files** | Multer uploads, configurable `STORAGE_PATH`, text extraction (PDF, Office, spreadsheets, etc. — see `extractText.ts`) |
-| **Email** | Nodemailer (optional SMTP; dev logs reset links if SMTP unset) |
+| **Email** | Nodemailer with TLS enforcement (optional SMTP; dev logs reset links if SMTP unset) |
 
 > **Note:** The API `package.json` lists an `openai` dependency for tooling compatibility, but **runtime RAG and embeddings use Gemini**. Configure **`GEMINI_API_KEY`** for ingest and ask flows.
 
@@ -164,23 +163,24 @@ finalproject/
 ### Authentication and session
 
 - Login, logout, **refresh** with **single-flight** refresh to avoid token rotation conflicts.
-- **Password reset** (email or dev console log when SMTP is unset).
-- **Change password** bumps `authVersion` and syncs refresh sessions.
-- **Profile** updates (badge, profile picture URL validation, etc.).
+- **Password reset** (email with TLS enforcement, or dev console log when SMTP is unset).
+- **Change password** blocks same-password reuse, bumps `authVersion` and syncs refresh sessions.
+- **Profile** updates (badge, profile picture restricted to platform-hosted URLs, etc.).
 - **Account restriction** flags (`loginAllowed`, document/dashboard/AI feature toggles).
+- **Timing-attack mitigations**: dummy bcrypt on invalid-email login, normalized response time on forgot-password.
 
 ### Document library
 
 - Upload documents and **new versions**; processing lifecycle (`PENDING` → `PROCESSING` → `READY` / `FAILED`) with progress where supported.
 - **Visibility**: `ALL`, `DEPARTMENT`, `PRIVATE` enforced server-side via `documentAccess.ts`, `documentQuery.ts`, and JWT-enriched **readable department IDs**.
 - **Tags**, **favorites**, **recents**, **archive**, **delete** (permission-checked).
-- **Audit log** of document events (admin UI + export).
+- **Audit log** of document events (admin UI + CSV export with formula-injection protection).
 
 ### Search and AI
 
 - **POST `/search/semantic`**: Vector search over embedded chunks (with access filters).
 - **POST `/search/ask`**: Full pipeline — optimize query → parallel vector + BM25 → RRF → optional multi-hop retrieval → rerank → SSE stream → optional critique/correct (see [API reference](#api-reference-routes)).
-- **Rate limiting** on the ask endpoint.
+- **Rate limiting** on the ask endpoint (applied after authentication to prevent unauthenticated IP exhaustion).
 - **TTL cache** and **retry with backoff** for provider rate limits.
 
 ### Conversations
@@ -191,10 +191,11 @@ finalproject/
 
 ### Admin
 
-- Departments: CRUD, **merge**, hierarchy (`parentDepartmentId`).
+- Departments: CRUD, **merge** (transactional), hierarchy (`parentDepartmentId`). Delete is wrapped in a serializable transaction with usage checks.
 - Users: create/update/delete, **bulk restrictions**, CSV **import**, avatar upload, lock/unlock, restore soft-deleted, revoke sessions, set password.
+- **Last-admin safety**: admin role removal and user deletion are protected by serializable transactions that atomically verify at least one admin remains.
 - **Department access** (per user): `GET` / `POST` / `DELETE` / `PUT` under `/admin/users/:userId/department-access`, plus **department-centric** `GET /admin/departments/:departmentId/access`.
-- Stats, KPI time series, **activity** and **document audit** lists and exports.
+- Stats, KPI time series, **activity** and **document audit** lists and CSV exports (with CSV formula-injection escaping).
 
 ### Manager
 
@@ -204,22 +205,69 @@ finalproject/
 ### Web UX
 
 - Role-aware **home routing** (`homePathForUser` in `lib/restrictions.ts`).
-- **Documents** browser, **search**, **Ask** (RAG UI with markdown rendering), **profile**, **restricted** explanation page.
+- **Dashboard** with a 2×2 card grid (Documents, Ask, Department overview, Administration — shown based on role/permissions).
+- **Documents** browser, **search**, **Ask** (RAG UI with markdown rendering, link sanitization via `rel="noopener noreferrer nofollow"`), **profile**, **restricted** explanation page.
 - **Admin** hub (users, departments, documents, activity, audit, system) and **manager** dashboard with shared chrome.
+- **Error boundaries** (`error.tsx`, `global-error.tsx`) with Home link pointing to `/dashboard`.
 
 ---
 
 ## Security, access control, and departments
 
-1. **JWT** carries user id, email, role, primary `departmentId`, and `authVersion`. `authenticateToken` loads the live user, restrictions, and computes:
-   - **`readableDepartmentIds`** — departments whose documents the user may read (multi-department rows + hierarchy rules in `departmentAccess.ts`).
+### Authentication hardening
+
+| Control | Implementation |
+|---------|----------------|
+| **JWT signing** | HS256 algorithm pinned explicitly; secret minimum **32 characters** enforced at startup |
+| **Access token TTL** | Default **15 minutes** (configurable via `JWT_EXPIRES_IN`); short-lived to limit stolen-token exposure |
+| **Refresh tokens** | 30-day TTL, atomic rotation (old token revoked in same transaction), replay detection |
+| **`authVersion`** | Incremented on password change, email change, role change, restriction change — instantly invalidates all existing tokens |
+| **Password hashing** | bcrypt with 12 rounds, automatic salt |
+| **Timing attacks** | Dummy bcrypt on invalid-email login; minimum 500ms + random jitter on forgot-password regardless of email existence |
+| **Same-password block** | `/change-password` rejects `newPassword === currentPassword` |
+
+### Rate limiting
+
+| Endpoint | Limit |
+|----------|-------|
+| `/auth/login` | 15 / 15 min / IP |
+| `/auth/refresh` | 30 / 15 min / IP |
+| `/auth/forgot-password` | 8 / hour / IP |
+| `/auth/reset-password` | 10 / 15 min / IP |
+| `/search/ask` | 12 / min / IP (applied after authentication) |
+
+### Transport and headers
+
+- **Helmet** with restrictive **Content-Security-Policy** (`default-src 'none'`, `frame-ancestors 'none'`, `connect-src 'self'`).
+- **CORS**: strict origin validation from `WEB_APP_URL`; production denies all origins if `WEB_APP_URL` is unset.
+- **SMTP TLS**: `requireTLS: true` enforced on the nodemailer transporter when not using implicit TLS.
+
+### Access control
+
+1. **JWT** carries user id, email, role, primary `departmentId`, and `authVersion`. `authenticateToken` loads the live user from DB on every request, rejects stale tokens with `ACCESS_TOKEN_OUTDATED` if email/role/department have changed, and computes:
+   - **`readableDepartmentIds`** — departments whose documents the user may read (multi-department rows + hierarchy rules in `departmentAccess.ts`, cached with 30s TTL).
    - **`manageableDepartmentIds`** — departments the user may manage (for example `MANAGER` access on a parent can extend to descendants per helper logic).
 
-2. **`documentAccess.ts`** enforces read/manage rules combining **visibility** with those ID sets (and **private** documents for the owner).
+2. **`documentAccess.ts`** enforces read/manage rules combining **visibility** with those ID sets (and **private** documents for the owner). `canViewAudit` is derived from management permissions rather than hardcoded.
 
 3. **`restrictions.ts`** gates routes (for example document library vs AI) using `accessDocumentsAllowed`, `useAiQueriesAllowed`, etc.
 
-4. **Roles**: `ADMIN`, `MANAGER`, `EMPLOYEE` (`RoleName` in Prisma). Admin routes require admin; manager routes require manager.
+4. **Roles**: `ADMIN`, `MANAGER`, `EMPLOYEE` (`RoleName` in Prisma). Admin routes require admin; manager routes require manager or department-level MANAGER access.
+
+5. **Input validation**: All request bodies validated with **Zod schemas** with explicit field mapping to Prisma updates (no raw `req.body` spread — prevents mass assignment).
+
+6. **SQL injection prevention**: All raw queries use Prisma's `$queryRaw` tagged templates with parameterized values. The one `$executeRawUnsafe` usage (pgvector chunk insertion) uses positional bind parameters.
+
+### Data protection
+
+- **Profile picture URLs** restricted to platform-hosted `/avatars/{userId}/...` paths only (blocks arbitrary external URLs / tracking pixels / SSRF).
+- **CSV export** escapes formula-injection prefixes (`=`, `+`, `-`, `@`, `\t`, `\r`) on all admin exports.
+- **Avatar uploads** validated with MIME allowlist + magic-byte sniffing + 2MB size limit.
+- **Document uploads** validated with MIME allowlist + 50MB size limit.
+- **Client-side avatar processing** enforces a 25MB file size limit before `createImageBitmap`.
+- **PDF OCR fallback** enforces a 20MB size limit before sending to Gemini.
+- **Markdown links** rendered with `target="_blank" rel="noopener noreferrer nofollow"` in the Ask UI.
+- **Error handler** only leaks debug messages in non-production environments (`NODE_ENV !== "production"`).
 
 ---
 
@@ -227,8 +275,8 @@ finalproject/
 
 1. **Ingest** (worker): File from disk → **extract** plain text (`extractText.ts`) → **chunk** (`chunkText.ts`) → **embed** with Gemini (`embeddings.ts`, 768 dims) → store in `DocumentChunk` with vector + optional full-text (`tsvector` per migrations).
 2. **Ask** (`POST /search/ask`): Authenticated user → **optimize query** (`queryOptimizer.ts`) → **parallel** vector + BM25 (`search.ts`, `runBM25Search`) → **RRF** fusion → optional **multi-hop** extra vector passes → **rerank** (`reranker.ts`) → **confidence** (`assessConfidence`) → **SSE**: `sources` event, then streamed `token` events, optional **`correction`** event, then `done`.
-3. **Feedback memory**: Before generation, recent **negative** feedback “lessons” can be appended to the prompt (`feedbackMemory.ts`).
-4. **Utilities**: `geminiRetry.ts`, `cache.ts` (`TtlCache`, `withRetry`). `ragEvaluation.ts` supports **critique/correct** flows invoked from the ask route.
+3. **Feedback memory**: Before generation, recent **negative** feedback "lessons" can be appended to the prompt (`feedbackMemory.ts`).
+4. **Utilities**: `cache.ts` (`TtlCache` with proactive expired-entry eviction, `withRetry` with configurable timeout). `ragEvaluation.ts` supports **critique/correct** flows invoked from the ask route.
 
 ---
 
@@ -237,6 +285,7 @@ finalproject/
 - **Started** in `apps/api/src/index.ts` via `startDocumentIngestWorker()` after `app.listen` (same Node process as the API).
 - **Queue**: BullMQ uses Redis (`redisBull.ts`); jobs are produced when new versions need processing (see `documentIngest.ts` and document routes).
 - **Pipeline**: Load file → extract text → chunk → batch embed → write `DocumentChunk` rows → update version/document status.
+- **Failed jobs**: Retained with a 7-day TTL and 500-count cap (`removeOnFail`) for debugging; completed jobs retain the latest 1,000.
 - **Shutdown**: `SIGINT` / `SIGTERM` stop the worker gracefully (`stopDocumentIngestWorker`) before closing HTTP and Prisma.
 
 ---
@@ -263,23 +312,26 @@ Migrations under `apps/api/prisma/migrations/` include: pgvector enablement, aut
 | Module | Role |
 |--------|------|
 | `prisma.ts` | Prisma client singleton |
-| `jwt.ts` / `refreshToken.ts` / `refreshSessionSync.ts` | Tokens and session invalidation |
-| `password.ts` / `passwordReset.ts` | Hashing and reset flow |
+| `jwt.ts` / `refreshToken.ts` / `refreshSessionSync.ts` | Tokens (HS256, 32-char min secret, 15m default TTL) and session invalidation |
+| `password.ts` / `passwordReset.ts` | bcrypt-12 hashing and reset token generation (256-bit entropy, SHA-256 stored) |
 | `documentAccess.ts` / `documentQuery.ts` | Read/list rules and query builders |
-| `departmentAccess.ts` | Readable / manageable department sets with hierarchy |
+| `departmentAccess.ts` | Readable / manageable department sets with hierarchy (30s TTL cache, cycle-safe) |
+| `platformRoles.ts` | Centralized role checks (`isGlobalManagerRole`, `isPlatformAdmin`) |
 | `userRestrictions.ts` / `mapUser.ts` | Restriction flags and API DTO shaping |
-| `storage.ts` / `avatar.ts` / `avatarOps.ts` | File storage and avatar rules |
-| `extractText.ts` / `chunkText.ts` | Ingest text pipeline |
-| `embeddings.ts` | Gemini embeddings |
-| `queryOptimizer.ts` / `reranker.ts` / `ragCompletion.ts` | RAG orchestration |
+| `storage.ts` / `avatar.ts` / `avatarOps.ts` | File storage, avatar rules (platform-hosted URLs only), path traversal protection |
+| `extractText.ts` / `chunkText.ts` | Ingest text pipeline (PDF/Office/spreadsheet extraction, 20MB OCR limit) |
+| `embeddings.ts` | Gemini embeddings (768-dim, empty-result guard) |
+| `queryOptimizer.ts` / `reranker.ts` / `ragCompletion.ts` | RAG orchestration with timeout protection |
 | `ragEvaluation.ts` | Critique / correct (used from search route) |
 | `feedbackMemory.ts` | Negative-feedback lessons for prompts |
-| `cache.ts` | TTL cache + `withRetry` for rate limits |
-| `geminiRetry.ts` | Gemini-specific retry helper |
-| `rateLimiter.ts` | Express rate limits |
+| `cache.ts` | TTL cache (proactive expired-entry eviction) + `withRetry` with 30s timeout |
+| `rateLimiter.ts` | Express rate limits (login, refresh, reset-password, forgot-password, ask) |
+| `authErrorCodes.ts` | Custom error codes for explicit client-side handling |
+| `clientIp.ts` | Safe client IP extraction with IPv4-mapped handling |
+| `managerDashboard.ts` | Manager dashboard field resolution |
 | `documentAudit.ts` / `tags.ts` | Audit logging and tags |
-| `email.ts` | Nodemailer |
-| `redis.ts` / `redisBull.ts` | Redis and BullMQ |
+| `email.ts` | Nodemailer with TLS enforcement |
+| `redis.ts` / `redisBull.ts` | Redis (with error listener) and BullMQ |
 
 ---
 
@@ -332,7 +384,7 @@ The web **Ask** client consumes these events to render streaming markdown and so
 |-------|-------------|
 | `/` | Client gate: anonymous → `/login`; signed-in → role-appropriate home (`HomeEntryClient`) |
 | `/login`, `/register`, `/forgot-password`, `/reset-password` | Auth flows |
-| `/dashboard` | Employee dashboard (when allowed) |
+| `/dashboard` | Main dashboard — 2×2 card grid (Documents, Ask, Department overview, Administration) based on role |
 | `/documents`, `/documents/search`, `/documents/ask`, `/documents/[id]` | Library, search, RAG chat, detail |
 | `/profile` | Profile |
 | `/manager` | Manager dashboard |
@@ -379,7 +431,7 @@ npm run db:seed
 
 ### 4. Configure API and web env files
 
-- Copy `apps/api/.env.example` → `apps/api/.env` and set at least **`JWT_SECRET`** (≥ 16 characters) and **`GEMINI_API_KEY`**.
+- Copy `apps/api/.env.example` → `apps/api/.env` and set at least **`JWT_SECRET`** (≥ 32 characters, generate with `openssl rand -hex 32`) and **`GEMINI_API_KEY`**.
 - Copy `apps/web/.env.example` → `apps/web/.env.local` and set **`NEXT_PUBLIC_API_URL`** (for example `http://localhost:3001`).
 
 **`PUBLIC_API_URL` (API)** and **`NEXT_PUBLIC_API_URL` (web)** should use the **same scheme + host** as the browser will use, so avatar URLs and API calls stay consistent.
@@ -414,16 +466,18 @@ npm run dev:turbo
 | Variable | Required / typical | Purpose |
 |----------|-------------------|---------|
 | `DATABASE_URL` | Required | PostgreSQL connection string |
-| `JWT_SECRET` | Required in production (min 16 chars) | Signing access tokens |
+| `JWT_SECRET` | Required (min 32 chars) | Signing access tokens (HS256). Generate with `openssl rand -hex 32` |
+| `JWT_EXPIRES_IN` | Optional | Access token TTL. Default `15m`. Accepts any `ms`-compatible string (e.g. `15m`, `1h`) |
 | `GEMINI_API_KEY` | Required for ingest + RAG | Embeddings, optimization, rerank, answers |
 | `GEMINI_EMBEDDING_MODEL` | Optional | Default `gemini-embedding-001` |
 | `GEMINI_CHAT_MODEL` | Optional | Default `gemini-2.5-flash` |
 | `REDIS_URL` | Optional | Defaults toward local Redis; BullMQ + health |
 | `PORT` | Optional | Default `3001` |
 | `PUBLIC_API_URL` | Strongly recommended | Public base URL of API (no trailing slash); align with web |
-| `WEB_APP_URL` | Optional | Web origin for password-reset links |
+| `WEB_APP_URL` | Recommended in production | Web origin for CORS and password-reset links. If unset in production, CORS denies all cross-origin requests |
+| `TRUST_PROXY` | Optional | Set to hop count (e.g. `1`) or subnet behind a reverse proxy. Avoid `true` in production |
 | `STORAGE_PATH` | Optional | Upload directory |
-| `SMTP_*` | Optional | If unset in dev, password reset links log to console |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | Optional | If unset in dev, password reset links log to console. TLS is enforced when `SMTP_SECURE` is not `true` (STARTTLS upgrade) |
 | `SEED_*` | Optional | Seed script overrides |
 
 See `apps/api/.env.example` for the full list and inline comments.
@@ -458,12 +512,16 @@ API **`npm run build`** excludes `*.test.ts` from `tsc` output; tests run with *
 
 ## Production deployment notes
 
-- Set strong **`JWT_SECRET`**, production **`DATABASE_URL`**, **`REDIS_URL`**, **`GEMINI_API_KEY`**, and **`PUBLIC_API_URL`** / **`NEXT_PUBLIC_API_URL`** to real public hostnames as appropriate.
+- Set strong **`JWT_SECRET`** (minimum 32 characters, generated with `openssl rand -hex 32`), production **`DATABASE_URL`**, **`REDIS_URL`**, **`GEMINI_API_KEY`**, and **`PUBLIC_API_URL`** / **`NEXT_PUBLIC_API_URL`** to real public hostnames as appropriate.
+- Set **`WEB_APP_URL`** to the production web origin — CORS will deny all cross-origin requests if this is unset in production.
+- Set **`TRUST_PROXY`** to your reverse proxy hop count or subnet (e.g. `1` or `"loopback"`). Avoid `true` as it trusts all `X-Forwarded-For` headers unconditionally.
 - Run **`npm run db:migrate`** against the production database before rolling out API versions that change schema.
-- Build and serve **web** with `next build` + `next start` (or your host’s equivalent).
+- Build and serve **web** with `next build` + `next start` (or your host's equivalent).
 - Run **API** with `node dist/index.js` after `npm run build` in `apps/api`.
 - **One listener per port**: only one process on the web port and one on the API port.
-- CORS is configured as `origin: true` in development-style setups; **tighten** for your threat model if the API is exposed broadly.
+- Ensure **`NODE_ENV=production`** is set — this enforces the JWT_SECRET minimum at startup and suppresses debug error messages in API responses.
+- Consider adding **SSL/TLS termination** via a reverse proxy (nginx, Cloudflare, ALB) in front of both the API and web servers.
+- Configure **Redis authentication** (`requirepass`) and **PostgreSQL SSL** (`?sslmode=require` in `DATABASE_URL`) for production deployments.
 
 ---
 
@@ -473,7 +531,7 @@ API **`npm run build`** excludes `*.test.ts` from `tsc` output; tests run with *
 npm run test:api
 ```
 
-Integration tests (for example `auth.integration.test.ts`) exercise login, refresh, profile, password change, logout-all, and related flows via Supertest against the HTTP app created in `httpApp.ts`.
+Integration tests (for example `auth.integration.test.ts`) exercise login, refresh, profile, password change, logout-all, and related flows via Supertest against the HTTP app created in `httpApp.ts`. The `roleNameContract.test.ts` validates that role name constants stay in sync across the codebase.
 
 ---
 
@@ -503,9 +561,13 @@ Confirm **`npm run dev`** (or `dev:api`) is running, **`NEXT_PUBLIC_API_URL`** m
 
 Usually a dev/prod chunk mix or HMR glitch: **`npm run clean:web`**, restart dev, try disabling aggressive browser extensions on localhost.
 
-### Ask returns 503 “AI service is not configured”
+### Ask returns 503 "AI service is not configured"
 
 Set **`GEMINI_API_KEY`** in `apps/api/.env` and restart the API.
+
+### JWT_SECRET error at startup
+
+The API requires `JWT_SECRET` to be at least **32 characters**. Generate one with: `openssl rand -hex 32`. In production (`NODE_ENV=production`), the server will exit if this check fails.
 
 ---
 
