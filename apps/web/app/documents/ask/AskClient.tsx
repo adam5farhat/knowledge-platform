@@ -10,6 +10,7 @@ import {
   clearStoredSession,
   fetchWithAuth,
   getValidAccessToken,
+  signOut,
 } from "../../../lib/authClient";
 import {
   DEFAULT_USER_RESTRICTIONS,
@@ -18,9 +19,9 @@ import {
   userCanOpenManagerDashboard,
   type MeUserDto,
 } from "../../../lib/restrictions";
+import { useConfirm } from "@/components/ConfirmDialog";
 import styles from "./ask.module.css";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "@/lib/apiBase";
 
 type ConfidenceLevel = "high" | "low" | "none";
 
@@ -63,6 +64,7 @@ const EXAMPLE_QUERIES = [
 
 export default function AskClient() {
   const router = useRouter();
+  const confirm = useConfirm();
   const [phase, setPhase] = useState<"checking" | "need-login" | "ready">("checking");
   const [user, setUser] = useState<MeUserDto | null>(null);
 
@@ -130,14 +132,8 @@ export default function AskClient() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  async function signOut() {
-    const refreshToken = localStorage.getItem("kp_refresh_token");
-    if (refreshToken) {
-      try {
-        await fetch(`${API}/auth/logout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refreshToken }) });
-      } catch { /* best-effort */ }
-    }
-    clearStoredSession();
+  async function handleSignOut() {
+    await signOut();
     router.replace("/login");
     router.refresh();
   }
@@ -382,6 +378,7 @@ export default function AskClient() {
   }
 
   async function deleteConversation(convId: string) {
+    if (!(await confirm({ title: "Delete conversation", message: "This conversation and all its messages will be permanently deleted.", danger: true }))) return;
     try {
       await fetchWithAuth(`${API}/conversations/${convId}`, { method: "DELETE" });
       if (activeConvId === convId) newConversation();
@@ -502,7 +499,7 @@ export default function AskClient() {
                     <Link prefetch={false} className={styles.menuItem} href="/admin/system" role="menuitem" onClick={() => setMenuOpen(false)}>System stats</Link>
                   </>
                 )}
-                <button type="button" className={styles.menuItem} onClick={() => { setMenuOpen(false); void signOut(); }} role="menuitem">
+                <button type="button" className={styles.menuItem} onClick={() => { setMenuOpen(false); void handleSignOut(); }} role="menuitem">
                   Logout
                 </button>
               </div>

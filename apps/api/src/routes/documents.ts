@@ -16,6 +16,8 @@ import {
 import { isPlatformAdmin, isGlobalManagerRole } from "../lib/platformRoles.js";
 import { docListInclude, listDocuments, mapDocumentRow, parseLibraryScope } from "../lib/documentQuery.js";
 import { prisma } from "../lib/prisma.js";
+import { AppError } from "../lib/AppError.js";
+import { bulkIdsSchema } from "../lib/schemas.js";
 import {
   allocateStorageKey,
   absolutePathForKey,
@@ -88,8 +90,7 @@ documentsRouter.post(
 
     const parsed = uploadMeta.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-      return;
+      throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
     }
 
     const file = req.file;
@@ -368,10 +369,9 @@ documentsRouter.post(
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
-    const body = z.object({ ids: z.array(z.string().uuid()).min(1).max(50) }).safeParse(req.body);
+    const body = z.object({ ids: bulkIdsSchema }).safeParse(req.body);
     if (!body.success) {
-      res.status(400).json({ error: "Validation failed", details: body.error.flatten() });
-      return;
+      throw AppError.badRequest("Validation failed", undefined, body.error.flatten());
     }
 
     let deleted = 0;
@@ -499,8 +499,7 @@ documentsRouter.patch("/:documentId", requireManageDocumentsCapability, async (r
   }
   const parsed = patchDocumentBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const doc = await prisma.document.findUnique({

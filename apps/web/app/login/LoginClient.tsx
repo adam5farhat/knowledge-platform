@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { fetchPublicApi, fetchWithAuth, getValidAccessToken } from "@/lib/authClient";
+import { fetchPublicApi, fetchWithAuth, getValidAccessToken, setAccessToken } from "@/lib/authClient";
 import { homePathForUser, type MeUserDto } from "@/lib/restrictions";
 import styles from "./page.module.css";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "@/lib/apiBase";
 
 export default function LoginClient() {
   const router = useRouter();
@@ -62,17 +61,10 @@ export default function LoginClient() {
         code?: string;
         supportContact?: string;
         token?: string;
-        refreshToken?: string;
         user?: MeUserDto;
       };
       try {
-        data = (await res.json()) as {
-          error?: string;
-          code?: string;
-          supportContact?: string;
-          token?: string;
-          user?: MeUserDto;
-        };
+        data = (await res.json()) as typeof data;
       } catch {
         setError("Invalid response from server (is the API running?)");
         return;
@@ -88,10 +80,7 @@ export default function LoginClient() {
         return;
       }
       if (data.token) {
-        localStorage.setItem("kp_access_token", data.token);
-      }
-      if (data.refreshToken) {
-        localStorage.setItem("kp_refresh_token", data.refreshToken);
+        setAccessToken(data.token);
       }
       if (data.user) {
         if (data.user.mustChangePassword) {

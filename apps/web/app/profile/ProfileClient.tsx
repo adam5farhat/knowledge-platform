@@ -11,34 +11,21 @@ import {
   clearStoredSession,
   fetchWithAuth,
   getValidAccessToken,
+  setAccessToken,
+  signOut,
   KP_AUTH_SESSION_REFRESHED,
 } from "../../lib/authClient";
 import {
   DEFAULT_USER_RESTRICTIONS,
   RoleNameApi,
   userCanOpenManagerDashboard,
-  type UserRestrictionsDto,
+  type MeUserDto,
 } from "../../lib/restrictions";
 import dash from "../components/shellNav.module.css";
 import p from "./profile.module.css";
+import { API_BASE as API } from "@/lib/apiBase";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-
-type User = {
-  id: string;
-  email: string;
-  name: string;
-  phoneNumber: string | null;
-  position: string | null;
-  employeeBadgeNumber: string | null;
-  profilePictureUrl: string | null;
-  role: string;
-  department: { id: string; name: string };
-  mustChangePassword?: boolean;
-  restrictions?: UserRestrictionsDto;
-  manageableDepartmentIds?: string[];
-  canAccessManagerDashboard?: boolean;
-};
+type User = MeUserDto;
 
 export default function ProfileClient() {
   const router = useRouter();
@@ -73,12 +60,6 @@ export default function ProfileClient() {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("kp_access_token");
-    if (!token) {
-      router.replace("/login");
-      setPhase("need-login");
-      return;
-    }
     void (async () => {
       const res = await fetchWithAuth(`${API}/auth/me`);
       if (res.status === 401) {
@@ -139,20 +120,8 @@ export default function ProfileClient() {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [menuOpen]);
 
-  async function signOut() {
-    const refreshToken = localStorage.getItem("kp_refresh_token");
-    if (refreshToken) {
-      try {
-        await fetch(`${API}/auth/logout`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken }),
-        });
-      } catch {
-        /* best-effort */
-      }
-    }
-    clearStoredSession();
+  async function handleSignOut() {
+    await signOut();
     router.replace("/login");
     router.refresh();
   }
@@ -181,15 +150,13 @@ export default function ProfileClient() {
         error?: string;
         user?: User;
         token?: string;
-        refreshToken?: string;
       };
       if (!res.ok) {
         setProfileError(data.error ?? "Could not save profile");
         return;
       }
       if (data.user) setUser(data.user);
-      if (data.token) localStorage.setItem("kp_access_token", data.token);
-      if (data.refreshToken) localStorage.setItem("kp_refresh_token", data.refreshToken);
+      if (data.token) setAccessToken(data.token);
       setProfileOk("Profile saved.");
     } catch {
       setProfileError("Could not reach the API.");
@@ -218,12 +185,10 @@ export default function ProfileClient() {
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
         token?: string;
-        refreshToken?: string;
         user?: User;
       };
       if (res.status === 200 && data.token) {
-        localStorage.setItem("kp_access_token", data.token);
-        if (data.refreshToken) localStorage.setItem("kp_refresh_token", data.refreshToken);
+        setAccessToken(data.token);
         if (data.user) setUser(data.user);
         setPwdUrlGate(false);
         router.replace("/profile");
@@ -326,7 +291,7 @@ export default function ProfileClient() {
                 className={dash.menuItem}
                 onClick={() => {
                   setMenuOpen(false);
-                  void signOut();
+                  void handleSignOut();
                 }}
                 role="menuitem"
               >
@@ -388,7 +353,7 @@ export default function ProfileClient() {
               onClose={() => setPhotoModalOpen(false)}
               mode="self"
               displayName={user.name}
-              pictureUrl={user.profilePictureUrl}
+              pictureUrl={user.profilePictureUrl ?? null}
               pictureUrlDraft={profilePictureUrl}
               onPictureUrlDraftChange={setProfilePictureUrl}
               onPictureUpdated={(nextUrl) => {
@@ -426,7 +391,7 @@ export default function ProfileClient() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
-                  minLength={8}
+                  minLength={10}
                   autoComplete="new-password"
                 />
               </div>
@@ -441,7 +406,7 @@ export default function ProfileClient() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  minLength={8}
+                  minLength={10}
                   autoComplete="new-password"
                 />
               </div>

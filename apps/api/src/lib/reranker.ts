@@ -1,13 +1,14 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { RagChunk } from "./ragCompletion.js";
 import { withRetry } from "./cache.js";
+import { config } from "./config.js";
 
-const MODEL = process.env.GEMINI_CHAT_MODEL ?? "gemini-2.5-flash";
+const MODEL = config.gemini.chatModel;
 
 let genAI: GoogleGenerativeAI | null = null;
 
 function getClient(): GoogleGenerativeAI {
-  const key = process.env.GEMINI_API_KEY;
+  const key = config.gemini.apiKey;
   if (!key) throw new Error("GEMINI_API_KEY is not set.");
   if (!genAI) genAI = new GoogleGenerativeAI(key);
   return genAI;

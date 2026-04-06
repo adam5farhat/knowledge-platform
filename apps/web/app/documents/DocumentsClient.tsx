@@ -5,10 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileTypeIcon } from "../../components/FileTypeIcon";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
+import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ConfirmDialog";
 import {
   clearStoredSession,
   fetchWithAuth,
   getValidAccessToken,
+  signOut,
   KP_AUTH_SESSION_REFRESHED,
 } from "../../lib/authClient";
 import {
@@ -16,10 +19,11 @@ import {
   restrictedHref,
   RoleNameApi,
   userCanOpenManagerDashboard,
+  type MeResponse,
   type MeUserDto,
 } from "../../lib/restrictions";
 import styles from "./page.module.css";
-import type { Dept, DocRow, LibraryScope, Me } from "./documentsTypes";
+import type { Dept, DocRow, LibraryScope } from "./documentsTypes";
 import { MAX_UPLOAD_TAGS, TABLE_TAGS_VISIBLE } from "./documentsTypes";
 import {
   formatModifiedTable,
@@ -46,11 +50,12 @@ import {
   StatusLabel,
   TableRowHeartIcon,
 } from "./DocumentsClientIcons";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "@/lib/apiBase";
 
 export default function DocumentsClient() {
   const router = useRouter();
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const [phase, setPhase] = useState<"checking" | "need-login" | "ready">("checking");
   const [me, setMe] = useState<MeUserDto | null>(null);
   const [sessionRecheck, setSessionRecheck] = useState(0);
@@ -165,7 +170,7 @@ export default function DocumentsClient() {
         const st = d.latestVersion?.processingStatus ?? "";
         const prev = nextMap.get(d.id);
         if (prev && prev !== "READY" && st === "READY") {
-          window.alert(`Ready: ${d.title}`);
+          toast(`Ready: ${d.title}`, "success");
         }
         nextMap.set(d.id, st);
       }
@@ -180,6 +185,7 @@ export default function DocumentsClient() {
       tagFilter,
       libraryScope,
       selectedDepartment,
+      toast,
     ],
   );
 
@@ -254,7 +260,7 @@ export default function DocumentsClient() {
           return;
         }
         if (!meRes.ok) throw new Error("me");
-        const meJson = (await meRes.json()) as Me;
+        const meJson = (await meRes.json()) as MeResponse;
         const docRs = meJson.user.restrictions ?? DEFAULT_USER_RESTRICTIONS;
         if (docRs.accessDocumentsAllowed === false) {
           if (!cancelled) router.replace(restrictedHref("accessDocuments"));
@@ -380,10 +386,10 @@ export default function DocumentsClient() {
     const ids = Array.from(bulkSelected);
     if (ids.length === 0) return;
     if (ids.length > 50) {
-      window.alert("You can delete at most 50 documents per request.");
+      toast("You can delete at most 50 documents per request.", "error");
       return;
     }
-    if (!window.confirm(`Permanently delete ${ids.length} document(s)? This cannot be undone.`)) return;
+    if (!(await confirm({ title: "Delete Items", message: `Permanently delete ${ids.length} document(s)? This cannot be undone.`, danger: true }))) return;
     setBulkErr(null);
     setBulkBusy(true);
     try {
@@ -468,20 +474,8 @@ export default function DocumentsClient() {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [profileMenuOpen]);
 
-  async function signOut() {
-    const refreshToken = localStorage.getItem("kp_refresh_token");
-    if (refreshToken) {
-      try {
-        await fetch(`${API}/auth/logout`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken }),
-        });
-      } catch {
-        // best-effort
-      }
-    }
-    clearStoredSession();
+  async function handleSignOut() {
+    await signOut();
     router.replace("/login");
     router.refresh();
   }
@@ -535,7 +529,7 @@ export default function DocumentsClient() {
   }
 
   async function onDelete(id: string) {
-    if (!confirm("Delete this document and all versions?")) return;
+    if (!(await confirm({ title: "Delete", message: "Delete this document and all versions?", danger: true }))) return;
     const token = await getValidAccessToken();
     if (!token) return;
     const res = await fetchWithAuth(`${API}/documents/${id}`, {
@@ -543,7 +537,7 @@ export default function DocumentsClient() {
     });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
-      alert(data.error ?? "Delete failed");
+      toast(data.error ?? "Delete failed", "error");
       return;
     }
     await loadDocuments(listPage, false);
@@ -560,7 +554,7 @@ export default function DocumentsClient() {
     const res = await fetchWithAuth(`${API}/documents/${documentId}/archive`, { method: "POST" });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
-      alert(data.error ?? "Could not archive this document.");
+      toast(data.error ?? "Could not archive this document.", "error");
       return;
     }
     await loadDocuments(listPage, false);
@@ -570,7 +564,7 @@ export default function DocumentsClient() {
     const res = await fetchWithAuth(`${API}/documents/${documentId}/archive`, { method: "DELETE" });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
-      alert(data.error ?? "Could not unarchive this document.");
+      toast(data.error ?? "Could not unarchive this document.", "error");
       return;
     }
     await loadDocuments(listPage, false);
@@ -581,7 +575,7 @@ export default function DocumentsClient() {
       const res = await fetchWithAuth(`${API}/documents/${documentId}/versions/${versionId}/file`);
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        alert(data.error ?? "Download failed");
+        toast(data.error ?? "Download failed", "error");
         return;
       }
       const blob = await res.blob();
@@ -711,7 +705,7 @@ export default function DocumentsClient() {
                     role="menuitem"
                     onClick={() => {
                       setProfileMenuOpen(false);
-                      void signOut();
+                      void handleSignOut();
                     }}
                   >
                     Log out

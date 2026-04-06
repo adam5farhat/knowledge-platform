@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { FileTypeIcon } from "@/components/FileTypeIcon";
 import { fetchWithAuth } from "@/lib/authClient";
+import { useToast } from "@/components/Toast";
 import archStyles from "../admin/documents/adminDocuments.module.css";
 
 type VersionRow = {
@@ -145,6 +146,7 @@ export function VersionArchiveModal({
   onVersionsChanged,
 }: VersionArchiveModalProps) {
   const titleId = useId();
+  const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [detail, setDetail] = useState<DocumentDetailPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -191,7 +193,7 @@ export function VersionArchiveModal({
     try {
       const res = await fetchWithAuth(`${apiBase}/documents/${documentId}/versions/${versionId}/file`);
       if (!res.ok) {
-        window.alert("Download failed.");
+        toast("Download failed.", "error");
         return;
       }
       const blob = await res.blob();
@@ -204,7 +206,7 @@ export function VersionArchiveModal({
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      window.alert("Download failed.");
+      toast("Download failed.", "error");
     } finally {
       setArchivesDownloadingId(null);
     }

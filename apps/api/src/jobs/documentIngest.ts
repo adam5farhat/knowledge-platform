@@ -7,6 +7,7 @@ import { embedTexts } from "../lib/embeddings.js";
 import { extractPlainText, resolveMimeType } from "../lib/extractText.js";
 import { readFileBuffer } from "../lib/storage.js";
 import { closeBullConnection, getBullConnection } from "../lib/redisBull.js";
+import { logger } from "../lib/logger.js";
 
 export const DOCUMENT_INGEST_QUEUE = "document-ingest";
 
@@ -68,7 +69,7 @@ async function processIngest(job: Job<{ documentVersionId: string }>): Promise<v
   });
 
   if (!version) {
-    console.warn("[ingest] version not found", documentVersionId);
+    logger.warn("Ingest version not found", { documentVersionId });
     return;
   }
 
@@ -144,7 +145,7 @@ async function processIngest(job: Job<{ documentVersionId: string }>): Promise<v
     await setVersionStatus(version.id, "READY", null, 100);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error("[ingest]", documentVersionId, msg);
+    logger.error("Ingest failed", { documentVersionId, error: msg });
     await setVersionStatus(version.id, "FAILED", msg, 0);
     throw e;
   }
@@ -157,7 +158,7 @@ export function startDocumentIngestWorker(): void {
     concurrency: 2,
   });
   worker.on("failed", (job, err) => {
-    console.error("[ingest] job failed", job?.id, err);
+    logger.error("Ingest job failed", { jobId: job?.id, error: String(err) });
   });
 }
 

@@ -9,12 +9,15 @@ import { FileTypeIcon } from "@/components/FileTypeIcon";
 import { ProfileAvatarImage } from "@/components/ProfileAvatarImage";
 import { ProfilePhotoModal } from "@/components/ProfilePhotoModal";
 import { profilePictureDisplayUrl } from "@/lib/profilePicture";
+import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { AdminChromeHeader } from "../AdminChromeHeader";
 import { useAdminGuard } from "../useAdminGuard";
 import { AdminHubGlyph, type AdminHubGlyphType } from "../AdminHubIcons";
 import dash from "../../components/shellNav.module.css";
 import hubStyles from "../users/adminUsers.module.css";
 import styles from "./adminDepartments.module.css";
+import { API_BASE as API } from "@/lib/apiBase";
 
 function IconPlus() {
   return (
@@ -46,8 +49,6 @@ const ADMIN_SIDEBAR_LINKS: { href: string; label: string; icon: AdminHubGlyphTyp
   { href: "/admin/document-audit", label: "Doc audit", icon: "audit" },
   { href: "/admin/system", label: "System", icon: "system" },
 ];
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 type MemberPreview = { id: string; name: string; profilePictureUrl: string | null };
 type DeptRow = {
@@ -229,6 +230,8 @@ type SessionUser = { id: string; name: string; email: string; role: string; prof
 export default function AdminDepartmentsClient() {
   const router = useRouter();
   const pathname = usePathname();
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const { phase: authPhase, sessionUser: guardSession } = useAdminGuard();
   const [dataPhase, setDataPhase] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
@@ -582,7 +585,7 @@ export default function AdminDepartmentsClient() {
   async function setRestrictionForPanel(key: keyof UserRestrictionsDto, value: boolean) {
     if (!panelUser?.restrictions) return;
     if (panelUser.id === sessionUser?.id && key === "loginAllowed" && !value) {
-      window.alert("You cannot disable login for your own account.");
+      toast("You cannot disable login for your own account.", "warning");
       return;
     }
     setPillBusy(key);
@@ -595,7 +598,7 @@ export default function AdminDepartmentsClient() {
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string; user?: AdminUserRow };
       if (!res.ok) {
-        window.alert(data.error ?? "Update failed.");
+        toast(data.error ?? "Update failed.", "error");
         return;
       }
       if (data.user) {
@@ -605,7 +608,7 @@ export default function AdminDepartmentsClient() {
       }
       setRestrictionToast(value ? "Permission enabled" : "Restriction applied");
     } catch {
-      window.alert("Could not reach the API.");
+      toast("Could not reach the API.", "error");
     } finally {
       setPillBusy(null);
     }
@@ -619,7 +622,7 @@ export default function AdminDepartmentsClient() {
       const res = await fetchWithAuth(`${API}/admin/users/${panelUser.id}/reset-restrictions`, { method: "POST" });
       const data = (await res.json().catch(() => ({}))) as { error?: string; user?: AdminUserRow };
       if (!res.ok) {
-        window.alert(data.error ?? "Reset failed.");
+        toast(data.error ?? "Reset failed.", "error");
         return;
       }
       if (data.user) {
@@ -629,7 +632,7 @@ export default function AdminDepartmentsClient() {
       }
       setRestrictionToast("All permissions reset to allowed");
     } catch {
-      window.alert("Could not reach the API.");
+      toast("Could not reach the API.", "error");
     } finally {
       setPillBusy(null);
     }
@@ -639,7 +642,7 @@ export default function AdminDepartmentsClient() {
     const res = await fetchWithAuth(`${API}/admin/users/${id}/unlock`, { method: "POST" });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
-      window.alert(data.error ?? "Unlock failed.");
+      toast(data.error ?? "Unlock failed.", "error");
       return;
     }
     if (panelUser?.id === id) {
@@ -656,26 +659,28 @@ export default function AdminDepartmentsClient() {
     const res = await fetchWithAuth(`${API}/admin/users/${id}/lock`, { method: "POST" });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
-      window.alert(data.error ?? "Lock failed.");
+      toast(data.error ?? "Lock failed.", "error");
       return;
     }
     if (selectedDeptId) void fetchDrillForDept(selectedDeptId);
   }
 
   async function revokeSessions(id: string) {
-    if (!window.confirm("Revoke every session for this user? They must sign in again on all devices.")) return;
+    if (!(await confirm({ title: "Revoke Sessions", message: "Revoke every session for this user? They must sign in again on all devices.", danger: true }))) return;
     const res = await fetchWithAuth(`${API}/admin/users/${id}/revoke-sessions`, { method: "POST" });
     if (res.status !== 204) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
-      window.alert(data.error ?? "Failed.");
+      toast(data.error ?? "Failed.", "error");
     }
   }
 
   async function deleteUserArchive(u: AdminUserRow) {
     if (
-      !window.confirm(
-        `Archive ${u.email}? They will be hidden from the directory and signed out.`,
-      )
+      !(await confirm({
+        title: "Archive User",
+        message: `Archive ${u.email}? They will be hidden from the directory and signed out.`,
+        danger: true,
+      }))
     )
       return;
     const res = await fetchWithAuth(`${API}/admin/users/${u.id}`, { method: "DELETE" });
@@ -686,7 +691,7 @@ export default function AdminDepartmentsClient() {
       return;
     }
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    window.alert(data.error ?? "Archive failed.");
+    toast(data.error ?? "Archive failed.", "error");
   }
 
   async function submitPassword() {
@@ -787,7 +792,7 @@ export default function AdminDepartmentsClient() {
   }
 
   async function deleteDept(d: DeptRow) {
-    if (!window.confirm(`Delete "${d.name}"? Only allowed when it has no users, documents, or child departments.`)) return;
+    if (!(await confirm({ title: "Delete Department", message: `Delete "${d.name}"? Only allowed when it has no users, documents, or child departments.`, danger: true }))) return;
     const res = await fetchWithAuth(`${API}/admin/departments/${d.id}`, { method: "DELETE" });
     if (res.status === 204) {
       setDepartments((prev) => prev.filter((x) => x.id !== d.id));
@@ -800,7 +805,7 @@ export default function AdminDepartmentsClient() {
       return;
     }
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    window.alert(data.error ?? "Delete failed.");
+    toast(data.error ?? "Delete failed.", "error");
   }
 
   useEffect(() => {
@@ -830,13 +835,13 @@ export default function AdminDepartmentsClient() {
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        window.alert(data.error ?? "Failed.");
+        toast(data.error ?? "Failed.", "error");
         return;
       }
       setDeptAccessAddUserId("");
       if (selectedDeptId) void fetchDrillForDept(selectedDeptId);
     } catch {
-      window.alert("Could not reach the API.");
+      toast("Could not reach the API.", "error");
     } finally {
       setDeptAccessBusy(false);
     }
@@ -852,12 +857,12 @@ export default function AdminDepartmentsClient() {
       );
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        window.alert(data.error ?? "Failed.");
+        toast(data.error ?? "Failed.", "error");
         return;
       }
       setDeptAccessUsers((prev) => prev.filter((r) => r.userId !== userId));
     } catch {
-      window.alert("Could not reach the API.");
+      toast("Could not reach the API.", "error");
     } finally {
       setDeptAccessBusy(false);
     }
@@ -874,14 +879,14 @@ export default function AdminDepartmentsClient() {
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        window.alert(data.error ?? "Failed.");
+        toast(data.error ?? "Failed.", "error");
         return;
       }
       setDeptAccessUsers((prev) =>
         prev.map((r) => (r.userId === userId ? { ...r, accessLevel: level } : r)),
       );
     } catch {
-      window.alert("Could not reach the API.");
+      toast("Could not reach the API.", "error");
     } finally {
       setDeptAccessBusy(false);
     }
@@ -894,7 +899,7 @@ export default function AdminDepartmentsClient() {
       setMergeErr("Pick two different departments.");
       return;
     }
-    if (!window.confirm("Merge source into target? Users and documents move to the target; the source is removed.")) return;
+    if (!(await confirm({ title: "Merge Departments", message: "Merge source into target? Users and documents move to the target; the source is removed.", danger: true }))) return;
     setMergeBusy(true);
     try {
       const res = await fetchWithAuth(`${API}/admin/departments/merge`, {
@@ -2201,12 +2206,12 @@ export default function AdminDepartmentsClient() {
             <h2>Set password</h2>
             <div className={hubStyles.formGrid}>
               <label>
-                <span>New password (min 8 characters)</span>
+                <span>New password (min 10 characters)</span>
                 <input
                   type="password"
                   value={passwordValue}
                   onChange={(e) => setPasswordValue(e.target.value)}
-                  minLength={8}
+                  minLength={10}
                   autoComplete="new-password"
                 />
               </label>

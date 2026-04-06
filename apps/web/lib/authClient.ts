@@ -1,6 +1,6 @@
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "./apiBase";
 
-/** Abort auth-related fetches when the API is unreachable so the UI does not sit on “Loading…” forever. */
+/** Abort auth-related fetches when the API is unreachable so the UI does not sit on "Loading…" forever. */
 const AUTH_NETWORK_TIMEOUT_MS = 20_000;
 
 /**
@@ -11,23 +11,23 @@ export const KP_AUTH_SESSION_REFRESHED = "kp-auth-session-refreshed";
 
 type RefreshResponse = {
   token?: string;
-  refreshToken?: string;
   code?: string;
   user?: unknown;
 };
 
-function hasBrowserStorage(): boolean {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+/**
+ * In-memory access token — never persisted to disk so XSS cannot exfiltrate
+ * a long-lived credential. On page reload the token is lost and silently
+ * re-obtained via the HttpOnly refresh-token cookie.
+ */
+let accessToken: string | null = null;
+
+export function setAccessToken(token: string | null): void {
+  accessToken = token;
 }
 
-export function clearStoredSession() {
-  if (!hasBrowserStorage()) return;
-  try {
-    localStorage.removeItem("kp_access_token");
-    localStorage.removeItem("kp_refresh_token");
-  } catch {
-    /* private mode / blocked storage */
-  }
+export function clearStoredSession(): void {
+  accessToken = null;
 }
 
 /**
@@ -59,13 +59,14 @@ async function fetchWithOptionalDeadline(
   init: RequestInit,
   ms: number,
 ): Promise<Response> {
-  if (init.signal) {
-    return fetch(input, init);
+  const merged: RequestInit = { credentials: "include", ...init };
+  if (merged.signal) {
+    return fetch(input, merged);
   }
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
   try {
-    return await fetch(input, { ...init, signal: ctrl.signal });
+    return await fetch(input, { ...merged, signal: ctrl.signal });
   } finally {
     clearTimeout(t);
   }
@@ -81,29 +82,19 @@ export async function fetchPublicApi(input: string, init: RequestInit = {}): Pro
 }
 
 export async function refreshAccessToken(): Promise<string | null> {
-  if (!hasBrowserStorage()) return null;
+  if (typeof window === "undefined") return null;
 
   if (refreshInFlight) {
     return refreshInFlight;
   }
 
-  const refreshToken = localStorage.getItem("kp_refresh_token");
-  if (!refreshToken) return null;
-
   refreshInFlight = (async (): Promise<string | null> => {
     try {
-      const rt = localStorage.getItem("kp_refresh_token");
-      if (!rt) return null;
-
       let res: Response;
       try {
         res = await fetchWithOptionalDeadline(
           `${API}/auth/refresh`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ refreshToken: rt }),
-          },
+          { method: "POST" },
           AUTH_NETWORK_TIMEOUT_MS,
         );
       } catch (e) {
@@ -121,10 +112,7 @@ export async function refreshAccessToken(): Promise<string | null> {
         clearStoredSession();
         return null;
       }
-      localStorage.setItem("kp_access_token", data.token);
-      if (data.refreshToken) {
-        localStorage.setItem("kp_refresh_token", data.refreshToken);
-      }
+      accessToken = data.token;
       if (data.user != null && typeof window !== "undefined") {
         try {
           window.dispatchEvent(
@@ -146,21 +134,23 @@ export async function refreshAccessToken(): Promise<string | null> {
 }
 
 export async function getValidAccessToken(): Promise<string | null> {
-  if (!hasBrowserStorage()) return null;
-  try {
-    const current = localStorage.getItem("kp_access_token");
-    if (current) return current;
-  } catch {
-    return null;
-  }
+  if (typeof window === "undefined") return null;
+  if (accessToken) return accessToken;
   return refreshAccessToken();
 }
 
-export async function fetchWithAuth(input: string, init: RequestInit = {}): Promise<Response> {
-  let token: string | null = null;
-  if (hasBrowserStorage()) {
-    token = await getValidAccessToken();
+/** Best-effort server logout + clear in-memory token. Call from any component's sign-out handler. */
+export async function signOut(): Promise<void> {
+  try {
+    await fetchWithOptionalDeadline(`${API}/auth/logout`, { method: "POST" }, AUTH_NETWORK_TIMEOUT_MS);
+  } catch {
+    /* best-effort */
   }
+  clearStoredSession();
+}
+
+export async function fetchWithAuth(input: string, init: RequestInit = {}): Promise<Response> {
+  let token = await getValidAccessToken();
   const headers = new Headers(init.headers ?? {});
   if (token) headers.set("Authorization", `Bearer ${token}`);
   let first: Response;
@@ -171,7 +161,7 @@ export async function fetchWithAuth(input: string, init: RequestInit = {}): Prom
   }
   if (first.status !== 401) return first;
 
-  token = hasBrowserStorage() ? await refreshAccessToken() : null;
+  token = await refreshAccessToken();
   if (!token) return first;
   const retryHeaders = new Headers(init.headers ?? {});
   retryHeaders.set("Authorization", `Bearer ${token}`);

@@ -4,8 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AuthCard from "../../components/AuthCard";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { fetchPublicApi } from "@/lib/authClient";
+import { API_BASE as API } from "@/lib/apiBase";
 
 export default function ResetClient() {
   const router = useRouter();
@@ -30,7 +30,7 @@ export default function ResetClient() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${API}/auth/reset-password`, {
+      const res = await fetchPublicApi(`${API}/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, newPassword: password }),
@@ -63,18 +63,18 @@ export default function ResetClient() {
   return (
     <AuthCard
       title="Set a new password"
-      subtitle="Use at least 8 characters. You’ll be redirected to sign in when complete."
+      subtitle="Use at least 10 characters with uppercase, lowercase, a digit, and a special character."
       footer={<Link href="/login">Sign in</Link>}
     >
       <form onSubmit={(e) => void onSubmit(e)} style={{ display: "grid", gap: "1rem" }}>
         <label style={{ display: "grid", gap: "0.3rem", fontSize: "0.8125rem", fontWeight: 600, color: "#475569" }}>
-          <span>New password (min 8 characters)</span>
+          <span>New password (min 10 characters)</span>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={8}
+            minLength={10}
             autoComplete="new-password"
             style={{ padding: "0.6rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.9rem", font: "inherit" }}
           />
@@ -86,7 +86,7 @@ export default function ResetClient() {
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             required
-            minLength={8}
+            minLength={10}
             autoComplete="new-password"
             style={{ padding: "0.6rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.9rem", font: "inherit" }}
           />
@@ -111,7 +111,7 @@ export default function ResetClient() {
             cursor: loading ? "wait" : "pointer",
           }}
         >
-          {loading ? "Saving…" : "Update password"}
+          {loading ? "Saving\u2026" : "Update password"}
         </button>
       </form>
     </AuthCard>

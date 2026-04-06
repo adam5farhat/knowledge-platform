@@ -1,6 +1,7 @@
 import rateLimit from "express-rate-limit";
+import { config } from "./config.js";
 
-const skipInTest = (): boolean => process.env.VITEST === "true";
+const skipInTest = (): boolean => config.isTest;
 
 /** Brute-force protection on login (per IP). */
 export const loginRateLimiter = rateLimit({

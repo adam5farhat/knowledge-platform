@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    include: ["src/**/*.integration.test.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.integration.test.ts"],
     setupFiles: ["./src/vitest.setup.ts"],
     testTimeout: 60_000,
     hookTimeout: 60_000,

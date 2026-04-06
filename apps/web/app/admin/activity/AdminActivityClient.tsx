@@ -5,13 +5,13 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { fetchWithAuth } from "../../../lib/authClient";
 import dash from "../../components/shellNav.module.css";
+import { useToast } from "@/components/Toast";
 import { AdminChromeHeader } from "../AdminChromeHeader";
 import { AdminHubGlyph, type AdminHubGlyphType } from "../AdminHubIcons";
 import { useAdminGuard } from "../useAdminGuard";
 import u from "../users/adminUsers.module.css";
 import styles from "./adminActivity.module.css";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "@/lib/apiBase";
 const PAGE_SIZE = 40;
 
 const ADMIN_SIDEBAR_LINKS: { href: string; label: string; icon: AdminHubGlyphType }[] = [
@@ -162,6 +162,7 @@ export default function AdminActivityClient() {
   const router = useRouter();
   const pathname = usePathname();
   const detailTitleId = useId();
+  const { toast } = useToast();
   const { phase, sessionUser } = useAdminGuard();
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -324,7 +325,7 @@ export default function AdminActivityClient() {
       const params = buildExportParams();
       const res = await fetchWithAuth(`${API}/admin/activity/export?${params.toString()}`);
       if (!res.ok) {
-        window.alert("Export failed.");
+        toast("Export failed.", "error");
         return;
       }
       const blob = await res.blob();
@@ -337,7 +338,7 @@ export default function AdminActivityClient() {
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      window.alert("Could not export.");
+      toast("Could not export.", "error");
     } finally {
       setExportBusy(false);
     }

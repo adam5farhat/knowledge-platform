@@ -18,12 +18,13 @@ import {
   StatusLabel,
 } from "../documents/DocumentsClientIcons";
 import docStyles from "../documents/page.module.css";
+import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { useManagerGuard } from "./useManagerGuard";
 import type { DocRow } from "../documents/documentsTypes";
 import dash from "../components/shellNav.module.css";
 import styles from "./managerDashboard.module.css";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "@/lib/apiBase";
 
 function initialsFromName(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -92,6 +93,8 @@ type DeptSummary = { id: string; name: string; parentDepartmentId: string | null
 
 export default function ManagerDashboardClient() {
   const router = useRouter();
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const { phase, sessionUser, restrictions } = useManagerGuard();
   const [manageableDepts, setManageableDepts] = useState<DeptSummary[]>([]);
   const [managerDeptsLoaded, setManagerDeptsLoaded] = useState(false);
@@ -383,7 +386,7 @@ export default function ManagerDashboardClient() {
       const res = await fetchWithAuth(`${API}/documents/${documentId}/versions/${versionId}/file`);
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        window.alert(data.error ?? "Download failed");
+        toast(data.error ?? "Download failed", "error");
         return;
       }
       const blob = await res.blob();
@@ -396,7 +399,7 @@ export default function ManagerDashboardClient() {
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      window.alert("Download failed");
+      toast("Download failed", "error");
     }
   }
 
@@ -422,11 +425,11 @@ export default function ManagerDashboardClient() {
   }
 
   async function deleteDocument(documentId: string) {
-    if (!window.confirm("Delete this document and all versions?")) return;
+    if (!(await confirm({ message: "Delete this document and all versions?", danger: true }))) return;
     const res = await fetchWithAuth(`${API}/documents/${documentId}`, { method: "DELETE" });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
-      window.alert(data.error ?? "Delete failed");
+      toast(data.error ?? "Delete failed", "error");
       return;
     }
     setPanelDoc(null);

@@ -12,6 +12,14 @@ const TEST_PASSWORD = "IntegrationTest123!";
 let departmentId: string;
 let roleAdminId: string;
 
+/** Extract the `kp_rt=…` cookie value from a supertest response. */
+function extractRefreshCookie(res: request.Response): string {
+  const raw = res.headers["set-cookie"] as string | string[] | undefined;
+  const cookies = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const match = cookies.find((c) => c.startsWith("kp_rt="));
+  return match ? match.split(";")[0] : "";
+}
+
 describe("authentication API", () => {
   beforeAll(async () => {
     const dept = await prisma.department.findFirst();
@@ -51,31 +59,43 @@ describe("authentication API", () => {
     expect(res.body.error).toBeTruthy();
   });
 
-  it("POST /auth/login returns access and refresh tokens with user", async () => {
+  it("POST /auth/login returns access token + refresh cookie with user", async () => {
     const res = await request(app).post("/auth/login").send({
       email: TEST_EMAIL,
       password: TEST_PASSWORD,
     });
     expect(res.status).toBe(200);
     expect(res.body.token).toBeTruthy();
-    expect(res.body.refreshToken).toBeTruthy();
     expect(res.body.user?.email).toBe(TEST_EMAIL);
     expect(res.body.user?.role).toBe(RoleName.ADMIN);
+
+    const cookie = extractRefreshCookie(res);
+    expect(cookie).toMatch(/^kp_rt=.+/);
+    expect(res.body.refreshToken).toBeUndefined();
   });
 
-  it("POST /auth/refresh rotates refresh token and returns new access token", async () => {
+  it("POST /auth/refresh rotates cookie and returns new access token", async () => {
     const login = await request(app).post("/auth/login").send({
       email: TEST_EMAIL,
       password: TEST_PASSWORD,
     });
-    const refreshToken = login.body.refreshToken as string;
-    const refresh = await request(app).post("/auth/refresh").send({ refreshToken });
+    const cookie1 = extractRefreshCookie(login);
+    expect(cookie1).toBeTruthy();
+
+    const refresh = await request(app)
+      .post("/auth/refresh")
+      .set("Cookie", cookie1);
     expect(refresh.status).toBe(200);
     expect(refresh.body.token).toBeTruthy();
-    expect(refresh.body.refreshToken).toBeTruthy();
-    expect(refresh.body.refreshToken).not.toBe(refreshToken);
+    expect(refresh.body.refreshToken).toBeUndefined();
 
-    const stale = await request(app).post("/auth/refresh").send({ refreshToken });
+    const cookie2 = extractRefreshCookie(refresh);
+    expect(cookie2).toBeTruthy();
+    expect(cookie2).not.toBe(cookie1);
+
+    const stale = await request(app)
+      .post("/auth/refresh")
+      .set("Cookie", cookie1);
     expect(stale.status).toBe(401);
   });
 
@@ -122,21 +142,20 @@ describe("authentication API", () => {
     });
   });
 
-  it("PATCH /auth/profile updates badge and profile picture URL", async () => {
+  it("PATCH /auth/profile updates badge number", async () => {
     const login = await request(app).post("/auth/login").send({
       email: TEST_EMAIL,
       password: TEST_PASSWORD,
     });
     const token = login.body.token as string;
     const badge = `badge-${Date.now()}`;
-    const pic = "https://example.com/avatar.png";
     const res = await request(app)
       .patch("/auth/profile")
       .set("Authorization", `Bearer ${token}`)
-      .send({ employeeBadgeNumber: badge, profilePictureUrl: pic });
+      .send({ employeeBadgeNumber: badge, profilePictureUrl: null });
     expect(res.status).toBe(200);
     expect(res.body.user?.employeeBadgeNumber).toBe(badge);
-    expect(res.body.user?.profilePictureUrl).toBe(pic);
+    expect(res.body.user?.profilePictureUrl).toBeNull();
   });
 
   it("PATCH /auth/profile rejects invalid profile picture URL", async () => {
@@ -152,13 +171,13 @@ describe("authentication API", () => {
     expect(res.status).toBe(400);
   });
 
-  it("POST /auth/change-password invalidates old token and new token works", async () => {
+  it("POST /auth/change-password invalidates old token and cookie, new token works", async () => {
     const login = await request(app).post("/auth/login").send({
       email: TEST_EMAIL,
       password: TEST_PASSWORD,
     });
     const oldToken = login.body.token as string;
-    const oldRefresh = login.body.refreshToken as string;
+    const oldCookie = extractRefreshCookie(login);
 
     const newPass = "NewIntegrationPass456!";
     const change = await request(app)
@@ -169,9 +188,15 @@ describe("authentication API", () => {
     expect(change.body.token).toBeTruthy();
     expect(change.body.user?.email).toBe(TEST_EMAIL);
 
+    const newCookie = extractRefreshCookie(change);
+    expect(newCookie).toBeTruthy();
+
     const stale = await request(app).get("/auth/me").set("Authorization", `Bearer ${oldToken}`);
     expect(stale.status).toBe(401);
-    const refreshStale = await request(app).post("/auth/refresh").send({ refreshToken: oldRefresh });
+
+    const refreshStale = await request(app)
+      .post("/auth/refresh")
+      .set("Cookie", oldCookie);
     expect(refreshStale.status).toBe(401);
 
     const fresh = await request(app).get("/auth/me").set("Authorization", `Bearer ${change.body.token}`);
@@ -189,12 +214,17 @@ describe("authentication API", () => {
       password: TEST_PASSWORD,
     });
     const token = login.body.token as string;
-    const refreshToken = login.body.refreshToken as string;
+    const cookie = extractRefreshCookie(login);
 
-    const logout = await request(app).post("/auth/logout-all").set("Authorization", `Bearer ${token}`).send({});
+    const logout = await request(app)
+      .post("/auth/logout-all")
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
     expect(logout.status).toBe(200);
 
-    const refresh = await request(app).post("/auth/refresh").send({ refreshToken });
+    const refresh = await request(app)
+      .post("/auth/refresh")
+      .set("Cookie", cookie);
     expect(refresh.status).toBe(401);
   });
 

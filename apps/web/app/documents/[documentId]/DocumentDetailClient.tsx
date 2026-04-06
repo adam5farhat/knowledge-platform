@@ -4,13 +4,12 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
-import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
+import { clearStoredSession, fetchWithAuth, getValidAccessToken, signOut } from "../../../lib/authClient";
 import { restrictedHref, userCanOpenManagerDashboard, type MeUserDto } from "../../../lib/restrictions";
 import { formatSize } from "../documentsFormat";
 import shellStyles from "../page.module.css";
 import styles from "./documentDetail.module.css";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "@/lib/apiBase";
 
 type Version = {
   id: string;
@@ -107,20 +106,8 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [auditStatus, setAuditStatus] = useState<"idle" | "loading" | "ready">("idle");
 
-  const signOut = useCallback(async () => {
-    const refreshToken = localStorage.getItem("kp_refresh_token");
-    if (refreshToken) {
-      try {
-        await fetch(`${API}/auth/logout`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken }),
-        });
-      } catch {
-        /* best-effort */
-      }
-    }
-    clearStoredSession();
+  const handleSignOut = useCallback(async () => {
+    await signOut();
     router.replace("/login");
     router.refresh();
   }, [router]);

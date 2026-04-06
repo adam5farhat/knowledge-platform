@@ -2,6 +2,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Request } from "express";
 import { deleteFileIfExists } from "./storage.js";
+import { config } from "./config.js";
 
 const AVATAR_SEGMENT = "avatars";
 
@@ -75,7 +76,7 @@ export function isAllowedProfilePictureUrlForUser(url: string, ownerUserId: stri
 }
 
 export function buildAvatarPublicUrl(req: Request, userId: string, filename: string): string {
-  const configured = process.env.PUBLIC_API_URL?.replace(/\/$/, "");
+  const configured = config.avatarPublicApiUrl;
   if (configured) return `${configured}/avatars/${userId}/${filename}`;
   const host = req.get("host") ?? "localhost:3001";
   const forwarded = req.get("x-forwarded-proto");

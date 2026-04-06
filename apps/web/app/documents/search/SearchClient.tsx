@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
 import { DEFAULT_USER_RESTRICTIONS, restrictedHref, type MeUserDto } from "../../../lib/restrictions";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "@/lib/apiBase";
+import { Spinner } from "@/components/Spinner";
+import s from "./search.module.css";
 
 type Result = {
   chunkId: string;
@@ -83,9 +84,7 @@ export default function SearchClient() {
     try {
       const res = await fetchWithAuth(`${API}/search/semantic`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: query.trim(), limit: 15 }),
       });
       if (res.status === 401) {
@@ -117,88 +116,73 @@ export default function SearchClient() {
 
   if (phase === "checking" || phase === "need-login") {
     return (
-      <main>
-        <p>Loading…</p>
+      <main className={s.page}>
+        <div className={s.loadingWrap}>
+          <Spinner size={22} />
+          <span>Loading…</span>
+        </div>
       </main>
     );
   }
 
   return (
-    <main style={{ maxWidth: 720 }}>
-      <h1>Semantic search</h1>
-      <p style={{ color: "#52525b", fontSize: "0.95rem" }}>
-        Your question is turned into an embedding and matched to document chunks (pgvector cosine distance). Open a result’s
-        title to view the full file. This is not a chatbot—there is no generated answer, only similar passages.
+    <main className={s.page}>
+      <h1 className={s.title}>Semantic Search</h1>
+      <p className={s.subtitle}>
+        Your question is turned into an embedding and matched to document chunks (pgvector cosine distance).
+        Open a result&#39;s title to view the full file. This is not a chatbot—there is no generated answer, only similar passages.
       </p>
-      <nav style={{ margin: "1rem 0", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+
+      <nav className={s.nav} aria-label="Search navigation">
         <Link prefetch={false} href="/documents/ask">Ask the Knowledge Base</Link>
         <Link prefetch={false} href="/documents">Documents</Link>
         <Link prefetch={false} href="/dashboard">Dashboard</Link>
       </nav>
 
-      <form onSubmit={(e) => void onSearch(e)} style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "1rem" }}>
+      <form onSubmit={(e) => void onSearch(e)} className={s.form} role="search" aria-label="Semantic search">
+        <label htmlFor="search-input" className="sr-only">Search query</label>
         <input
+          id="search-input"
+          className={s.input}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Ask or describe what you need…"
-          style={{
-            flex: "1 1 240px",
-            padding: "0.5rem 0.6rem",
-            borderRadius: 0,
-            border: "1px solid #d4d4d8",
-          }}
+          aria-label="Search query"
+          autoComplete="off"
         />
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: "0.5rem 1rem",
-            borderRadius: 0,
-            border: "none",
-            background: "#18181b",
-            color: "#fafafa",
-            cursor: loading ? "wait" : "pointer",
-          }}
-        >
-          {loading ? "Searching…" : "Search"}
+        <button type="submit" disabled={loading} className={s.searchBtn}>
+          {loading ? <><Spinner size={16} label="Searching" /> Searching…</> : "Search"}
         </button>
       </form>
 
-      {error ? (
-        <p role="alert" style={{ color: "#b91c1c", marginTop: "1rem" }}>
-          {error}
-        </p>
-      ) : null}
+      {error && (
+        <p role="alert" className={s.error}>{error}</p>
+      )}
 
-      {results && results.length === 0 ? (
-        <p style={{ marginTop: "1rem", color: "#71717a" }}>No matching chunks yet. Upload documents and wait until status is READY.</p>
-      ) : null}
+      {results && results.length === 0 && (
+        <div className={s.empty}>
+          <span className={s.emptyIcon} aria-hidden>🔍</span>
+          <p>No matching chunks found. Upload documents and wait until processing status is READY.</p>
+        </div>
+      )}
 
-      {results && results.length > 0 ? (
-        <ul style={{ listStyle: "none", padding: 0, marginTop: "1.25rem" }}>
+      {results && results.length > 0 && (
+        <ul className={s.results} aria-label={`${results.length} search results`}>
           {results.map((r) => (
-            <li
-              key={r.chunkId}
-              style={{
-                marginBottom: "1rem",
-                padding: "1rem",
-                background: "#f4f4f5",
-                borderRadius: 0,
-              }}
-            >
-              <p style={{ margin: "0 0 0.35rem", fontSize: "0.85rem", color: "#52525b" }}>
-                <Link prefetch={false} href={`/documents/${r.document.id}`} style={{ fontWeight: 600, color: "#18181b" }}>
+            <li key={r.chunkId} className={s.resultItem}>
+              <p className={s.resultMeta}>
+                <Link prefetch={false} href={`/documents/${r.document.id}`} className={s.resultTitle}>
                   {r.document.title}
                 </Link>
-                <span style={{ marginLeft: "0.5rem" }}>({r.version.fileName})</span>
-                <span style={{ marginLeft: "0.5rem" }}>· chunk {r.chunkIndex}</span>
-                <span style={{ marginLeft: "0.5rem" }}>· score {r.score.toFixed(4)}</span>
+                <span className={s.resultFile}>({r.version.fileName})</span>
+                <span className={s.resultChunk}>· chunk {r.chunkIndex}</span>
+                <span className={s.resultScore}>· score {r.score.toFixed(4)}</span>
               </p>
-              <p style={{ margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>{r.content}</p>
+              <p className={s.resultContent}>{r.content}</p>
             </li>
           ))}
         </ul>
-      ) : null}
+      )}
     </main>
   );
 }

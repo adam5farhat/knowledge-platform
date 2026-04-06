@@ -1,10 +1,6 @@
-import type { MeUserDto } from "../../lib/restrictions";
-
 export const MAX_UPLOAD_TAGS = 24;
 export const TAG_NAME_RE = /^[a-z0-9]+(?:[ .+_-][a-z0-9]+)*$/;
 export const TABLE_TAGS_VISIBLE = 3;
-
-export type Me = { user: MeUserDto };
 export type DocRow = {
   id: string;
   title: string;

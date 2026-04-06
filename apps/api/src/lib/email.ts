@@ -1,23 +1,19 @@
 import nodemailer from "nodemailer";
+import { config } from "./config.js";
+import { logger } from "./logger.js";
 
 const RESET_SUBJECT = "Reset your Knowledge Platform password";
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<void> {
-  const host = process.env.SMTP_HOST;
+  const { host, port, secure, user, pass, from } = config.smtp;
   if (!host) {
-    if (process.env.NODE_ENV !== "production") {
-      console.info(`[auth] SMTP not configured — password reset link for ${to}:\n  ${resetUrl}`);
+    if (!config.isProd) {
+      logger.info("SMTP not configured — password reset link logged", { to, resetUrl });
     } else {
-      console.warn("[auth] SMTP_HOST not set — password reset email was not sent.");
+      logger.warn("SMTP_HOST not set — password reset email was not sent");
     }
     return;
   }
-
-  const port = Number(process.env.SMTP_PORT ?? "587");
-  const secure = process.env.SMTP_SECURE === "true";
-  const user = process.env.SMTP_USER ?? "";
-  const pass = process.env.SMTP_PASS ?? "";
-  const from = process.env.SMTP_FROM ?? user;
 
   const transporter = nodemailer.createTransport({
     host,

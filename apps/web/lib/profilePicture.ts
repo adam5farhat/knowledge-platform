@@ -1,4 +1,4 @@
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "./apiBase";
 
 /** Resolves stored profile picture URL for use in <img src>. */
 export function profilePictureDisplayUrl(url: string | null | undefined): string | null {

@@ -12,8 +12,7 @@ import {
   type MeUserDto,
 } from "@/lib/restrictions";
 import styles from "./page.module.css";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "@/lib/apiBase";
 
 const COPY: Record<
   string,

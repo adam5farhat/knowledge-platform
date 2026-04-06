@@ -19,6 +19,8 @@ import { findNegativeFeedbackLessons, buildFeedbackAddendum } from "../lib/feedb
 import { askRateLimiter } from "../lib/rateLimiter.js";
 import { prisma } from "../lib/prisma.js";
 import { isPlatformAdmin } from "../lib/platformRoles.js";
+import { AppError } from "../lib/AppError.js";
+import { chatRoleEnum } from "../lib/schemas.js";
 
 export const searchRouter = Router();
 
@@ -94,7 +96,7 @@ searchRouter.post("/semantic", authenticateToken, requireDocLibraryAccess, requi
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const parsed = semanticBody.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() }); return; }
+  if (!parsed.success) { throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten()); }
 
   const limit = parsed.data.limit ?? 12;
 
@@ -137,7 +139,7 @@ searchRouter.post("/semantic", authenticateToken, requireDocLibraryAccess, requi
    ------------------------------------------------------------------ */
 
 const historyEntry = z.object({
-  role: z.enum(["user", "assistant"]),
+  role: chatRoleEnum,
   content: z.string().max(4000),
 });
 
@@ -152,7 +154,7 @@ searchRouter.post("/ask", authenticateToken, askRateLimiter, requireDocLibraryAc
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const parsed = askBody.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() }); return; }
+  if (!parsed.success) { throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten()); }
 
   const question = parsed.data.question;
   const retrievalLimit = parsed.data.chunkLimit ?? 12;

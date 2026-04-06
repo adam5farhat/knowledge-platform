@@ -3,6 +3,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import * as cheerio from "cheerio";
 import { XMLParser } from "fast-xml-parser";
 import JSZip from "jszip";
+import { config } from "./config.js";
+import { logger } from "./logger.js";
 import mammoth from "mammoth";
 import mime from "mime-types";
 import * as XLSX from "xlsx";
@@ -236,7 +238,7 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
     await parser.destroy();
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = config.gemini.apiKey;
   if (!apiKey) {
     throw new Error(
       "PDF has broken font encoding and GEMINI_API_KEY is not set for OCR fallback.",
@@ -249,9 +251,9 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
     );
   }
 
-  console.log("[extractText] PDF text appears garbled — falling back to Gemini OCR");
+  logger.info("PDF text appears garbled — falling back to Gemini OCR");
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: process.env.GEMINI_CHAT_MODEL ?? "gemini-2.5-flash" });
+  const model = genAI.getGenerativeModel({ model: config.gemini.chatModel });
   const result = await model.generateContent([
     {
       inlineData: {

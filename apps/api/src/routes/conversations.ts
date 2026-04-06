@@ -5,11 +5,16 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { authenticateToken, requireRole } from "../middleware/auth.js";
 import { requireUseAiQueries } from "../middleware/restrictions.js";
 import { prisma } from "../lib/prisma.js";
+import { config } from "../lib/config.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
+import { parseBody } from "../lib/validation.js";
+import { AppError } from "../lib/AppError.js";
+import { chatRoleEnum } from "../lib/schemas.js";
 
-const CHAT_MODEL = process.env.GEMINI_CHAT_MODEL ?? "gemini-2.5-flash";
+const CHAT_MODEL = config.gemini.chatModel;
 let genAI: GoogleGenerativeAI | null = null;
 function getGenAI(): GoogleGenerativeAI {
-  const key = process.env.GEMINI_API_KEY;
+  const key = config.gemini.apiKey;
   if (!key) throw new Error("GEMINI_API_KEY is not set.");
   if (!genAI) genAI = new GoogleGenerativeAI(key);
   return genAI;
@@ -83,16 +88,12 @@ const createBody = z.object({
   title: z.string().min(1).max(200).optional(),
 });
 
-conversationsRouter.post("/", authenticateToken, async (req, res) => {
+conversationsRouter.post("/", authenticateToken, asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const parsed = createBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
-  }
-  const title = parsed.data.title ?? "New conversation";
+  const { title: rawTitle } = parseBody(createBody, req.body);
+  const title = rawTitle ?? "New conversation";
 
   const conversation = await prisma.conversation.create({
     data: { userId: user.id, title },
@@ -100,7 +101,7 @@ conversationsRouter.post("/", authenticateToken, async (req, res) => {
   });
 
   res.status(201).json({ conversation });
-});
+}));
 
 const sourceSchema = z.object({
   index: z.number().optional(),
@@ -121,13 +122,13 @@ const sourceSchema = z.object({
 }).passthrough();
 
 const addMessageBody = z.object({
-  role: z.enum(["user", "assistant"]),
+  role: chatRoleEnum,
   content: z.string().min(1).max(50000),
   sources: z.array(sourceSchema).max(30).optional(),
   confidence: z.enum(["high", "medium", "low", "none"]).optional(),
 });
 
-conversationsRouter.post("/:id/messages", authenticateToken, async (req, res) => {
+conversationsRouter.post("/:id/messages", authenticateToken, asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -141,19 +142,15 @@ conversationsRouter.post("/:id/messages", authenticateToken, async (req, res) =>
     return;
   }
 
-  const parsed = addMessageBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
-  }
+  const body = parseBody(addMessageBody, req.body);
 
   const message = await prisma.conversationMessage.create({
     data: {
       conversationId: conversation.id,
-      role: parsed.data.role,
-      content: parsed.data.content,
-      sources: (parsed.data.sources as Prisma.InputJsonValue) ?? undefined,
-      confidence: parsed.data.confidence,
+      role: body.role,
+      content: body.content,
+      sources: (body.sources as Prisma.InputJsonValue) ?? undefined,
+      confidence: body.confidence,
     },
     select: { id: true, role: true, content: true, sources: true, confidence: true, createdAt: true },
   });
@@ -164,7 +161,7 @@ conversationsRouter.post("/:id/messages", authenticateToken, async (req, res) =>
   });
 
   res.status(201).json({ message });
-});
+}));
 
 /* ── Auto-generate title from first question via LLM ── */
 
@@ -172,7 +169,7 @@ const generateTitleBody = z.object({
   question: z.string().min(1).max(2000),
 });
 
-conversationsRouter.post("/:id/generate-title", authenticateToken, requireUseAiQueries, async (req, res) => {
+conversationsRouter.post("/:id/generate-title", authenticateToken, requireUseAiQueries, asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -183,8 +180,7 @@ conversationsRouter.post("/:id/generate-title", authenticateToken, requireUseAiQ
 
   if (!conversation) { res.status(404).json({ error: "Conversation not found" }); return; }
 
-  const parsed = generateTitleBody.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Validation failed" }); return; }
+  const { question } = parseBody(generateTitleBody, req.body);
 
   let title: string;
   try {
@@ -195,12 +191,12 @@ conversationsRouter.post("/:id/generate-title", authenticateToken, requireUseAiQ
     });
     const result = await model.generateContent([
       { text: 'Generate a short, descriptive title (3-7 words) for a conversation that starts with this question. Return ONLY the title text, no quotes, no punctuation at the end, no explanation.' },
-      { text: `Question: "${parsed.data.question}"` },
+      { text: `Question: "${question}"` },
     ]);
     const raw = result.response.text().trim().replace(/^["']|["']$/g, "").replace(/\.+$/, "");
-    title = raw.length > 0 && raw.length <= 80 ? raw : parsed.data.question.slice(0, 57) + "...";
+    title = raw.length > 0 && raw.length <= 80 ? raw : question.slice(0, 57) + "...";
   } catch {
-    title = parsed.data.question.length > 60 ? parsed.data.question.slice(0, 57) + "..." : parsed.data.question;
+    title = question.length > 60 ? question.slice(0, 57) + "..." : question;
   }
 
   const updated = await prisma.conversation.update({
@@ -210,7 +206,7 @@ conversationsRouter.post("/:id/generate-title", authenticateToken, requireUseAiQ
   });
 
   res.json({ conversation: updated });
-});
+}));
 
 const updateBody = z.object({
   title: z.string().min(1).max(200),
@@ -232,8 +228,7 @@ conversationsRouter.patch("/:id", authenticateToken, async (req, res) => {
 
   const parsed = updateBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed" });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const updated = await prisma.conversation.update({
@@ -272,8 +267,7 @@ conversationsRouter.post("/:id/messages/:messageId/feedback", authenticateToken,
 
   const parsed = feedbackBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const feedback = await prisma.answerFeedback.upsert({

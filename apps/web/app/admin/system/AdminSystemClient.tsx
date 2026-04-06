@@ -10,8 +10,7 @@ import { AdminHubGlyph, type AdminHubGlyphType } from "../AdminHubIcons";
 import u from "../users/adminUsers.module.css";
 import styles from "./adminSystem.module.css";
 import { useAdminGuard } from "../useAdminGuard";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "@/lib/apiBase";
 
 type KpiPeriod = "daily" | "weekly" | "monthly" | "yearly";
 

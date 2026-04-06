@@ -6,8 +6,7 @@ import { getValidAccessToken } from "@/lib/authClient";
 import { fileToAvatarBlob } from "@/lib/fileToAvatarBlob";
 import { hasProfilePicture, profilePictureDisplayUrl, userInitialsFromName } from "@/lib/profilePicture";
 import styles from "./ProfilePhotoUploader.module.css";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "../lib/apiBase";
 
 type ProfilePhotoUploaderProps = {
   mode: "self" | "admin";

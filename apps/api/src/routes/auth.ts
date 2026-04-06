@@ -11,8 +11,11 @@ import { generateRawResetToken, hashResetToken } from "../lib/passwordReset.js";
 import { sendPasswordResetEmail } from "../lib/email.js";
 import { loginRateLimiter, forgotPasswordRateLimiter, refreshRateLimiter, resetPasswordRateLimiter } from "../lib/rateLimiter.js";
 import { generateRawRefreshToken, hashRefreshToken, refreshTokenTtlMs } from "../lib/refreshToken.js";
+import { setRefreshCookie, clearRefreshCookie, readRefreshCookie } from "../lib/refreshCookie.js";
 import { isAllowedProfilePictureUrlForUser } from "../lib/avatar.js";
 import { clearUserAvatar, commitAvatarUpload } from "../lib/avatarOps.js";
+import { config } from "../lib/config.js";
+import { AppError } from "../lib/AppError.js";
 import { normalizeClientIp } from "../lib/clientIp.js";
 import {
   buildManagerDashboardUserFields,
@@ -48,7 +51,7 @@ const LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_FAILED_ATTEMPTS = 5;
 
 function webAppBaseUrl(): string {
-  return (process.env.WEB_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  return config.webAppUrl.replace(/\/$/, "");
 }
 
 const loginBody = z.object({
@@ -72,22 +75,26 @@ const patchProfileBody = z.object({
   profilePictureUrl: z.string().max(2000).optional().nullable(),
 });
 
+import { PASSWORD_MIN, PASSWORD_RE, PASSWORD_RULE } from "../lib/passwordPolicy.js";
+
 const changePasswordBody = z.object({
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(8, "New password must be at least 8 characters"),
+  newPassword: z
+    .string()
+    .min(PASSWORD_MIN, PASSWORD_RULE)
+    .regex(PASSWORD_RE, PASSWORD_RULE),
 });
 
 const forgotPasswordBody = z.object({
   email: z.string().email(),
 });
 
-const refreshBody = z.object({
-  refreshToken: z.string().min(1),
-});
-
 const resetPasswordBody = z.object({
   token: z.string().min(1),
-  newPassword: z.string().min(8, "Password must be at least 8 characters"),
+  newPassword: z
+    .string()
+    .min(PASSWORD_MIN, PASSWORD_RULE)
+    .regex(PASSWORD_RE, PASSWORD_RULE),
 });
 
 function requestMeta(req: { headers: Record<string, unknown>; ip?: string }): {
@@ -100,6 +107,8 @@ function requestMeta(req: { headers: Record<string, unknown>; ip?: string }): {
   return { userAgent, ipAddress };
 }
 
+const MAX_SESSIONS_PER_USER = 10;
+
 async function issueSessionTokens(input: {
   userId: string;
   email: string;
@@ -109,6 +118,24 @@ async function issueSessionTokens(input: {
   userAgent?: string;
   ipAddress?: string;
 }) {
+  const now = new Date();
+  const activeCount = await prisma.refreshSession.count({
+    where: { userId: input.userId, revokedAt: null, expiresAt: { gt: now } },
+  });
+  if (activeCount >= MAX_SESSIONS_PER_USER) {
+    const oldest = await prisma.refreshSession.findFirst({
+      where: { userId: input.userId, revokedAt: null, expiresAt: { gt: now } },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    if (oldest) {
+      await prisma.refreshSession.update({
+        where: { id: oldest.id },
+        data: { revokedAt: now },
+      });
+    }
+  }
+
   const accessToken = signAccessToken({
     sub: input.userId,
     email: input.email,
@@ -155,8 +182,7 @@ async function logAuthEvent(input: {
 authRouter.post("/login", loginRateLimiter, async (req, res) => {
   const parsed = loginBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const { email, password } = parsed.data;
@@ -237,7 +263,7 @@ authRouter.post("/login", loginRateLimiter, async (req, res) => {
       error: "Your account has been restricted. Please contact your administrator.",
       code: "ACCOUNT_RESTRICTED",
       supportContact:
-        process.env.SUPPORT_CONTACT_MESSAGE ??
+        config.supportContactMessage ??
         "If you believe this is a mistake, contact your IT administrator or help desk.",
     });
     return;
@@ -275,21 +301,21 @@ authRouter.post("/login", loginRateLimiter, async (req, res) => {
     role: userForResponse.role,
   });
 
+  setRefreshCookie(res, tokens.refreshToken);
   res.json({
     user: { ...mapUserResponse(userForResponse), ...managerFields },
     token: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
   });
 });
 
 authRouter.post("/refresh", refreshRateLimiter, async (req, res) => {
-  const parsed = refreshBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+  const rawCookie = readRefreshCookie(req);
+  if (!rawCookie) {
+    res.status(401).json({ error: "Missing refresh token" });
     return;
   }
 
-  const tokenHash = hashRefreshToken(parsed.data.refreshToken);
+  const tokenHash = hashRefreshToken(rawCookie);
   const meta = requestMeta(req);
   const session = await prisma.refreshSession.findUnique({
     where: { tokenHash },
@@ -348,7 +374,7 @@ authRouter.post("/refresh", refreshRateLimiter, async (req, res) => {
       error: "Your account has been restricted. Please contact your administrator.",
       code: "ACCOUNT_RESTRICTED",
       supportContact:
-        process.env.SUPPORT_CONTACT_MESSAGE ??
+        config.supportContactMessage ??
         "If you believe this is a mistake, contact your IT administrator or help desk.",
     });
     return;
@@ -391,9 +417,9 @@ authRouter.post("/refresh", refreshRateLimiter, async (req, res) => {
     role: session.user.role,
   });
 
+  setRefreshCookie(res, nextRaw);
   res.json({
     token: accessToken,
-    refreshToken: nextRaw,
     user: { ...mapUserResponse(session.user), ...refreshManagerFields },
   });
   await logAuthEvent({
@@ -405,27 +431,26 @@ authRouter.post("/refresh", refreshRateLimiter, async (req, res) => {
 });
 
 authRouter.post("/logout", async (req, res) => {
-  const parsed = refreshBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+  const rawCookie = readRefreshCookie(req);
+  if (rawCookie) {
+    const tokenHash = hashRefreshToken(rawCookie);
+    const meta = requestMeta(req);
+    const existing = await prisma.refreshSession.findUnique({
+      where: { tokenHash },
+      select: { userId: true },
+    });
+    const updated = await prisma.refreshSession.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt: new Date(), lastUsedAt: new Date() },
+    });
+    await logAuthEvent({
+      userId: existing?.userId,
+      eventType: AuthEventType.LOGOUT,
+      ...meta,
+      metadata: { revokedSessions: updated.count },
+    });
   }
-  const tokenHash = hashRefreshToken(parsed.data.refreshToken);
-  const meta = requestMeta(req);
-  const existing = await prisma.refreshSession.findUnique({
-    where: { tokenHash },
-    select: { userId: true },
-  });
-  const updated = await prisma.refreshSession.updateMany({
-    where: { tokenHash, revokedAt: null },
-    data: { revokedAt: new Date(), lastUsedAt: new Date() },
-  });
-  await logAuthEvent({
-    userId: existing?.userId,
-    eventType: AuthEventType.LOGOUT,
-    ...meta,
-    metadata: { revokedSessions: updated.count },
-  });
+  clearRefreshCookie(res);
   res.json({ ok: true });
 });
 
@@ -444,6 +469,7 @@ authRouter.post("/logout-all", authenticateToken, async (req, res) => {
     eventType: AuthEventType.LOGOUT_ALL,
     ...requestMeta(req),
   });
+  clearRefreshCookie(res);
   res.json({ ok: true });
 });
 
@@ -485,8 +511,7 @@ authRouter.patch("/profile", authenticateToken, async (req, res) => {
 
   const parsed = patchProfileBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const raw = parsed.data;
@@ -535,7 +560,6 @@ authRouter.patch("/profile", authenticateToken, async (req, res) => {
     });
 
     let token: string | undefined;
-    let refreshToken: string | undefined;
     if (emailChanged) {
       await prisma.refreshSession.updateMany({
         where: { userId: user.id, revokedAt: null },
@@ -550,13 +574,12 @@ authRouter.patch("/profile", authenticateToken, async (req, res) => {
         ...requestMeta(req),
       });
       token = tokens.accessToken;
-      refreshToken = tokens.refreshToken;
+      setRefreshCookie(res, tokens.refreshToken);
     }
 
     res.json({
       user: meUserWithManagerFields(req, mapUserResponse(user)),
       ...(token ? { token } : {}),
-      ...(refreshToken ? { refreshToken } : {}),
     });
   } catch (e: unknown) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
@@ -643,8 +666,7 @@ authRouter.post("/change-password", authenticateToken, async (req, res) => {
 
   const parsed = changePasswordBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const { currentPassword, newPassword } = parsed.data;
@@ -698,9 +720,9 @@ authRouter.post("/change-password", authenticateToken, async (req, res) => {
     ...requestMeta(req),
   });
 
+  setRefreshCookie(res, tokens.refreshToken);
   res.json({
     token: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
     user: meUserWithManagerFields(req, mapUserResponse(updated)),
   });
 });
@@ -709,8 +731,7 @@ authRouter.post("/change-password", authenticateToken, async (req, res) => {
 authRouter.post("/forgot-password", forgotPasswordRateLimiter, async (req, res) => {
   const parsed = forgotPasswordBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const { email } = parsed.data;
@@ -757,8 +778,7 @@ authRouter.post("/forgot-password", forgotPasswordRateLimiter, async (req, res) 
 authRouter.post("/reset-password", resetPasswordRateLimiter, async (req, res) => {
   const parsed = resetPasswordBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const { token: rawToken, newPassword } = parsed.data;

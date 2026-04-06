@@ -1,6 +1,8 @@
-const TARGET_SIZE = Math.max(200, Number(process.env.CHUNK_SIZE_CHARS) || 3200);
-const MAX_SIZE = Math.max(500, Number(process.env.CHUNK_MAX_CHARS) || 5000);
-const OVERLAP = Math.max(0, Number(process.env.CHUNK_OVERLAP_CHARS) || 400);
+import { config } from "./config.js";
+
+const TARGET_SIZE = config.chunkSizeChars;
+const MAX_SIZE = config.chunkMaxChars;
+const OVERLAP = config.chunkOverlapChars;
 
 export interface ChunkWithMeta {
   content: string;

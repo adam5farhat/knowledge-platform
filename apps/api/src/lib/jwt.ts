@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import { RoleName } from "@prisma/client";
+import { config } from "./config.js";
 
 /**
  * Access tokens carry signed claims for `sub`, `authVersion`, `email`, `role`, and primary
@@ -18,15 +19,14 @@ export type AccessTokenPayload = {
 };
 
 function getSecret(): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret || secret.length < 32) {
+  if (!config.jwtSecret || config.jwtSecret.length < 32) {
     throw new Error("JWT_SECRET must be set (min 32 characters)");
   }
-  return secret;
+  return config.jwtSecret;
 }
 
 export function signAccessToken(payload: AccessTokenPayload): string {
-  const expiresIn = (process.env.JWT_EXPIRES_IN ?? "15m") as jwt.SignOptions["expiresIn"];
+  const expiresIn = config.jwtExpiresIn as jwt.SignOptions["expiresIn"];
   const options: jwt.SignOptions = {
     expiresIn,
     subject: payload.sub,

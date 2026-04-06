@@ -8,6 +8,8 @@ import { mapUserResponse } from "../lib/mapUser.js";
 import { syncRefreshSessionsAuthVersion } from "../lib/refreshSessionSync.js";
 import { authenticateToken, requireRole } from "../middleware/auth.js";
 import { isAllowedProfilePictureUrlForUser } from "../lib/avatar.js";
+import { AppError } from "../lib/AppError.js";
+import { bulkIdsSchema } from "../lib/schemas.js";
 import { clearUserAvatar, commitAvatarUpload } from "../lib/avatarOps.js";
 import { normalizeStoredIpForDisplay } from "../lib/clientIp.js";
 
@@ -32,9 +34,11 @@ function normalizeProfilePictureInput(v: string | null | undefined): string | nu
   return t === "" ? null : t;
 }
 
+import { PASSWORD_MIN, PASSWORD_RE, PASSWORD_RULE } from "../lib/passwordPolicy.js";
+
 const createUserBody = z.object({
   email: z.string().email(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string().min(PASSWORD_MIN, PASSWORD_RULE).regex(PASSWORD_RE, PASSWORD_RULE),
   name: z.string().min(1).max(200),
   role: z.nativeEnum(RoleName),
   departmentId: z.string().uuid(),
@@ -75,7 +79,7 @@ const patchUserBody = z
 
 const bulkRestrictionsBody = z
   .object({
-    ids: z.array(z.string().uuid()).min(1).max(50),
+    ids: bulkIdsSchema,
     loginAllowed: z.boolean().optional(),
     accessDocumentsAllowed: z.boolean().optional(),
     manageDocumentsAllowed: z.boolean().optional(),
@@ -97,7 +101,7 @@ const importUsersBody = z.object({
 });
 
 const setPasswordBody = z.object({
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string().min(PASSWORD_MIN, PASSWORD_RULE).regex(PASSWORD_RE, PASSWORD_RULE),
 });
 
 const mergeDepartmentsBody = z.object({
@@ -238,8 +242,7 @@ adminRouter.get("/roles", authenticateToken, requireRole(RoleName.ADMIN), async 
 adminRouter.post("/departments", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
   const parsed = createDepartmentBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const name = parsed.data.name.trim();
@@ -282,8 +285,7 @@ adminRouter.post("/departments", authenticateToken, requireRole(RoleName.ADMIN),
 adminRouter.patch("/departments/:departmentId", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
   const parsed = patchDepartmentBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const id = req.params.departmentId;
@@ -382,8 +384,7 @@ adminRouter.delete("/departments/:departmentId", authenticateToken, requireRole(
 adminRouter.post("/departments/merge", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
   const parsed = mergeDepartmentsBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
   const { sourceDepartmentId, targetDepartmentId } = parsed.data;
   if (sourceDepartmentId === targetDepartmentId) {
@@ -520,8 +521,7 @@ adminRouter.get("/users", authenticateToken, requireRole(RoleName.ADMIN), async 
 adminRouter.post("/users", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
   const parsed = createUserBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const { email, password, name, role, departmentId, employeeBadgeNumber, phoneNumber, position } =
@@ -597,8 +597,7 @@ adminRouter.post("/users", authenticateToken, requireRole(RoleName.ADMIN), async
 adminRouter.patch("/users/:userId", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
   const parsed = patchUserBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const actingUserId = req.authUser!.id;
@@ -856,8 +855,7 @@ adminRouter.delete("/users/:userId/avatar", authenticateToken, requireRole(RoleN
 adminRouter.post("/users/bulk-restrictions", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
   const parsed = bulkRestrictionsBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const actingUserId = req.authUser!.id;
@@ -906,8 +904,7 @@ adminRouter.post("/users/bulk-restrictions", authenticateToken, requireRole(Role
 adminRouter.post("/users/import", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
   const parsed = importUsersBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const errors: { email: string; error: string }[] = [];
@@ -1026,8 +1023,7 @@ adminRouter.post("/users/:userId/revoke-sessions", authenticateToken, requireRol
 adminRouter.post("/users/:userId/set-password", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
   const parsed = setPasswordBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
-    return;
+    throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const targetId = req.params.userId;
@@ -1954,8 +1950,7 @@ adminRouter.post(
     const userId = req.params.userId;
     const parsed = deptAccessBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
-      return;
+      throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
     }
     const { departmentId, accessLevel } = parsed.data;
 
@@ -2028,8 +2023,7 @@ adminRouter.put(
     const userId = req.params.userId;
     const parsed = bulkDeptAccessBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
-      return;
+      throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
     }
     const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
     if (!userExists) { res.status(404).json({ error: "User not found" }); return; }

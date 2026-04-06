@@ -8,6 +8,7 @@ import {
   getValidAccessToken,
   KP_AUTH_SESSION_REFRESHED,
 } from "@/lib/authClient";
+import { API_BASE } from "@/lib/apiBase";
 import { RoleNameApi, userCanOpenManagerDashboard, type MeUserDto } from "@/lib/restrictions";
 import type { AdminChromeSessionUser } from "../admin/AdminChromeHeader";
 
@@ -53,7 +54,7 @@ export function useManagerGuard(): Result {
         return;
       }
       try {
-        const meRes = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"}/auth/me`);
+        const meRes = await fetchWithAuth(`${API_BASE}/auth/me`);
         if (meRes.status === 401) {
           clearStoredSession();
           if (!cancelled) {

@@ -1,8 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { config } from "./config.js";
 
-const ROOT = process.env.STORAGE_PATH ?? path.join(process.cwd(), "storage", "uploads");
+const ROOT = config.storagePath;
 
 export function getStorageRoot(): string {
   return ROOT;

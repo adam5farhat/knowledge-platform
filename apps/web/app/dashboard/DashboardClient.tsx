@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
-import { clearStoredSession, fetchWithAuth } from "../../lib/authClient";
+import { clearStoredSession, fetchWithAuth, signOut } from "../../lib/authClient";
 import {
   DEFAULT_USER_RESTRICTIONS,
   restrictedHref,
@@ -14,8 +14,7 @@ import {
   type MeUserDto,
 } from "../../lib/restrictions";
 import styles from "./page.module.css";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "@/lib/apiBase";
 
 type LoadState = "loading" | "need-login" | "error" | "ready";
 
@@ -99,20 +98,8 @@ export default function DashboardClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function signOut() {
-    const refreshToken = localStorage.getItem("kp_refresh_token");
-    if (refreshToken) {
-      try {
-        await fetch(`${API}/auth/logout`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken }),
-        });
-      } catch {
-        // Best-effort logout request; local cleanup still completes.
-      }
-    }
-    clearStoredSession();
+  async function handleSignOut() {
+    await signOut();
     router.replace("/login");
     router.refresh();
   }
@@ -260,7 +247,7 @@ export default function DashboardClient() {
                 className={styles.menuItem}
                 onClick={() => {
                   setMenuOpen(false);
-                  void signOut();
+                  void handleSignOut();
                 }}
                 role="menuitem"
               >

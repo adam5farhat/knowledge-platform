@@ -11,6 +11,7 @@
  * Requires: running database with indexed documents + GEMINI_API_KEY in env.
  */
 
+import { logger } from "./logger.js";
 import { optimizeQuery } from "./queryOptimizer.js";
 
 export interface EvalCase {
@@ -168,15 +169,15 @@ export async function runQueryOptimizationTests(): Promise<EvalResult[]> {
 
 if (process.argv[1]?.endsWith("ragEvaluation.ts") || process.argv[1]?.endsWith("ragEvaluation.js")) {
   (async () => {
-    console.log("=== RAG Query Optimization Evaluation ===\n");
+    logger.info("=== RAG Query Optimization Evaluation ===");
     const results = await runQueryOptimizationTests();
     let passed = 0;
     for (const r of results) {
       const status = r.passed ? "PASS" : "FAIL";
-      console.log(`[${status}] ${r.id}: ${r.details}`);
+      logger.info(`[${status}] ${r.id}: ${r.details}`);
       if (r.passed) passed++;
     }
-    console.log(`\n${passed}/${results.length} tests passed`);
+    logger.info("Evaluation complete", { passed, total: results.length });
     process.exit(passed === results.length ? 0 : 1);
   })();
 }

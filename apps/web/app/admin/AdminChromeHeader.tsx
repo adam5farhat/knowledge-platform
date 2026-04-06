@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
-import { clearStoredSession } from "@/lib/authClient";
+import { signOut } from "@/lib/authClient";
 import dash from "../components/shellNav.module.css";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "@/lib/apiBase";
 
 export type AdminChromeSessionUser = {
   /** Present when loaded from `/auth/me` (used by admin screens that compare acting user id). */
@@ -40,20 +39,8 @@ export function AdminChromeHeader({ user, className, navVariant = "admin" }: Pro
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [menuOpen]);
 
-  async function signOut() {
-    const refreshToken = localStorage.getItem("kp_refresh_token");
-    if (refreshToken) {
-      try {
-        await fetch(`${API}/auth/logout`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken }),
-        });
-      } catch {
-        /* best-effort */
-      }
-    }
-    clearStoredSession();
+  async function handleSignOut() {
+    await signOut();
     router.replace("/login");
     router.refresh();
   }
@@ -125,7 +112,7 @@ export function AdminChromeHeader({ user, className, navVariant = "admin" }: Pro
               className={dash.menuItem}
               onClick={() => {
                 setMenuOpen(false);
-                void signOut();
+                void handleSignOut();
               }}
               role="menuitem"
             >

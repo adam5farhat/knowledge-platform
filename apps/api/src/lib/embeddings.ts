@@ -1,7 +1,8 @@
 import { GoogleGenerativeAI, TaskType } from "@google/generative-ai";
 import { TtlCache, withRetry } from "./cache.js";
+import { config } from "./config.js";
 
-const MODEL = process.env.GEMINI_EMBEDDING_MODEL ?? "gemini-embedding-001";
+const MODEL = config.gemini.embeddingModel;
 const DIM = 768;
 
 const embedCache = new TtlCache<number[]>(600, 300);
@@ -9,7 +10,7 @@ const embedCache = new TtlCache<number[]>(600, 300);
 let genAI: GoogleGenerativeAI | null = null;
 
 function getClient(): GoogleGenerativeAI {
-  const key = process.env.GEMINI_API_KEY;
+  const key = config.gemini.apiKey;
   if (!key) {
     throw new Error("GEMINI_API_KEY is not set; embeddings are required for the RAG pipeline.");
   }

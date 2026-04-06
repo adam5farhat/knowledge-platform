@@ -4,8 +4,7 @@ import { useLayoutEffect } from "react";
 import { useRouter } from "next/navigation";
 import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../lib/authClient";
 import { homePathForUser, type MeResponse } from "../lib/restrictions";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "@/lib/apiBase";
 
 /** Root `/`: send anonymous users to login, signed-in users to the dashboard. */
 export default function HomeEntryClient() {
@@ -13,18 +12,6 @@ export default function HomeEntryClient() {
 
   useLayoutEffect(() => {
     let cancelled = false;
-
-    try {
-      const hasAccess = localStorage.getItem("kp_access_token");
-      const hasRefresh = localStorage.getItem("kp_refresh_token");
-      if (!hasAccess && !hasRefresh) {
-        router.replace("/login");
-        return;
-      }
-    } catch {
-      router.replace("/login");
-      return;
-    }
 
     void (async () => {
       const token = await getValidAccessToken();

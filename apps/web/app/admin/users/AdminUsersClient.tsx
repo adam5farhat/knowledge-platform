@@ -14,13 +14,14 @@ import {
   RoleNameApi,
   type UserRestrictionsDto,
 } from "../../../lib/restrictions";
+import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { AdminChromeHeader } from "../AdminChromeHeader";
 import { useAdminGuard } from "../useAdminGuard";
 import { AdminHubGlyph, type AdminHubGlyphType } from "../AdminHubIcons";
 import dash from "../../components/shellNav.module.css";
 import styles from "./adminUsers.module.css";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "@/lib/apiBase";
 
 function IconSearch() {
   return (
@@ -228,6 +229,8 @@ function userInitials(name: string): string {
 export default function AdminUsersClient() {
   const router = useRouter();
   const pathname = usePathname();
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const { phase: authPhase, sessionUser: guardSession } = useAdminGuard();
   const [bootstrapPhase, setBootstrapPhase] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
@@ -692,7 +695,7 @@ export default function AdminUsersClient() {
   async function setRestrictionForPanel(key: keyof UserRestrictionsDto, value: boolean) {
     if (!panelUser?.restrictions) return;
     if (panelUser.id === sessionUser?.id && key === "loginAllowed" && !value) {
-      window.alert("You cannot disable login for your own account.");
+      toast("You cannot disable login for your own account.", "warning");
       return;
     }
     setPillBusy(key);
@@ -705,7 +708,7 @@ export default function AdminUsersClient() {
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string; user?: AdminUserRow };
       if (!res.ok) {
-        window.alert(data.error ?? "Update failed.");
+        toast(data.error ?? "Update failed.", "error");
         return;
       }
       if (data.user) {
@@ -717,7 +720,7 @@ export default function AdminUsersClient() {
       }
       setRestrictionToast(value ? "Permission enabled" : "Restriction applied");
     } catch {
-      window.alert("Could not reach the API.");
+      toast("Could not reach the API.", "error");
     } finally {
       setPillBusy(null);
     }
@@ -733,7 +736,7 @@ export default function AdminUsersClient() {
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string; user?: AdminUserRow };
       if (!res.ok) {
-        window.alert(data.error ?? "Reset failed.");
+        toast(data.error ?? "Reset failed.", "error");
         return;
       }
       if (data.user) {
@@ -745,7 +748,7 @@ export default function AdminUsersClient() {
       }
       setRestrictionToast("All permissions reset to allowed");
     } catch {
-      window.alert("Could not reach the API.");
+      toast("Could not reach the API.", "error");
     } finally {
       setPillBusy(null);
     }
@@ -762,7 +765,7 @@ export default function AdminUsersClient() {
       });
       const data = (await res.json().catch(() => ({}))) as DeptAccessRow & { error?: string };
       if (!res.ok) {
-        window.alert(data.error ?? "Failed to add access.");
+        toast(data.error ?? "Failed to add access.", "error");
         return;
       }
       if (data.departmentId) {
@@ -774,7 +777,7 @@ export default function AdminUsersClient() {
       }
       setDeptAccessAddDeptId("");
     } catch {
-      window.alert("Could not reach the API.");
+      toast("Could not reach the API.", "error");
     } finally {
       setDeptAccessBusy(false);
     }
@@ -790,12 +793,12 @@ export default function AdminUsersClient() {
       );
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        window.alert(data.error ?? "Failed to remove access.");
+        toast(data.error ?? "Failed to remove access.", "error");
         return;
       }
       setPanelDeptAccess((prev) => prev.filter((r) => r.departmentId !== departmentId));
     } catch {
-      window.alert("Could not reach the API.");
+      toast("Could not reach the API.", "error");
     } finally {
       setDeptAccessBusy(false);
     }
@@ -812,14 +815,14 @@ export default function AdminUsersClient() {
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        window.alert(data.error ?? "Failed to update access.");
+        toast(data.error ?? "Failed to update access.", "error");
         return;
       }
       setPanelDeptAccess((prev) =>
         prev.map((r) => (r.departmentId === departmentId ? { ...r, accessLevel: level } : r)),
       );
     } catch {
-      window.alert("Could not reach the API.");
+      toast("Could not reach the API.", "error");
     } finally {
       setDeptAccessBusy(false);
     }
@@ -871,7 +874,7 @@ export default function AdminUsersClient() {
     const res = await fetchWithAuth(`${API}/admin/users/${id}/unlock`, { method: "POST" });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
-      window.alert(data.error ?? "Unlock failed.");
+      toast(data.error ?? "Unlock failed.", "error");
       return;
     }
     void loadDirectory();
@@ -881,7 +884,7 @@ export default function AdminUsersClient() {
     const res = await fetchWithAuth(`${API}/admin/users/${id}/lock`, { method: "POST" });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
-      window.alert(data.error ?? "Lock failed.");
+      toast(data.error ?? "Lock failed.", "error");
       return;
     }
     void loadDirectory();
@@ -894,13 +897,15 @@ export default function AdminUsersClient() {
   async function bulkLockSelected() {
     const ids = [...selectedIds].filter((id) => id !== sessionUser?.id);
     if (ids.length === 0) {
-      window.alert("Remove your own account from the selection to lock others.");
+      toast("Remove your own account from the selection to lock others.", "warning");
       return;
     }
     if (
-      !window.confirm(
-        `Lock sign-in for ${ids.length} user(s)? They cannot log in until you unlock them or the lock period ends (7 days).`,
-      )
+      !(await confirm({
+        title: "Confirm Action",
+        message: `Lock sign-in for ${ids.length} user(s)? They cannot log in until you unlock them or the lock period ends (7 days).`,
+        danger: true,
+      }))
     ) {
       return;
     }
@@ -913,7 +918,7 @@ export default function AdminUsersClient() {
     setBulkBusy(false);
     setSelectedIds(new Set());
     void loadDirectory();
-    if (fail) window.alert(`${fail} lock operation(s) failed.`);
+    if (fail) toast(`${fail} lock operation(s) failed.`, "error");
   }
 
   async function bulkApplyRestrictions(patch: Partial<UserRestrictionsDto>) {
@@ -921,14 +926,14 @@ export default function AdminUsersClient() {
     if (patch.loginAllowed === false) {
       ids = ids.filter((id) => id !== sessionUser?.id);
       if (ids.length === 0) {
-        window.alert("Remove your own account from the selection to block sign-in for others.");
+        toast("Remove your own account from the selection to block sign-in for others.", "warning");
         return;
       }
     }
     const keys = Object.keys(patch) as (keyof UserRestrictionsDto)[];
     if (keys.length === 0) return;
     const label = keys.map((k) => RESTRICTION_PILLS.find((p) => p.key === k)?.label ?? k).join(", ");
-    if (!window.confirm(`Apply restriction changes to ${ids.length} user(s)?\n${label}`)) return;
+    if (!(await confirm({ title: "Confirm Action", message: `Apply restriction changes to ${ids.length} user(s)?\n${label}`, danger: true }))) return;
     setBulkBusy(true);
     let fail = 0;
     for (let i = 0; i < ids.length; i += 50) {
@@ -943,13 +948,13 @@ export default function AdminUsersClient() {
     setBulkBusy(false);
     setSelectedIds(new Set());
     void loadDirectory();
-    if (fail) window.alert(`${fail} user(s) could not be updated (check permissions or try a smaller batch).`);
+    if (fail) toast(`${fail} user(s) could not be updated (check permissions or try a smaller batch).`, "error");
   }
 
   async function bulkResetRestrictionsSelected() {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
-    if (!window.confirm(`Reset all access permissions to “allowed” for ${ids.length} user(s)?`)) return;
+    if (!(await confirm({ title: "Confirm Action", message: `Reset all access permissions to “allowed” for ${ids.length} user(s)?`, danger: true }))) return;
     setBulkBusy(true);
     let fail = 0;
     const allowAll: Partial<UserRestrictionsDto> = {
@@ -971,19 +976,21 @@ export default function AdminUsersClient() {
     setBulkBusy(false);
     setSelectedIds(new Set());
     void loadDirectory();
-    if (fail) window.alert(`${fail} user(s) could not be updated.`);
+    if (fail) toast(`${fail} user(s) could not be updated.`, "error");
   }
 
   async function bulkDeleteSelected() {
     const ids = [...selectedIds].filter((id) => id !== sessionUser?.id);
     if (ids.length === 0) {
-      window.alert("You cannot delete only your own account from this bulk action.");
+      toast("You cannot delete only your own account from this bulk action.", "warning");
       return;
     }
     if (
-      !window.confirm(
-        `Archive ${ids.length} user(s)? They will be hidden from the directory and signed out. Users who created documents may need content reassigned first.`,
-      )
+      !(await confirm({
+        title: "Archive Users",
+        message: `Archive ${ids.length} user(s)? They will be hidden from the directory and signed out. Users who created documents may need content reassigned first.`,
+        danger: true,
+      }))
     )
       return;
     setBulkBusy(true);
@@ -999,14 +1006,16 @@ export default function AdminUsersClient() {
     setSelectedIds(new Set());
     setPanelUser((p) => (p && removed.has(p.id) ? null : p));
     void loadDirectory();
-    if (fail) window.alert(`Archived ${ok}. ${fail} could not be archived (e.g. last admin or documents owned).`);
+    if (fail) toast(`Archived ${ok}. ${fail} could not be archived (e.g. last admin or documents owned).`, "error");
   }
 
   async function deleteUser(u: AdminUserRow) {
     if (
-      !window.confirm(
-        `Archive ${u.email}? They will be hidden from the directory and signed out. This does not remove database rows unless you erase them later (when allowed).`,
-      )
+      !(await confirm({
+        title: "Archive User",
+        message: `Archive ${u.email}? They will be hidden from the directory and signed out. This does not remove database rows unless you erase them later (when allowed).`,
+        danger: true,
+      }))
     )
       return;
     const res = await fetchWithAuth(`${API}/admin/users/${u.id}`, { method: "DELETE" });
@@ -1016,14 +1025,14 @@ export default function AdminUsersClient() {
       return;
     }
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    window.alert(data.error ?? "Archive failed.");
+    toast(data.error ?? "Archive failed.", "error");
   }
 
   async function restoreUser(id: string) {
     const res = await fetchWithAuth(`${API}/admin/users/${id}/restore`, { method: "POST" });
     const data = (await res.json().catch(() => ({}))) as { error?: string; user?: AdminUserRow };
     if (!res.ok) {
-      window.alert(data.error ?? "Restore failed.");
+      toast(data.error ?? "Restore failed.", "error");
       return;
     }
     if (data.user) {
@@ -1036,21 +1045,23 @@ export default function AdminUsersClient() {
   }
 
   async function revokeAllSessionsForUser(id: string) {
-    if (!window.confirm("Revoke every refresh session for this user? They must sign in again on all devices.")) return;
+    if (!(await confirm({ title: "Revoke Sessions", message: "Revoke every refresh session for this user? They must sign in again on all devices.", danger: true }))) return;
     const res = await fetchWithAuth(`${API}/admin/users/${id}/revoke-sessions`, { method: "POST" });
     if (res.status === 204) {
       void loadDirectory();
       return;
     }
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    window.alert(data.error ?? "Could not revoke sessions.");
+    toast(data.error ?? "Could not revoke sessions.", "error");
   }
 
   async function hardEraseUser(u: AdminUserRow) {
     if (
-      !window.confirm(
-        `Permanently erase ${u.email} from the database? This cannot be undone. Only use when the account is already archived and has no documents.`,
-      )
+      !(await confirm({
+        title: "Permanently Erase",
+        message: `Permanently erase ${u.email} from the database? This cannot be undone. Only use when the account is already archived and has no documents.`,
+        danger: true,
+      }))
     )
       return;
     const res = await fetchWithAuth(`${API}/admin/users/${u.id}?hard=1`, { method: "DELETE" });
@@ -1060,7 +1071,7 @@ export default function AdminUsersClient() {
       return;
     }
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    window.alert(data.error ?? "Erase failed.");
+    toast(data.error ?? "Erase failed.", "error");
   }
 
   async function submitImport() {
@@ -1144,7 +1155,7 @@ export default function AdminUsersClient() {
   function toggleEditRestriction(key: keyof UserRestrictionsDto, next: boolean) {
     if (!editUser) return;
     if (editUser.id === sessionUser?.id && key === "loginAllowed" && !next) {
-      window.alert("You cannot disable login for your own account.");
+      toast("You cannot disable login for your own account.", "warning");
       return;
     }
     const base = editUser.restrictions ?? DEFAULT_RESTRICTIONS;
@@ -2215,13 +2226,13 @@ export default function AdminUsersClient() {
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="off" />
               </label>
               <label>
-                <span>Temporary password (min 8 characters)</span>
+                <span>Temporary password (min 10 characters)</span>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={8}
+                  minLength={10}
                   autoComplete="new-password"
                 />
               </label>
@@ -2486,12 +2497,12 @@ export default function AdminUsersClient() {
             <h2>Set password</h2>
             <div className={styles.formGrid}>
               <label>
-                <span>New password (min 8 characters)</span>
+                <span>New password (min 10 characters)</span>
                 <input
                   type="password"
                   value={passwordValue}
                   onChange={(e) => setPasswordValue(e.target.value)}
-                  minLength={8}
+                  minLength={10}
                   autoComplete="new-password"
                 />
               </label>

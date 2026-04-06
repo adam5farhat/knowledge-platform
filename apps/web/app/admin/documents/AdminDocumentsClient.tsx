@@ -8,6 +8,8 @@ import { ProfileAvatarImage } from "@/components/ProfileAvatarImage";
 import { fetchWithAuth } from "../../../lib/authClient";
 import { profilePictureDisplayUrl, userInitialsFromName } from "@/lib/profilePicture";
 import dash from "../../components/shellNav.module.css";
+import { useToast } from "@/components/Toast";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { AdminChromeHeader } from "../AdminChromeHeader";
 import { useAdminGuard } from "../useAdminGuard";
 import { AdminHubGlyph, type AdminHubGlyphType } from "../AdminHubIcons";
@@ -16,8 +18,7 @@ import styles from "./adminDocuments.module.css";
 import { formatSize, normalizeUploadTag } from "../../documents/documentsFormat";
 import { MAX_UPLOAD_TAGS } from "../../documents/documentsTypes";
 import docStyles from "../../documents/page.module.css";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import { API_BASE as API } from "@/lib/apiBase";
 
 type AdminSortKey =
   | "updatedAt_desc"
@@ -447,6 +448,8 @@ function PanelIconDetails() {
 
 export default function AdminDocumentsClient() {
   const pathname = usePathname();
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const { phase: authPhase, sessionUser } = useAdminGuard();
 
   const [tab, setTab] = useState<DocTab>("active");
@@ -810,7 +813,7 @@ export default function AdminDocumentsClient() {
       setBulkErr("You can delete at most 50 documents per request. Clear selection and try a smaller batch.");
       return;
     }
-    if (!window.confirm(`Permanently delete ${unique.length} document(s)? This cannot be undone.`)) {
+    if (!(await confirm({ title: "Delete", message: `Permanently delete ${unique.length} document(s)? This cannot be undone.`, danger: true }))) {
       return;
     }
     setBulkBusy(true);
@@ -878,13 +881,13 @@ export default function AdminDocumentsClient() {
       const res = await fetchWithAuth(path, { method });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        window.alert(body.error ?? "Request failed.");
+        toast(body.error ?? "Request failed.", "error");
         return;
       }
       void loadDocuments();
       if (selectedDocId === doc.id) void loadPanelDetail(doc.id);
     } catch {
-      window.alert("Could not reach the server.");
+      toast("Could not reach the server.", "error");
     } finally {
       setRowBusyId(null);
     }
@@ -898,33 +901,33 @@ export default function AdminDocumentsClient() {
       const res = await fetchWithAuth(path, { method });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        window.alert(body.error ?? "Request failed.");
+        toast(body.error ?? "Request failed.", "error");
         return;
       }
       void loadDocuments();
       void loadPanelDetail(documentId);
     } catch {
-      window.alert("Could not reach the server.");
+      toast("Could not reach the server.", "error");
     } finally {
       setPanelActionBusy(false);
     }
   }
 
   async function deleteDocument(id: string, title: string) {
-    if (!window.confirm(`Permanently delete “${title}”? This cannot be undone.`)) return;
+    if (!(await confirm({ title: "Delete", message: `Permanently delete “${title}”? This cannot be undone.`, danger: true }))) return;
     setRowBusyId(id);
     setOpenMenuId(null);
     try {
       const res = await fetchWithAuth(`${API}/documents/${id}`, { method: "DELETE" });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        window.alert(body.error ?? "Delete failed.");
+        toast(body.error ?? "Delete failed.", "error");
         return;
       }
       if (selectedDocId === id) closePanel();
       void loadDocuments();
     } catch {
-      window.alert("Could not reach the server.");
+      toast("Could not reach the server.", "error");
     } finally {
       setRowBusyId(null);
     }
@@ -935,7 +938,7 @@ export default function AdminDocumentsClient() {
       const res = await fetchWithAuth(`${API}/documents/${documentId}/versions/${versionId}/file`);
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        window.alert(data.error ?? "Download failed");
+        toast(data.error ?? "Download failed", "error");
         return;
       }
       const blob = await res.blob();
@@ -948,7 +951,7 @@ export default function AdminDocumentsClient() {
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      window.alert("Download failed.");
+      toast("Download failed.", "error");
     }
   }
 
@@ -967,7 +970,7 @@ export default function AdminDocumentsClient() {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         const msg = body.error ?? "Reprocess failed.";
         if (context === "archives") setArchivesError(msg);
-        else window.alert(msg);
+        else toast(msg, "error");
         return;
       }
       void loadDocuments();
@@ -975,7 +978,7 @@ export default function AdminDocumentsClient() {
       if (context === "archives") setArchivesError(null);
     } catch {
       if (context === "archives") setArchivesError("Could not reach the server.");
-      else window.alert("Could not reach the server.");
+      else toast("Could not reach the server.", "error");
     } finally {
       if (context === "archives") setArchivesReprocessId(null);
       else setPanelActionBusy(false);

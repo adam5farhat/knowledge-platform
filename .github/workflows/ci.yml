@@ -7,7 +7,8 @@ on:
     branches: [main, master]
 
 jobs:
-  build:
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,7 +21,24 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Prisma generate (API)
+      - name: Lint web
+        run: npm run lint -w @knowledge-platform/web
+
+  typecheck:
+    name: Typecheck & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma generate
         run: npm run db:generate -w @knowledge-platform/api
 
       - name: Typecheck & compile API
@@ -31,3 +49,56 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3001
           PUBLIC_API_URL: http://localhost:3001
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: knowledge_platform_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prisma generate
+        run: npm run db:generate -w @knowledge-platform/api
+
+      - name: Run database migrations
+        run: npm run db:migrate -w @knowledge-platform/api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/knowledge_platform_test
+
+      - name: Run API tests
+        run: npm run test -w @knowledge-platform/api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/knowledge_platform_test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: ci-test-secret-at-least-32-characters-long
+          NODE_ENV: test

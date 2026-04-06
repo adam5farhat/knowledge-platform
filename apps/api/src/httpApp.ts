@@ -1,9 +1,13 @@
 import "dotenv/config";
 import compression from "compression";
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import type { NextFunction, Request, Response } from "express";
+import { config } from "./lib/config.js";
+import { logger } from "./lib/logger.js";
+import { AppError } from "./lib/AppError.js";
 import { getRedis } from "./lib/redis.js";
 import { prisma } from "./lib/prisma.js";
 import { authRouter } from "./routes/auth.js";
@@ -15,15 +19,14 @@ import { conversationsRouter } from "./routes/conversations.js";
 import { avatarsPublicRouter } from "./routes/avatarsPublic.js";
 
 function buildCorsOrigin(): cors.CorsOptions["origin"] {
-  const raw = process.env.WEB_APP_URL;
-  if (!raw) {
-    if (process.env.NODE_ENV === "production") {
-      console.warn("[cors] WEB_APP_URL not set — CORS restricted to same-origin only in production");
+  if (!config.webAppUrl) {
+    if (config.isProd) {
+      logger.warn("WEB_APP_URL not set — CORS restricted to same-origin only in production");
       return false;
     }
     return true;
   }
-  const origins = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  const origins = config.webAppUrl.split(",").map((s) => s.trim()).filter(Boolean);
   return origins.length === 1 ? origins[0] : origins;
 }
 
@@ -31,8 +34,8 @@ function buildCorsOrigin(): cors.CorsOptions["origin"] {
 export function createHttpApp(): express.Application {
   const app = express();
 
-  if (process.env.TRUST_PROXY) {
-    app.set("trust proxy", process.env.TRUST_PROXY === "true" ? true : Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
+  if (config.trustProxy) {
+    app.set("trust proxy", config.trustProxy === "true" ? true : Number(config.trustProxy) || config.trustProxy);
   }
 
   app.use(helmet({
@@ -48,6 +51,7 @@ export function createHttpApp(): express.Application {
     },
   }));
   app.use(compression());
+  app.use(cookieParser());
   app.use(cors({ origin: buildCorsOrigin(), credentials: true }));
   app.use(express.json({ limit: "1mb" }));
   app.use("/avatars", avatarsPublicRouter);
@@ -93,15 +97,22 @@ export function createHttpApp(): express.Application {
   });
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    console.error(err);
-    if (res.headersSent) {
+    if (res.headersSent) return;
+
+    if (err instanceof AppError) {
+      res.status(err.status).json({
+        error: err.message,
+        ...(err.code ? { code: err.code } : {}),
+        ...(err.details ? { details: err.details } : {}),
+      });
       return;
     }
-    const dev = process.env.NODE_ENV !== "production";
+
+    logger.error("Unhandled error", { error: err instanceof Error ? err.message : String(err) });
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({
       error: "Internal server error",
-      ...(dev ? { debug: message } : {}),
+      ...(!config.isProd ? { debug: message } : {}),
     });
   });
 
