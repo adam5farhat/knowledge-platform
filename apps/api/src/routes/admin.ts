@@ -12,6 +12,12 @@ import { AppError } from "../lib/AppError.js";
 import { bulkIdsSchema } from "../lib/schemas.js";
 import { clearUserAvatar, commitAvatarUpload } from "../lib/avatarOps.js";
 import { normalizeStoredIpForDisplay } from "../lib/clientIp.js";
+import { logger } from "../lib/logger.js";
+import {
+  notifyManagerAssigned,
+  notifyManagerRemoved,
+  notifyMemberAdded,
+} from "../lib/notificationService.js";
 
 export const adminRouter = Router();
 
@@ -762,6 +768,16 @@ adminRouter.patch("/users/:userId", authenticateToken, requireRole(RoleName.ADMI
     if (bumpAuth) {
       await syncRefreshSessionsAuthVersion(targetId, user.authVersion);
     }
+
+    if (parsed.data.role && parsed.data.role !== existing.role.name) {
+      const deptName = user.department?.name ?? "the platform";
+      if (parsed.data.role === RoleName.MANAGER) {
+        notifyManagerAssigned(actingUserId, targetId, deptName).catch((err) => logger.error("Notification dispatch failed", { error: err instanceof Error ? err.message : String(err) }));
+      } else if (existing.role.name === RoleName.MANAGER) {
+        notifyManagerRemoved(actingUserId, targetId, deptName).catch((err) => logger.error("Notification dispatch failed", { error: err instanceof Error ? err.message : String(err) }));
+      }
+    }
+
     res.json({ user: mapUserAdmin(user) });
   } catch (e: unknown) {
     if ((e as { status?: number }).status === 400) {
@@ -1968,6 +1984,14 @@ adminRouter.post(
       include: { department: { select: { id: true, name: true, parentDepartmentId: true } } },
     });
     await bumpAuthAfterDepartmentAccessChange(userId);
+
+    const actorId = req.authUser!.id;
+    if (accessLevel === DepartmentAccessLevel.MANAGER) {
+      notifyManagerAssigned(actorId, userId, row.department.name).catch((err) => logger.error("Notification dispatch failed", { error: err instanceof Error ? err.message : String(err) }));
+    } else {
+      notifyMemberAdded(actorId, userId, row.department.name).catch((err) => logger.error("Notification dispatch failed", { error: err instanceof Error ? err.message : String(err) }));
+    }
+
     res.json({
       id: row.id,
       departmentId: row.departmentId,
@@ -1985,6 +2009,12 @@ adminRouter.delete(
   requireRole(RoleName.ADMIN),
   async (req, res) => {
     const { userId, departmentId } = req.params;
+
+    const record = await prisma.userDepartmentAccess.findUnique({
+      where: { userId_departmentId: { userId, departmentId } },
+      include: { department: { select: { name: true } } },
+    });
+
     try {
       await prisma.userDepartmentAccess.delete({
         where: { userId_departmentId: { userId, departmentId } },
@@ -2002,6 +2032,16 @@ adminRouter.delete(
     } catch {
       /* deletion succeeded — auth bump is best-effort; stale sessions expire naturally */
     }
+
+    if (record) {
+      const actorId = req.authUser!.id;
+      const deptName = record.department.name;
+      if (record.accessLevel === DepartmentAccessLevel.MANAGER) {
+        notifyManagerRemoved(actorId, userId, deptName)
+          .catch((err) => logger.error("Notification dispatch failed", { error: err instanceof Error ? err.message : String(err) }));
+      }
+    }
+
     res.json({ ok: true });
   },
 );
@@ -2049,6 +2089,16 @@ adminRouter.put(
       include: { department: { select: { id: true, name: true, parentDepartmentId: true } } },
       orderBy: { department: { name: "asc" } },
     });
+
+    const actorId = req.authUser!.id;
+    for (const r of rows) {
+      const fn = r.accessLevel === DepartmentAccessLevel.MANAGER
+        ? notifyManagerAssigned
+        : notifyMemberAdded;
+      fn(actorId, userId, r.department.name)
+        .catch((err) => logger.error("Notification dispatch failed", { error: err instanceof Error ? err.message : String(err) }));
+    }
+
     res.json(
       rows.map((r) => ({
         id: r.id,

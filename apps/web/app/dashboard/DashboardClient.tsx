@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
+import { NotificationBell } from "@/components/NotificationBell";
 import { clearStoredSession, fetchWithAuth, signOut } from "../../lib/authClient";
 import {
   DEFAULT_USER_RESTRICTIONS,
@@ -162,6 +163,8 @@ export default function DashboardClient() {
           </a>
         </nav>
 
+        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+        <NotificationBell />
         <div className={styles.profileWrap} ref={menuRef}>
           <UserAvatarNavButton
             className={styles.profileBtn}
@@ -255,6 +258,7 @@ export default function DashboardClient() {
               </button>
             </div>
           ) : null}
+        </div>
         </div>
       </header>
 

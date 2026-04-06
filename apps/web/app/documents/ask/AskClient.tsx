@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { NotificationBell } from "@/components/NotificationBell";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
 import {
   clearStoredSession,
@@ -457,7 +458,9 @@ export default function AskClient() {
             </a>
           </nav>
 
-          <div className={styles.profileWrap} ref={menuRef}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+            <NotificationBell />
+            <div className={styles.profileWrap} ref={menuRef}>
             <UserAvatarNavButton
               className={styles.profileBtn}
               imgClassName={styles.profileBtnImg}
@@ -504,6 +507,7 @@ export default function AskClient() {
                 </button>
               </div>
             )}
+            </div>
           </div>
         </header>
 

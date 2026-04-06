@@ -46,6 +46,63 @@ model UserDepartmentAccess {
   @@index([departmentId])
 }
 
+enum NotificationType {
+  DOCUMENT_CREATED
+  DOCUMENT_DELETED
+  DOCUMENT_UPDATED
+  MANAGER_ASSIGNED
+  MANAGER_REMOVED
+  MEMBER_ADDED
+  MANUAL
+}
+
+enum NotificationTarget {
+  ALL_USERS
+  DEPARTMENT
+  ROLE
+}
+
+model Notification {
+  id                 String              @id @default(uuid())
+  type               NotificationType
+  title              String
+  body               String?             @db.Text
+  actorId            String?
+  actor              User?               @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  documentId         String?
+  document           Document?           @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  departmentId       String?
+  department         Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  targetType         NotificationTarget?
+  targetDepartmentId String?
+  targetRoleName     String?
+  attachmentKey      String?
+  attachmentName     String?
+  attachmentMimeType String?
+  attachmentSize     Int?
+  createdAt          DateTime            @default(now())
+
+  recipients         UserNotification[]
+
+  @@index([departmentId, createdAt])
+  @@index([createdAt])
+}
+
+model UserNotification {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  read           Boolean      @default(false)
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@unique([userId, notificationId])
+  @@index([userId, read, createdAt])
+  @@index([userId, createdAt])
+}
+
 enum DocumentAuditAction {
   CREATED
   VERSION_UPLOADED
@@ -72,6 +129,7 @@ model Department {
   users              User[]
   documents          Document[]
   userAccess         UserDepartmentAccess[]
+  notifications      Notification[]
 }
 
 model Role {
@@ -120,6 +178,8 @@ model User {
   conversations           Conversation[]
   answerFeedbacks         AnswerFeedback[]
   departmentAccess        UserDepartmentAccess[]
+  notificationsActed      Notification[]         @relation("NotificationActor")
+  notifications           UserNotification[]
 
   @@index([email])
   @@index([departmentId])
@@ -198,7 +258,8 @@ model Document {
   tags         DocumentTag[]
   favoritedBy  DocumentUserFavorite[]
   viewedBy     DocumentUserRecent[]
-  auditLogs    DocumentAuditLog[]
+  auditLogs      DocumentAuditLog[]
+  notifications  Notification[]
 
   @@index([createdById])
   @@index([departmentId])

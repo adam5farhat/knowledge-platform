@@ -8,4 +8,5 @@ dist
 coverage
 .turbo
 apps/api/storage
+apps/api/uploads
 *.tsbuildinfo

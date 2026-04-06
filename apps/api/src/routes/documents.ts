@@ -27,6 +27,12 @@ import {
 import { resolveMimeType, SUPPORTED_EXTRACTION_MIMES } from "../lib/extractText.js";
 import { enqueueDocumentIngest } from "../jobs/documentIngest.js";
 import { normalizeTagName, parseTagListInput } from "../lib/tags.js";
+import { logger } from "../lib/logger.js";
+import {
+  notifyDocumentCreated,
+  notifyDocumentUpdated,
+  notifyDocumentDeleted,
+} from "../lib/notificationService.js";
 
 export const documentsRouter = Router();
 
@@ -178,6 +184,10 @@ documentsRouter.post(
         action: DocumentAuditAction.CREATED,
         metadata: { title: doc.title },
       });
+
+      if (doc.departmentId) {
+        notifyDocumentCreated(user.id, doc.id, doc.title, doc.departmentId).catch((err) => logger.error("Notification dispatch failed", { error: err instanceof Error ? err.message : String(err) }));
+      }
 
       res.status(201).json({
         document: {
@@ -393,6 +403,9 @@ documentsRouter.post(
       for (const key of storageKeys) {
         await deleteFileIfExists(key);
       }
+      if (doc.departmentId) {
+        notifyDocumentDeleted(user.id, doc.title, doc.departmentId).catch((err) => logger.error("Notification dispatch failed", { error: err instanceof Error ? err.message : String(err) }));
+      }
       deleted += 1;
     }
     res.json({ deleted });
@@ -587,6 +600,10 @@ documentsRouter.patch("/:documentId", requireManageDocumentsCapability, async (r
     action: DocumentAuditAction.UPDATED,
     metadata: { fields: Object.keys(parsed.data) },
   });
+
+  if (updated.departmentId) {
+    notifyDocumentUpdated(user.id, updated.id, updated.title, updated.departmentId).catch((err) => logger.error("Notification dispatch failed", { error: err instanceof Error ? err.message : String(err) }));
+  }
 
   res.json({
     document: {
@@ -966,6 +983,11 @@ documentsRouter.post(
         metadata: { versionId: version.id, versionNumber: version.versionNumber },
       });
 
+      if (doc.departmentId) {
+        notifyDocumentUpdated(user.id, doc.id, doc.title, doc.departmentId)
+          .catch((err) => logger.error("Notification dispatch failed", { error: err instanceof Error ? err.message : String(err) }));
+      }
+
       res.status(201).json({
         version: {
           id: version.id,
@@ -1057,6 +1079,10 @@ documentsRouter.delete("/:documentId", requireManageDocumentsCapability, async (
 
   for (const key of storageKeys) {
     await deleteFileIfExists(key);
+  }
+
+  if (doc.departmentId) {
+    notifyDocumentDeleted(user.id, doc.title, doc.departmentId).catch((err) => logger.error("Notification dispatch failed", { error: err instanceof Error ? err.message : String(err) }));
   }
 
   res.status(204).send();

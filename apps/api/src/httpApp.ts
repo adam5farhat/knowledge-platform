@@ -17,6 +17,7 @@ import { documentsRouter } from "./routes/documents.js";
 import { searchRouter } from "./routes/search.js";
 import { conversationsRouter } from "./routes/conversations.js";
 import { avatarsPublicRouter } from "./routes/avatarsPublic.js";
+import { notificationsRouter } from "./routes/notifications.js";
 
 function buildCorsOrigin(): cors.CorsOptions["origin"] {
   if (!config.webAppUrl) {
@@ -61,6 +62,7 @@ export function createHttpApp(): express.Application {
   app.use("/documents", documentsRouter);
   app.use("/search", searchRouter);
   app.use("/conversations", conversationsRouter);
+  app.use("/notifications", notificationsRouter);
 
   app.get("/", (_req, res) => {
     res.json({ ok: true, service: "knowledge-platform-api" });

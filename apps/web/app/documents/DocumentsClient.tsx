@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileTypeIcon } from "../../components/FileTypeIcon";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ConfirmDialog";
 import {
@@ -664,7 +665,9 @@ export default function DocumentsClient() {
         </div>
         <div className={styles.docNavRight}>
           {me ? (
-            <div className={styles.profileWrap} ref={profileMenuRef}>
+            <>
+              <NotificationBell />
+              <div className={styles.profileWrap} ref={profileMenuRef}>
               <UserAvatarNavButton
                 className={styles.profileBtn}
                 imgClassName={styles.profileBtnImg}
@@ -713,6 +716,7 @@ export default function DocumentsClient() {
                 </div>
               ) : null}
             </div>
+            </>
           ) : null}
         </div>
       </header>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { NotificationBell } from "@/components/NotificationBell";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
 import { clearStoredSession, fetchWithAuth, getValidAccessToken, signOut } from "../../../lib/authClient";
 import { restrictedHref, userCanOpenManagerDashboard, type MeUserDto } from "../../../lib/restrictions";
@@ -325,7 +326,9 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
         </div>
         <div className={shellStyles.docNavRight}>
           {me ? (
-            <div className={shellStyles.profileWrap} ref={profileMenuRef}>
+            <>
+              <NotificationBell />
+              <div className={shellStyles.profileWrap} ref={profileMenuRef}>
               <UserAvatarNavButton
                 className={shellStyles.profileBtn}
                 imgClassName={shellStyles.profileBtnImg}
@@ -378,7 +381,7 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
                     role="menuitem"
                     onClick={() => {
                       setProfileMenuOpen(false);
-                      void signOut();
+                      void handleSignOut();
                     }}
                   >
                     Log out
@@ -386,6 +389,7 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
                 </div>
               ) : null}
             </div>
+            </>
           ) : null}
         </div>
       </header>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
+import { NotificationBell } from "@/components/NotificationBell";
 import { signOut } from "@/lib/authClient";
 import dash from "../components/shellNav.module.css";
 import { API_BASE as API } from "@/lib/apiBase";
@@ -54,8 +55,10 @@ export function AdminChromeHeader({ user, className, navVariant = "admin" }: Pro
         </a>
       </nav>
 
-      <div className={dash.profileWrap} ref={menuRef}>
-        <UserAvatarNavButton
+      <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+        <NotificationBell />
+        <div className={dash.profileWrap} ref={menuRef}>
+          <UserAvatarNavButton
           className={dash.profileBtn}
           imgClassName={dash.profileBtnImg}
           pictureUrl={user.profilePictureUrl}
@@ -119,7 +122,8 @@ export function AdminChromeHeader({ user, className, navVariant = "admin" }: Pro
               Logout
             </button>
           </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
     </header>
   );

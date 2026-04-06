@@ -48,6 +48,7 @@ This repository is the **integrated production-style codebase**: a TypeScript **
 - **Semantic search & ask**: Users with permission can run **vector search** and a **hybrid RAG "ask"** flow over documents they are allowed to read, with **Server-Sent Events (SSE)** streaming (sources, tokens, optional correction), source citations, and optional **conversation history**.
 - **Feedback loop**: Users can submit **thumbs up/down (and comments)** on assistant messages; the system can use **negative feedback patterns** to steer future answers (`feedbackMemory.ts`).
 - **Organizational structure**: **Departments** support a **parent/child hierarchy**. Users have a **primary department** plus optional **multi-department access** with levels: `MEMBER`, `MANAGER`, `VIEWER`, including **inherited** access down the tree for managers and viewers where implemented in `departmentAccess.ts`.
+- **Notifications**: **Automatic** notifications for document events and role/membership changes (department-scoped), plus **manual announcements** by admins and managers with optional file attachments. A **bell icon with live unread badge** appears on every page, with a slide-in panel for browsing, reading, and downloading attachments.
 - **Administration**: User lifecycle, bulk restrictions, imports, avatars, department CRUD/merge, KPI-style stats, activity and document-audit views, exports, and **per-user department access** management.
 - **Manager experience**: Managers see **all departments they manage** (from access records and role), member lists, and document oversight aligned with those scopes.
 
@@ -67,6 +68,7 @@ The codebase reflects a **mature single product** rather than a minimal demo. Th
 - **Multi-department access**: `UserDepartmentAccess` junction table with **migration backfill** from legacy "single primary department" users; auth middleware attaches **`readableDepartmentIds`** and **`manageableDepartmentIds`** for consistent enforcement.
 - **Embeddings**: **768-dimensional** vectors (see migration `switch_embedding_768`); HNSW-style vector index migration for performance.
 - **Async ingest**: **BullMQ** worker embedded in the API process: extract → chunk → embed → persist chunks. Failed jobs are retained with a 7-day TTL and 500-count cap for debugging.
+- **Notification system**: Automatic notifications on document lifecycle events (create, update, delete), role changes (manager assigned/removed), and member additions — all department-scoped. Admins and managers can also send **manual announcements** with optional **file attachments** (downloadable by recipients). The frontend features a **bell icon with live unread badge** (10-second polling + visibility-change detection), a **slide-in panel** with infinite scroll, detail modals, and an in-panel **send notification form** with attachment support.
 - **Hardening**: Comprehensive security audit and fixes applied (see [Security](#security-access-control-and-departments) below), including rate limiting on all sensitive endpoints, **TTL cache** and **retry with backoff** for Gemini rate limits (`cache.ts`), coordinated **refresh token** handling in the web client to avoid double-refresh races, CSP headers, CSV injection protection, and timing-attack mitigations.
 
 ---
@@ -84,6 +86,7 @@ flowchart LR
     Docs[Documents + storage]
     Search[Search / RAG]
     Conv[Conversations]
+    Notif[Notifications]
   end
   subgraph data [Data and workers]
     PG[(PostgreSQL + pgvector)]
@@ -100,6 +103,9 @@ flowchart LR
   Express --> Docs
   Express --> Search
   Express --> Conv
+  Express --> Notif
+  Notif --> PG
+  Notif --> Disk
   Docs --> PG
   Docs --> Disk
   Search --> PG
@@ -131,7 +137,7 @@ flowchart LR
 | **Files** | Multer uploads, configurable `STORAGE_PATH`, text extraction (PDF, Office, spreadsheets, etc. — see `extractText.ts`) |
 | **Email** | Nodemailer with TLS enforcement (optional SMTP; dev logs reset links if SMTP unset) |
 | **DevOps** | Multi-stage **Dockerfiles** (API + Web), full-stack **docker-compose**, **GitHub Actions CI** (lint, typecheck, test), structured **JSON logger** in production |
-| **UX** | Toast notifications, confirm dialogs, shared spinner, accessible search with responsive CSS |
+| **UX** | Toast notifications, confirm dialogs, shared spinner, accessible search with responsive CSS, **real-time notification system** with polling, downloadable attachments |
 
 > **Note:** The API `package.json` lists an `openai` dependency for tooling compatibility, but **runtime RAG and embeddings use Gemini**. Configure **`GEMINI_API_KEY`** for ingest and ask flows.
 
@@ -146,14 +152,14 @@ finalproject/
 │   │   ├── Dockerfile       # Multi-stage production image
 │   │   ├── prisma/          # schema.prisma, migrations/, seed.ts
 │   │   └── src/
-│   │       ├── routes/      # auth, admin, manager, documents, search, conversations, avatars
+│   │       ├── routes/      # auth, admin, manager, documents, search, conversations, notifications, avatars
 │   │       ├── middleware/  # auth, per-feature restrictions
 │   │       ├── lib/         # config, AppError, logger, schemas, access control, RAG, storage, email…
 │   │       └── jobs/        # documentIngest (BullMQ consumer)
 │   └── web/                 # Next.js frontend
 │       ├── Dockerfile       # Multi-stage production image
 │       ├── app/             # App Router pages (dashboard, documents, ask, admin, manager, …)
-│       ├── components/      # Toast, ConfirmDialog, Spinner, Providers, avatars, file icons…
+│       ├── components/      # Toast, ConfirmDialog, Spinner, Notifications, Providers, avatars, file icons…
 │       └── lib/             # apiBase, authClient, restrictions helpers, profile URLs
 ├── .dockerignore            # Keeps Docker build context lean
 ├── .github/workflows/       # CI pipeline (lint, typecheck, test)
@@ -210,6 +216,40 @@ finalproject/
 
 - **GET `/manager/departments`**: Departments the user may manage.
 - **GET `/manager/department`**: Detail for a selected managed department (query `departmentId`), including members.
+
+### Notification system
+
+The platform includes a **full notification system** with both automatic (event-driven) and manual (admin/manager-authored) notifications.
+
+#### Automatic notifications
+
+Triggered server-side on key actions — recipients are scoped to the relevant department:
+
+| Event | Helper | Scope |
+|-------|--------|-------|
+| Document created | `notifyDocumentCreated` | Department members |
+| Document updated | `notifyDocumentUpdated` | Department members |
+| Document deleted | `notifyDocumentDeleted` | Department members |
+| Manager assigned | `notifyManagerAssigned` | Target user |
+| Manager removed | `notifyManagerRemoved` | Target user |
+| Member added | `notifyMemberAdded` | Target user |
+
+All automatic notification calls are fire-and-forget (`.catch(err => logger.error(...))`) so they never block the primary operation.
+
+#### Manual notifications (announcements)
+
+Admins and managers can send manual notifications with:
+
+- **Target audience**: All users, a specific department, or a specific role (admin-only for role/all targets; managers limited to their managed departments).
+- **Attachments**: Optional file upload (images, PDF, Office, CSV, text — 10 MB limit, MIME allowlist enforced). Attachments are stored server-side and served through an authenticated download endpoint.
+- **Recipient resolution**: Filters for active, non-deleted users. Department targeting includes both primary department members and users with `UserDepartmentAccess` records.
+
+#### Real-time bell icon and notification panel
+
+- **Bell icon** (`NotificationBell`): Appears in the navigation bar of every page. Displays an **unread count badge** that updates via polling (every 10 seconds) and on tab focus (`visibilitychange` event).
+- **Slide-in panel** (`NotificationPanel`): Lists all notifications with infinite scroll pagination, mark-as-read on click, "Mark all read" bulk action, and per-item delete.
+- **Detail modal**: Opens on click with full notification body, sender info, timestamp, human-readable type label (e.g. "Announcement" instead of "MANUAL"), and a **download button** for attachments (uses authenticated `fetchWithAuth` + blob download).
+- **Send modal** (`SendNotificationModal`): In-panel form for admins/managers to compose and send notifications with file attachments. Escape key handling and outside-click isolation prevent accidental panel closure.
 
 ### Web UX
 
@@ -280,6 +320,7 @@ finalproject/
 - **CSV export** escapes formula-injection prefixes (`=`, `+`, `-`, `@`, `\t`, `\r`) on all admin exports.
 - **Avatar uploads** validated with MIME allowlist + magic-byte sniffing + 2MB size limit.
 - **Document uploads** validated with MIME allowlist + 50MB size limit.
+- **Notification attachments** validated with a strict MIME allowlist (images, PDF, Office, text/csv) + 10MB size limit; served only to authenticated recipients via streaming download endpoint.
 - **Client-side avatar processing** enforces a 25MB file size limit before `createImageBitmap`.
 - **PDF OCR fallback** enforces a 20MB size limit before sending to Gemini.
 - **Markdown links** rendered with `target="_blank" rel="noopener noreferrer nofollow"` in the Ask UI.
@@ -317,9 +358,10 @@ Key Prisma models (see `apps/api/prisma/schema.prisma`):
 | **Documents** | `Document`, `DocumentVersion`, `DocumentChunk` (embedding + optional `tsvector`) |
 | **Library** | `DocumentTag`, `DocumentUserFavorite`, `DocumentUserRecent`, `DocumentAuditLog` |
 | **AI chat** | `Conversation`, `ConversationMessage`, `AnswerFeedback` |
+| **Notifications** | `Notification` (type, title, body, actor, target, attachment fields), `UserNotification` (per-recipient read state) |
 | **Auth** | `RefreshSession`, `AuthEvent`, `PasswordResetToken` |
 
-Migrations under `apps/api/prisma/migrations/` include: pgvector enablement, auth/RBAC, documents, tags, refresh sessions, library extensions, audit, hybrid search, conversations, answer feedback, user-department access (with **data backfill**), embedding dimension change, and vector index tuning.
+Migrations under `apps/api/prisma/migrations/` include: pgvector enablement, auth/RBAC, documents, tags, refresh sessions, library extensions, audit, hybrid search, conversations, answer feedback, user-department access (with **data backfill**), embedding dimension change, vector index tuning, **notifications**, and **notification document FK**.
 
 ---
 
@@ -350,6 +392,7 @@ Migrations under `apps/api/prisma/migrations/` include: pgvector enablement, aut
 | `rateLimiter.ts` | Express rate limits (login, refresh, reset-password, forgot-password, ask) |
 | `authErrorCodes.ts` | Custom error codes for explicit client-side handling |
 | `clientIp.ts` | Safe client IP extraction with IPv4-mapped handling |
+| `notificationService.ts` | **Notification creation and recipient resolution** — `createNotification` with target types (`allUsers`, `department`, `role`, `userIds`), convenience helpers (`notifyDocumentCreated`, `notifyManagerAssigned`, etc.); filters inactive/deleted users |
 | `managerDashboard.ts` | Manager dashboard field resolution |
 | `documentAudit.ts` / `tags.ts` | Audit logging and tags |
 | `email.ts` | Nodemailer with TLS enforcement |
@@ -373,6 +416,7 @@ Authenticated JSON APIs use `Authorization: Bearer <access_token>` unless noted.
 | `/documents/*` | Library CRUD, versions, tags, favorites, upload, download, audit triggers |
 | `/search/*` | `POST /search/semantic`, `POST /search/ask` (SSE) |
 | `/conversations/*` | Conversations, messages, feedback, title generation, feedback stats |
+| `/notifications/*` | Notification list, unread count, mark read, send manual, attachment download, delete |
 | `/avatars/*` | Public avatar file delivery |
 
 ### Admin: department access (multi-department)
@@ -384,6 +428,20 @@ Authenticated JSON APIs use `Authorization: Bearer <access_token>` unless noted.
 | `PUT` | `/admin/users/:userId/department-access` | Replace **all** assignments for a user (bulk body) |
 | `DELETE` | `/admin/users/:userId/department-access/:departmentId` | Remove one assignment |
 | `GET` | `/admin/departments/:departmentId/access` | List users with access to a department |
+
+### Notifications
+
+All notification endpoints require authentication (`Authorization: Bearer <access_token>`).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/notifications?page=1&limit=20` | Paginated list of notifications for the current user, including actor details and attachment metadata |
+| `GET` | `/notifications/unread-count` | Returns `{ unreadCount: number }` — used by the bell icon poll |
+| `PATCH` | `/notifications/:id/read` | Mark a single notification as read |
+| `PATCH` | `/notifications/read-all` | Mark all of the current user's notifications as read |
+| `POST` | `/notifications/send` | Send a manual notification (Admin/Manager only). Accepts `multipart/form-data` with `title`, `body`, `targetType` (`ALL_USERS` / `DEPARTMENT` / `ROLE`), optional `targetDepartmentId`, `targetRoleName`, and `attachment` file. Returns `201` with `notificationId`, or `200` with `notificationId: null` if no eligible recipients |
+| `GET` | `/notifications/:notificationId/attachment` | Download the attachment file for a notification (only if the user is a recipient). Streams the file with correct `Content-Type` and `Content-Disposition: attachment` headers |
+| `DELETE` | `/notifications/:id` | Delete a notification from the current user's list |
 
 ### Search: `POST /search/ask` (SSE)
 

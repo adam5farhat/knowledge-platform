@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { NotificationBell } from "@/components/NotificationBell";
 import { ProfileAvatarImage } from "@/components/ProfileAvatarImage";
 import { ProfilePhotoModal } from "@/components/ProfilePhotoModal";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
@@ -239,7 +240,9 @@ export default function ProfileClient() {
           </a>
         </nav>
         <div className={p.headerSpacer} aria-hidden />
-        <div className={dash.profileWrap} ref={menuRef}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+          <NotificationBell />
+          <div className={dash.profileWrap} ref={menuRef}>
           <UserAvatarNavButton
             className={dash.profileBtn}
             imgClassName={dash.profileBtnImg}
@@ -299,6 +302,7 @@ export default function ProfileClient() {
               </button>
             </div>
           ) : null}
+          </div>
         </div>
       </header>
 
