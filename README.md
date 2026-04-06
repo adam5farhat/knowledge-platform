@@ -112,7 +112,7 @@ flowchart LR
   Bull --> Emb
 ```
 
-- **Web** calls the **API** using `NEXT_PUBLIC_API_URL` (browser `fetch`). Tokens live in **localStorage** (`kp_access_token`, `kp_refresh_token`); refresh uses a **single in-flight** promise so parallel requests do not invalidate rotated refresh tokens.
+- **Web** calls the **API** using `NEXT_PUBLIC_API_URL` (browser `fetch`). Access tokens are held **in-memory** (never persisted to localStorage); refresh tokens are stored in **HttpOnly, Secure, SameSite=Lax cookies** (`kp_rt`, path `/auth`). Refresh uses a **single in-flight** promise so parallel requests do not invalidate rotated refresh tokens.
 - **Document ingest** is processed by a **BullMQ consumer** started from `apps/api/src/index.ts` after the HTTP server listens.
 
 ---
@@ -122,14 +122,16 @@ flowchart LR
 | Layer | Technology |
 |--------|------------|
 | **Web** | Next.js 15, React 19, TypeScript, App Router, CSS modules |
-| **API** | Node.js, Express 4, TypeScript (ESM), Zod validation |
+| **API** | Node.js, Express 4, TypeScript (ESM), Zod validation, `AppError` structured errors |
 | **Database** | PostgreSQL 16 + **pgvector** (Prisma ORM) |
 | **Cache / queue** | Redis 7, BullMQ |
-| **Auth** | JWT access tokens (HS256, 15-minute default TTL), hashed refresh tokens in DB, `authVersion` invalidation on password/role/email changes |
-| **Security** | Helmet (CSP enabled), CORS origin validation, rate limiting on all sensitive endpoints, bcrypt-12 password hashing, timing-attack mitigations, CSV injection protection |
+| **Auth** | JWT access tokens (HS256, 15-minute default TTL) in-memory; refresh tokens in **HttpOnly cookies**; `authVersion` invalidation on password/role/email changes; **session cap** (10 per user) |
+| **Security** | Helmet (CSP), frontend CSP via Next.js headers, CORS origin validation, rate limiting, bcrypt-12, password complexity rules (10+ chars, mixed case, digit, special), timing-attack mitigations, CSV injection protection |
 | **AI** | **Google Gemini** (`@google/generative-ai`): embeddings (768-dim), query optimization, chunk reranking, streaming answers |
 | **Files** | Multer uploads, configurable `STORAGE_PATH`, text extraction (PDF, Office, spreadsheets, etc. — see `extractText.ts`) |
 | **Email** | Nodemailer with TLS enforcement (optional SMTP; dev logs reset links if SMTP unset) |
+| **DevOps** | Multi-stage **Dockerfiles** (API + Web), full-stack **docker-compose**, **GitHub Actions CI** (lint, typecheck, test), structured **JSON logger** in production |
+| **UX** | Toast notifications, confirm dialogs, shared spinner, accessible search with responsive CSS |
 
 > **Note:** The API `package.json` lists an `openai` dependency for tooling compatibility, but **runtime RAG and embeddings use Gemini**. Configure **`GEMINI_API_KEY`** for ingest and ask flows.
 
@@ -141,18 +143,22 @@ flowchart LR
 finalproject/
 ├── apps/
 │   ├── api/                 # Express API, Prisma schema & migrations, ingest worker
+│   │   ├── Dockerfile       # Multi-stage production image
 │   │   ├── prisma/          # schema.prisma, migrations/, seed.ts
 │   │   └── src/
 │   │       ├── routes/      # auth, admin, manager, documents, search, conversations, avatars
 │   │       ├── middleware/  # auth, per-feature restrictions
-│   │       ├── lib/         # access control, RAG, storage, email, etc.
+│   │       ├── lib/         # config, AppError, logger, schemas, access control, RAG, storage, email…
 │   │       └── jobs/        # documentIngest (BullMQ consumer)
 │   └── web/                 # Next.js frontend
+│       ├── Dockerfile       # Multi-stage production image
 │       ├── app/             # App Router pages (dashboard, documents, ask, admin, manager, …)
-│       ├── components/      # Shared UI (avatars, file icons, …)
-│       └── lib/             # auth client, restrictions helpers, profile URLs
+│       ├── components/      # Toast, ConfirmDialog, Spinner, Providers, avatars, file icons…
+│       └── lib/             # apiBase, authClient, restrictions helpers, profile URLs
+├── .dockerignore            # Keeps Docker build context lean
+├── .github/workflows/       # CI pipeline (lint, typecheck, test)
 ├── scripts/                 # dev-api.mjs, dev-web.mjs, clean-web-next.mjs
-├── docker-compose.yml       # Postgres (pgvector) + Redis
+├── docker-compose.yml       # Postgres + Redis + API + Web (full stack)
 └── package.json             # workspaces + root scripts
 ```
 
@@ -163,6 +169,9 @@ finalproject/
 ### Authentication and session
 
 - Login, logout, **refresh** with **single-flight** refresh to avoid token rotation conflicts.
+- Access tokens held **in-memory** (never in localStorage); refresh tokens stored in **HttpOnly, Secure, SameSite=Lax cookies**.
+- **Password complexity**: minimum 10 characters, must include uppercase, lowercase, digit, and special character (enforced by shared `passwordPolicy.ts`).
+- **Session cap**: maximum 10 concurrent sessions per user; oldest session auto-revoked when exceeded.
 - **Password reset** (email with TLS enforcement, or dev console log when SMTP is unset).
 - **Change password** blocks same-password reuse, bumps `authVersion` and syncs refresh sessions.
 - **Profile** updates (badge, profile picture restricted to platform-hosted URLs, etc.).
@@ -206,8 +215,11 @@ finalproject/
 
 - Role-aware **home routing** (`homePathForUser` in `lib/restrictions.ts`).
 - **Dashboard** with a 2×2 card grid (Documents, Ask, Department overview, Administration — shown based on role/permissions).
-- **Documents** browser, **search**, **Ask** (RAG UI with markdown rendering, link sanitization via `rel="noopener noreferrer nofollow"`), **profile**, **restricted** explanation page.
+- **Documents** browser, **search** (with responsive CSS and full accessibility), **Ask** (RAG UI with markdown rendering, link sanitization via `rel="noopener noreferrer nofollow"`), **profile**, **restricted** explanation page.
 - **Admin** hub (users, departments, documents, activity, audit, system) and **manager** dashboard with shared chrome.
+- **Toast notifications**: context-based system replacing all native `alert()` calls — supports info, success, error, and warning types with slide-in/out animations and auto-dismiss.
+- **Confirm dialogs**: promise-based component replacing all native `confirm()` calls — with keyboard support (Escape), focus management, danger mode styling, and `aria-modal` accessibility.
+- **Shared Spinner**: SVG-animated loading indicator with `role="status"` and configurable size.
 - **Error boundaries** (`error.tsx`, `global-error.tsx`) with Home link pointing to `/dashboard`.
 
 ---
@@ -220,7 +232,10 @@ finalproject/
 |---------|----------------|
 | **JWT signing** | HS256 algorithm pinned explicitly; secret minimum **32 characters** enforced at startup |
 | **Access token TTL** | Default **15 minutes** (configurable via `JWT_EXPIRES_IN`); short-lived to limit stolen-token exposure |
-| **Refresh tokens** | 30-day TTL, atomic rotation (old token revoked in same transaction), replay detection |
+| **Access token storage** | Held **in-memory only** (never persisted to localStorage or cookies) |
+| **Refresh tokens** | **HttpOnly, Secure, SameSite=Lax cookies** (`kp_rt`, path `/auth`); 30-day TTL, atomic rotation (old token revoked in same transaction), replay detection |
+| **Session cap** | Maximum **10** concurrent sessions per user; oldest session auto-revoked on overflow |
+| **Password policy** | Minimum 10 characters; must include uppercase, lowercase, digit, and special character (shared `passwordPolicy.ts`) |
 | **`authVersion`** | Incremented on password change, email change, role change, restriction change — instantly invalidates all existing tokens |
 | **Password hashing** | bcrypt with 12 rounds, automatic salt |
 | **Timing attacks** | Dummy bcrypt on invalid-email login; minimum 500ms + random jitter on forgot-password regardless of email existence |
@@ -238,7 +253,8 @@ finalproject/
 
 ### Transport and headers
 
-- **Helmet** with restrictive **Content-Security-Policy** (`default-src 'none'`, `frame-ancestors 'none'`, `connect-src 'self'`).
+- **API Helmet** with restrictive **Content-Security-Policy** (`default-src 'none'`, `frame-ancestors 'none'`, `connect-src 'self'`).
+- **Frontend CSP** via `next.config.ts` headers: `script-src 'self' 'unsafe-inline'`, `img-src 'self' data: blob: https: <api>`, `connect-src 'self' <api>`, `frame-ancestors 'none'`, plus `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy`.
 - **CORS**: strict origin validation from `WEB_APP_URL`; production denies all origins if `WEB_APP_URL` is unset.
 - **SMTP TLS**: `requireTLS: true` enforced on the nodemailer transporter when not using implicit TLS.
 
@@ -254,7 +270,7 @@ finalproject/
 
 4. **Roles**: `ADMIN`, `MANAGER`, `EMPLOYEE` (`RoleName` in Prisma). Admin routes require admin; manager routes require manager or department-level MANAGER access.
 
-5. **Input validation**: All request bodies validated with **Zod schemas** with explicit field mapping to Prisma updates (no raw `req.body` spread — prevents mass assignment).
+5. **Input validation**: All request bodies validated with **Zod schemas** (shared via `schemas.ts`); failures throw `AppError.badRequest` with structured `details` from `parsed.error.flatten()`. Explicit field mapping to Prisma updates (no raw `req.body` spread — prevents mass assignment).
 
 6. **SQL injection prevention**: All raw queries use Prisma's `$queryRaw` tagged templates with parameterized values. The one `$executeRawUnsafe` usage (pgvector chunk insertion) uses positional bind parameters.
 
@@ -311,8 +327,14 @@ Migrations under `apps/api/prisma/migrations/` include: pgvector enablement, aut
 
 | Module | Role |
 |--------|------|
+| `config.ts` | **Centralized configuration** — typed, validated env vars; single source of truth (no `process.env` elsewhere) |
+| `AppError.ts` | **Structured error class** with `status`, `code`, `details`; static factories (`badRequest`, `unauthorized`, `forbidden`, `notFound`, `conflict`); caught by global error handler |
+| `logger.ts` | **Structured logger** — JSON to stdout/stderr in production, human-readable `[LEVEL] message` in dev; debug suppressed in production |
+| `schemas.ts` | **Shared Zod schemas** (`bulkIdsSchema`, `chatRoleEnum`) used across routes |
+| `passwordPolicy.ts` | Shared password complexity rules (min 10 chars, mixed case, digit, special) |
+| `validation.ts` | `parseBody` helper — validates with Zod and throws `AppError.badRequest` on failure |
 | `prisma.ts` | Prisma client singleton |
-| `jwt.ts` / `refreshToken.ts` / `refreshSessionSync.ts` | Tokens (HS256, 32-char min secret, 15m default TTL) and session invalidation |
+| `jwt.ts` / `refreshToken.ts` / `refreshCookie.ts` | Tokens (HS256, 32-char min secret, 15m default TTL), HttpOnly cookie helpers, session invalidation |
 | `password.ts` / `passwordReset.ts` | bcrypt-12 hashing and reset token generation (256-bit entropy, SHA-256 stored) |
 | `documentAccess.ts` / `documentQuery.ts` | Read/list rules and query builders |
 | `departmentAccess.ts` | Readable / manageable department sets with hierarchy (30s TTL cache, cycle-safe) |
@@ -411,7 +433,7 @@ The web **Ask** client consumes these events to render streaming markdown and so
 npm run docker:up
 ```
 
-This starts **PostgreSQL (pgvector)** and **Redis** (see `docker-compose.yml`).
+This starts **PostgreSQL (pgvector)** and **Redis** (see `docker-compose.yml`). The compose file also defines `api` and `web` services for full-stack Docker deployment (see [Production deployment notes](#production-deployment-notes)).
 
 ### 2. Install dependencies (repository root)
 
@@ -504,7 +526,7 @@ See `apps/api/.env.example` for the full list and inline comments.
 | `npm run db:migrate` | `prisma migrate deploy` in API workspace |
 | `npm run db:generate` | `prisma generate` |
 | `npm run db:seed` | Seed roles, departments, sample users |
-| `npm run docker:up` / `docker:down` | Compose Postgres + Redis |
+| `npm run docker:up` / `docker:down` | Compose Postgres + Redis (dev infra); full `docker compose up --build` also builds API + Web images |
 
 API **`npm run build`** excludes `*.test.ts` from `tsc` output; tests run with **`npm run test:api`**.
 
@@ -512,14 +534,42 @@ API **`npm run build`** excludes `*.test.ts` from `tsc` output; tests run with *
 
 ## Production deployment notes
 
+### Option A: Docker (recommended)
+
+The repository includes multi-stage **Dockerfiles** for both services and a full-stack `docker-compose.yml`:
+
+```bash
+# Build and start all services (Postgres, Redis, API, Web)
+docker compose up -d --build
+```
+
+The compose file passes `NEXT_PUBLIC_API_URL` and `PUBLIC_API_URL` as build args for the web image. Override environment variables for production:
+
+```yaml
+api:
+  environment:
+    DATABASE_URL: postgresql://user:pass@db-host:5432/knowledge_platform
+    REDIS_URL: redis://redis-host:6379
+    JWT_SECRET: <your-secret-here>   # ≥ 32 chars
+    GEMINI_API_KEY: <your-key>
+    WEB_APP_URL: https://your-domain.com
+```
+
+The API image includes a **health check** (`GET /health`) with 30-second intervals.
+
+### Option B: Manual deployment
+
 - Set strong **`JWT_SECRET`** (minimum 32 characters, generated with `openssl rand -hex 32`), production **`DATABASE_URL`**, **`REDIS_URL`**, **`GEMINI_API_KEY`**, and **`PUBLIC_API_URL`** / **`NEXT_PUBLIC_API_URL`** to real public hostnames as appropriate.
 - Set **`WEB_APP_URL`** to the production web origin — CORS will deny all cross-origin requests if this is unset in production.
 - Set **`TRUST_PROXY`** to your reverse proxy hop count or subnet (e.g. `1` or `"loopback"`). Avoid `true` as it trusts all `X-Forwarded-For` headers unconditionally.
 - Run **`npm run db:migrate`** against the production database before rolling out API versions that change schema.
 - Build and serve **web** with `next build` + `next start` (or your host's equivalent).
 - Run **API** with `node dist/index.js` after `npm run build` in `apps/api`.
+
+### General
+
 - **One listener per port**: only one process on the web port and one on the API port.
-- Ensure **`NODE_ENV=production`** is set — this enforces the JWT_SECRET minimum at startup and suppresses debug error messages in API responses.
+- Ensure **`NODE_ENV=production`** is set — this enforces the JWT_SECRET minimum at startup, enables JSON-structured logging, and suppresses debug error messages in API responses.
 - Consider adding **SSL/TLS termination** via a reverse proxy (nginx, Cloudflare, ALB) in front of both the API and web servers.
 - Configure **Redis authentication** (`requirepass`) and **PostgreSQL SSL** (`?sslmode=require` in `DATABASE_URL`) for production deployments.
 
@@ -531,7 +581,17 @@ API **`npm run build`** excludes `*.test.ts` from `tsc` output; tests run with *
 npm run test:api
 ```
 
-Integration tests (for example `auth.integration.test.ts`) exercise login, refresh, profile, password change, logout-all, and related flows via Supertest against the HTTP app created in `httpApp.ts`. The `roleNameContract.test.ts` validates that role name constants stay in sync across the codebase.
+Vitest runs both **unit tests** (`*.test.ts`) and **integration tests** (`*.integration.test.ts`) in the API workspace. Integration tests (for example `auth.integration.test.ts`) exercise login, refresh (cookie-based), profile, password change, logout-all, and related flows via Supertest against the HTTP app created in `httpApp.ts`. The `roleNameContract.test.ts` validates that role name constants stay in sync across the codebase.
+
+### CI pipeline
+
+GitHub Actions (`.github/workflows/ci.yml`) runs **three parallel jobs** on every push/PR to `main`:
+
+| Job | What it does |
+|-----|-------------|
+| **Lint** | `next lint` on the web package |
+| **Typecheck & Build** | `tsc` (API) + `next build` (Web) |
+| **Test** | Spins up Postgres + Redis service containers, runs migrations, executes all API tests |
 
 ---
 

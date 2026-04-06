@@ -14,7 +14,7 @@ const cspDirectives = [
   // Next.js needs 'unsafe-inline' for hydration scripts; dev also requires 'unsafe-eval' for HMR.
   `script-src 'self' 'unsafe-inline'${isProd ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: ${apiUrl}`,
+  `img-src 'self' data: blob: ${apiUrl} https:`,
   "font-src 'self'",
   `connect-src 'self' ${apiUrl}`,
   "frame-ancestors 'none'",

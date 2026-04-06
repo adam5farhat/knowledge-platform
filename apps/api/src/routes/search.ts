@@ -140,7 +140,7 @@ searchRouter.post("/semantic", authenticateToken, requireDocLibraryAccess, requi
 
 const historyEntry = z.object({
   role: chatRoleEnum,
-  content: z.string().max(4000),
+  content: z.string().max(20000),
 });
 
 const askBody = z.object({
