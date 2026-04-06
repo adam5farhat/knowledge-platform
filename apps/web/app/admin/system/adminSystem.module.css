@@ -12,7 +12,7 @@
   height: 34px;
   box-sizing: border-box;
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: 8px;
   background: var(--card-bg);
   color: var(--text);
   cursor: pointer;
@@ -50,6 +50,7 @@
   flex-wrap: wrap;
   border: 1px solid var(--border);
   background: var(--card-bg);
+  border-radius: 8px;
 }
 
 .periodBtn {

@@ -1,6 +1,14 @@
 import jwt from "jsonwebtoken";
-import type { RoleName } from "@prisma/client";
+import { RoleName } from "@prisma/client";
 
+/**
+ * Access tokens carry signed claims for `sub`, `authVersion`, `email`, `role`, and primary
+ * `departmentId`. Authorization must **not** trust those claims alone: `authenticateToken`
+ * loads the user from the DB and rejects the token with `ACCESS_TOKEN_OUTDATED` if any of
+ * email / role / primary department disagree (forcing refresh). `authVersion` invalidation
+ * covers broader account changes; department-scoped rights (`UserDepartmentAccess`) are
+ * resolved from the DB on every request and are not embedded in the JWT.
+ */
 export type AccessTokenPayload = {
   sub: string;
   email: string;
@@ -11,14 +19,14 @@ export type AccessTokenPayload = {
 
 function getSecret(): string {
   const secret = process.env.JWT_SECRET;
-  if (!secret || secret.length < 16) {
-    throw new Error("JWT_SECRET must be set (min 16 characters)");
+  if (!secret || secret.length < 32) {
+    throw new Error("JWT_SECRET must be set (min 32 characters)");
   }
   return secret;
 }
 
 export function signAccessToken(payload: AccessTokenPayload): string {
-  const expiresIn = (process.env.JWT_EXPIRES_IN ?? "7d") as jwt.SignOptions["expiresIn"];
+  const expiresIn = (process.env.JWT_EXPIRES_IN ?? "15m") as jwt.SignOptions["expiresIn"];
   const options: jwt.SignOptions = {
     expiresIn,
     subject: payload.sub,
@@ -36,7 +44,7 @@ export function signAccessToken(payload: AccessTokenPayload): string {
 }
 
 export function verifyAccessToken(token: string): AccessTokenPayload {
-  const decoded = jwt.verify(token, getSecret()) as jwt.JwtPayload & {
+  const decoded = jwt.verify(token, getSecret(), { algorithms: ["HS256"] }) as jwt.JwtPayload & {
     email?: string;
     role?: RoleName;
     departmentId?: string;
@@ -47,10 +55,12 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
   const role = decoded.role;
   const departmentId = decoded.departmentId;
   const authVersion = decoded.authVersion;
+  const validRoles = new Set<string>(Object.values(RoleName));
   if (
     !sub ||
     !email ||
     !role ||
+    !validRoles.has(role) ||
     !departmentId ||
     authVersion === undefined ||
     authVersion === null ||

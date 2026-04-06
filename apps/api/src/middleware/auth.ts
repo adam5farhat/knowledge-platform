@@ -1,13 +1,21 @@
 import type { NextFunction, Request, Response } from "express";
-import type { RoleName } from "@prisma/client";
+import { RoleName } from "@prisma/client";
+import { AuthErrorCode } from "../lib/authErrorCodes.js";
 import { verifyAccessToken } from "../lib/jwt.js";
 import { prisma } from "../lib/prisma.js";
+import { getReadableDepartmentIds, getManageableDepartmentIds } from "../lib/departmentAccess.js";
+import { isGlobalManagerRole, isPlatformAdmin } from "../lib/platformRoles.js";
 
+/**
+ * Bearer auth: `sub` + `authVersion` identify the session; **role, email, and primary department**
+ * are always taken from the database. JWT claims for those fields must match the DB or the token
+ * is rejected (401) so clients refresh and get a new access token aligned with the server.
+ */
 export async function authenticateToken(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization;
   const token = header?.startsWith("Bearer ") ? header.slice(7) : undefined;
   if (!token) {
-    res.status(401).json({ error: "Missing bearer token" });
+    res.status(401).json({ error: "Missing bearer token", code: AuthErrorCode.MISSING_BEARER });
     return;
   }
   try {
@@ -15,7 +23,9 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
     const user = await prisma.user.findUnique({
       where: { id: payload.sub },
       select: {
+        email: true,
         authVersion: true,
+        departmentId: true,
         isActive: true,
         deletedAt: true,
         loginAllowed: true,
@@ -23,10 +33,33 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
         manageDocumentsAllowed: true,
         accessDashboardAllowed: true,
         useAiQueriesAllowed: true,
+        role: { select: { name: true } },
       },
     });
-    if (!user || !user.isActive || user.deletedAt || user.authVersion !== payload.authVersion) {
-      res.status(401).json({ error: "Invalid or expired token" });
+    if (!user || !user.isActive || user.deletedAt) {
+      res.status(401).json({ error: "Invalid or expired token", code: AuthErrorCode.INVALID_SESSION });
+      return;
+    }
+    if (user.authVersion !== payload.authVersion) {
+      res.status(401).json({
+        error: "Invalid or expired token",
+        code: AuthErrorCode.AUTH_VERSION_MISMATCH,
+      });
+      return;
+    }
+    if (!user.role?.name) {
+      res.status(401).json({ error: "Invalid or expired token", code: AuthErrorCode.INVALID_SESSION });
+      return;
+    }
+    if (
+      payload.role !== user.role.name ||
+      payload.departmentId !== user.departmentId ||
+      payload.email !== user.email
+    ) {
+      res.status(401).json({
+        error: "Invalid or expired token",
+        code: AuthErrorCode.ACCESS_TOKEN_OUTDATED,
+      });
       return;
     }
     if (!user.loginAllowed) {
@@ -36,21 +69,28 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
       });
       return;
     }
+    const [readableDeptIds, manageableDeptIds] = await Promise.all([
+      getReadableDepartmentIds(payload.sub),
+      getManageableDepartmentIds(payload.sub),
+    ]);
+
     req.authUser = {
       id: payload.sub,
-      email: payload.email,
-      role: payload.role,
-      departmentId: payload.departmentId,
+      email: user.email,
+      role: user.role.name,
+      departmentId: user.departmentId,
       authVersion: payload.authVersion,
       loginAllowed: user.loginAllowed,
       accessDocumentsAllowed: user.accessDocumentsAllowed,
       manageDocumentsAllowed: user.manageDocumentsAllowed,
       accessDashboardAllowed: user.accessDashboardAllowed,
       useAiQueriesAllowed: user.useAiQueriesAllowed,
+      readableDepartmentIds: readableDeptIds,
+      manageableDepartmentIds: manageableDeptIds,
     };
     next();
   } catch {
-    res.status(401).json({ error: "Invalid or expired token" });
+    res.status(401).json({ error: "Invalid or expired token", code: AuthErrorCode.INVALID_ACCESS_TOKEN });
   }
 }
 
@@ -66,4 +106,27 @@ export function requireRole(...allowed: RoleName[]) {
     }
     next();
   };
+}
+
+/** Department overview: global Manager/Admin, or any user with MANAGER-level department access. */
+export function requireManagerDashboardAccess(req: Request, res: Response, next: NextFunction): void {
+  if (!req.authUser) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const u = req.authUser;
+  if (!u.accessDashboardAllowed) {
+    res.status(403).json({
+      error: "You do not have permission to access the dashboard.",
+      code: "FEATURE_RESTRICTED",
+      feature: "accessDashboard",
+    });
+    return;
+  }
+  const hasDeptManage = (u.manageableDepartmentIds?.length ?? 0) > 0;
+  if (isGlobalManagerRole(u.role) || isPlatformAdmin(u.role) || hasDeptManage) {
+    next();
+    return;
+  }
+  res.status(403).json({ error: "Forbidden" });
 }

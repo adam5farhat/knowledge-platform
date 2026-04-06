@@ -8,6 +8,8 @@ import { clearStoredSession, fetchWithAuth } from "../../lib/authClient";
 import {
   DEFAULT_USER_RESTRICTIONS,
   restrictedHref,
+  RoleNameApi,
+  userCanOpenManagerDashboard,
   type MeResponse,
   type MeUserDto,
 } from "../../lib/restrictions";
@@ -72,9 +74,9 @@ export default function DashboardClient() {
           const rs = body.user.restrictions ?? DEFAULT_USER_RESTRICTIONS;
           if (!rs.accessDashboardAllowed) {
             router.replace(
-              body.user.role === "ADMIN"
+              body.user.role === RoleNameApi.ADMIN
                 ? "/admin"
-                : body.user.role === "MANAGER"
+                : userCanOpenManagerDashboard(body.user)
                   ? "/manager"
                   : restrictedHref("accessDashboard"),
             );
@@ -159,7 +161,7 @@ export default function DashboardClient() {
 
   const { user } = data;
   const rs = user.restrictions ?? DEFAULT_USER_RESTRICTIONS;
-  const isManagerOrAdmin = user.role === "ADMIN" || user.role === "MANAGER";
+  const showDashboardInMenu = rs.accessDashboardAllowed && userCanOpenManagerDashboard(user);
   const docHref = documentsCardHref(user);
   const ragHref = askCardHref(user);
 
@@ -194,17 +196,17 @@ export default function DashboardClient() {
               <Link prefetch={false} className={styles.menuItem} href="/profile" role="menuitem" onClick={() => setMenuOpen(false)}>
                 View Profile
               </Link>
-              {isManagerOrAdmin ? (
+              {showDashboardInMenu ? (
                 <Link prefetch={false} className={styles.menuItem} href="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>
                   Dashboard
                 </Link>
               ) : null}
-              {user.role === "MANAGER" ? (
+              {userCanOpenManagerDashboard(user) ? (
                 <Link prefetch={false} className={styles.menuItem} href="/manager" role="menuitem" onClick={() => setMenuOpen(false)}>
                   Department overview
                 </Link>
               ) : null}
-              {user.role === "ADMIN" ? (
+              {user.role === RoleNameApi.ADMIN ? (
                 <>
                   <Link prefetch={false} className={styles.menuItem} href="/admin" role="menuitem" onClick={() => setMenuOpen(false)}>
                     Admin hub
@@ -270,7 +272,7 @@ export default function DashboardClient() {
       </header>
 
       <section
-        className={`${styles.cards} ${user.role === "ADMIN" || user.role === "MANAGER" ? styles.cardsWithAdmin : ""}`}
+        className={`${styles.cards} ${userCanOpenManagerDashboard(user) ? styles.cardsWithAdmin : ""}`}
         aria-label="Core features"
       >
         <Link
@@ -326,7 +328,7 @@ export default function DashboardClient() {
           </div>
         </Link>
 
-        {user.role === "MANAGER" ? (
+        {userCanOpenManagerDashboard(user) ? (
           <Link
             prefetch={false}
             className={`${styles.card} ${styles.cardAdmin}`}
@@ -356,7 +358,7 @@ export default function DashboardClient() {
             </div>
           </Link>
         ) : null}
-        {user.role === "ADMIN" ? (
+        {user.role === RoleNameApi.ADMIN ? (
           <Link
             prefetch={false}
             className={`${styles.card} ${styles.cardAdmin}`}

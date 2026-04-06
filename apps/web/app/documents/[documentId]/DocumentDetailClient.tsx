@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { clearStoredSession, fetchWithAuth } from "../../../lib/authClient";
-import { restrictedHref } from "../../../lib/restrictions";
+import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
+import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
+import { restrictedHref, userCanOpenManagerDashboard, type MeUserDto } from "../../../lib/restrictions";
+import { formatSize } from "../documentsFormat";
+import shellStyles from "../page.module.css";
+import styles from "./documentDetail.module.css";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -46,16 +50,98 @@ type AuditEntry = {
   user: { id: string; name: string; email: string } | null;
 };
 
+function formatVisibility(v: string): string {
+  const s = v.toLowerCase().replace(/_/g, " ");
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function statusPillClass(status: string): string {
+  switch (status) {
+    case "READY":
+      return styles.statusReady;
+    case "PROCESSING":
+      return styles.statusProcessing;
+    case "PENDING":
+      return styles.statusPending;
+    case "FAILED":
+      return styles.statusFailed;
+    default:
+      return styles.statusPending;
+  }
+}
+
+function formatAuditAction(action: string): string {
+  const t = action.trim().toLowerCase().replace(/_/g, " ");
+  return t.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function statusLabel(status: string): string {
+  switch (status) {
+    case "READY":
+      return "Ready";
+    case "PROCESSING":
+      return "Processing";
+    case "PENDING":
+      return "Pending";
+    case "FAILED":
+      return "Failed";
+    default:
+      return status || "—";
+  }
+}
+
 export default function DocumentDetailClient({ documentId }: { documentId: string }) {
   const router = useRouter();
+  const versionFileInputId = useId();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const [phase, setPhase] = useState<"loading" | "need-login" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<DocumentPayload | null>(null);
+  const [me, setMe] = useState<MeUserDto | null>(null);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [uploadDragActive, setUploadDragActive] = useState(false);
   const [busy, setBusy] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [descDraft, setDescDraft] = useState("");
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
+  const [auditStatus, setAuditStatus] = useState<"idle" | "loading" | "ready">("idle");
+
+  const signOut = useCallback(async () => {
+    const refreshToken = localStorage.getItem("kp_refresh_token");
+    if (refreshToken) {
+      try {
+        await fetch(`${API}/auth/logout`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+      } catch {
+        /* best-effort */
+      }
+    }
+    clearStoredSession();
+    router.replace("/login");
+    router.refresh();
+  }, [router]);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!profileMenuRef.current?.contains(e.target as Node)) setProfileMenuOpen(false);
+    }
+    if (profileMenuOpen) document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [profileMenuOpen]);
+
+  async function loadMe() {
+    const token = await getValidAccessToken();
+    if (!token) return;
+    const meRes = await fetchWithAuth(`${API}/auth/me`);
+    if (meRes.ok) {
+      const body = (await meRes.json()) as { user: MeUserDto };
+      setMe(body.user);
+    }
+  }
 
   async function load() {
     const res = await fetchWithAuth(`${API}/documents/${documentId}`);
@@ -80,20 +166,33 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
       return;
     }
     setData(body);
-    setDescDraft(body.document.description?.trim() ?? "");
     setAuditEntries([]);
     if (body.canViewAudit) {
+      setAuditStatus("loading");
       void loadAuditFor(documentId);
+    } else {
+      setAuditStatus("idle");
     }
     setPhase("ready");
   }
 
   async function loadAuditFor(id: string) {
-    const res = await fetchWithAuth(`${API}/documents/${id}/audit`);
-    if (!res.ok) return;
-    const body = (await res.json()) as { entries?: AuditEntry[] };
-    setAuditEntries(body.entries ?? []);
+    try {
+      const res = await fetchWithAuth(`${API}/documents/${id}/audit`);
+      if (!res.ok) {
+        setAuditEntries([]);
+        return;
+      }
+      const body = (await res.json()) as { entries?: AuditEntry[] };
+      setAuditEntries(body.entries ?? []);
+    } finally {
+      setAuditStatus("ready");
+    }
   }
+
+  useEffect(() => {
+    void loadMe();
+  }, []);
 
   useEffect(() => {
     void load();
@@ -106,7 +205,9 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
       (v) => v.processingStatus === "PROCESSING" || v.processingStatus === "PENDING",
     );
     if (!hasProcessing) return;
-    const id = window.setInterval(() => { void load(); }, 4000);
+    const id = window.setInterval(() => {
+      void load();
+    }, 4000);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
@@ -129,6 +230,7 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
         return;
       }
       setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       await load();
     } finally {
       setBusy(false);
@@ -145,26 +247,6 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
         setError(body.error ?? "Retry failed");
-        return;
-      }
-      await load();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function saveDescription() {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetchWithAuth(`${API}/documents/${documentId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: descDraft.trim() || null }),
-      });
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        setError(body.error ?? "Could not save description");
         return;
       }
       await load();
@@ -198,19 +280,43 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
 
   if (phase === "loading" || phase === "need-login") {
     return (
-      <main>
-        <p>Loading...</p>
+      <main className={shellStyles.shell} data-documents-fullscreen="true">
+        <header className={shellStyles.docNavbar}>
+          <div className={shellStyles.docNavLeft}>
+            <Link prefetch={false} href="/dashboard" className={shellStyles.docNavBrand} aria-label="Dashboard">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className={shellStyles.docNavLogo} src="/logo-swapped.svg" alt="" />
+            </Link>
+          </div>
+        </header>
+        <div className={styles.detailWorkspace}>
+          <div className={styles.loadingMain}>
+            <p>Loading…</p>
+          </div>
+        </div>
       </main>
     );
   }
 
   if (phase === "error" || !data) {
     return (
-      <main>
-        <p style={{ color: "var(--error)" }}>{error ?? "Unable to load document"}</p>
-        <p>
-          <Link prefetch={false} href="/documents">Back to documents</Link>
-        </p>
+      <main className={shellStyles.shell} data-documents-fullscreen="true">
+        <header className={shellStyles.docNavbar}>
+          <div className={shellStyles.docNavLeft}>
+            <Link prefetch={false} href="/dashboard" className={shellStyles.docNavBrand} aria-label="Dashboard">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className={shellStyles.docNavLogo} src="/logo-swapped.svg" alt="" />
+            </Link>
+          </div>
+        </header>
+        <div className={styles.detailWorkspace}>
+          <div className={styles.errorMain}>
+            <p style={{ color: "var(--error)" }}>{error ?? "Unable to load document"}</p>
+            <Link prefetch={false} href="/documents" className={styles.backLink}>
+              ← Back to documents
+            </Link>
+          </div>
+        </div>
       </main>
     );
   }
@@ -218,231 +324,324 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
   const doc = data.document;
   const canManage = data.canManage ?? false;
   const canViewAudit = data.canViewAudit ?? false;
+  const latestVersionNumber =
+    doc.versions.length > 0 ? Math.max(...doc.versions.map((x) => x.versionNumber)) : 0;
 
   return (
-    <main style={{ maxWidth: 900 }}>
-      <h1>{doc.title}</h1>
-      <p style={{ color: "#52525b", fontSize: "0.95rem" }}>
-        Visibility: <strong>{doc.visibility}</strong> · Uploaded by {doc.createdBy.name} ·{" "}
-        {new Date(doc.createdAt).toLocaleString()}
-        {doc.isArchived ? (
-          <>
-            {" "}
-            · <strong style={{ color: "#64748b" }}>Archived</strong> (hidden from the main library for everyone)
-          </>
-        ) : null}
-      </p>
-      {doc.tags && doc.tags.length > 0 ? (
-        <div style={{ marginTop: "0.65rem", display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
-          <span style={{ fontSize: "0.82rem", color: "#52525b", marginRight: "0.15rem" }}>Tags:</span>
-          {doc.tags.map((t) => (
-            <span
-              key={t}
-              style={{
-                fontSize: "0.78rem",
-                fontWeight: 600,
-                padding: "0.2rem 0.45rem",
-                borderRadius: 0,
-                background: "#eef2ff",
-                color: "#4338ca",
-                border: "1px solid #c7d2fe",
-              }}
-            >
-              {t}
-            </span>
-          ))}
+    <main className={shellStyles.shell} data-documents-fullscreen="true">
+      <header className={shellStyles.docNavbar}>
+        <div className={shellStyles.docNavLeft}>
+          <Link prefetch={false} href="/dashboard" className={shellStyles.docNavBrand} aria-label="Dashboard">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className={shellStyles.docNavLogo} src="/logo-swapped.svg" alt="" />
+          </Link>
         </div>
-      ) : null}
-      <nav style={{ margin: "1rem 0", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-        <Link prefetch={false} href="/documents">Documents</Link>
-        <Link prefetch={false} href="/documents/ask">Ask</Link>
-        <Link prefetch={false} href="/documents/search">Semantic search</Link>
-        <Link prefetch={false} href="/dashboard">Dashboard</Link>
-      </nav>
-
-      <section style={{ marginTop: "1rem", padding: "1rem", background: "#f4f4f5", borderRadius: 0 }}>
-        <h2 style={{ marginTop: 0 }}>Description</h2>
-        {canManage ? (
-          <>
-            <textarea
-              value={descDraft}
-              onChange={(e) => setDescDraft(e.target.value)}
-              rows={5}
-              style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box", padding: "0.5rem", fontFamily: "inherit" }}
-              placeholder="Optional summary or notes for this document…"
-            />
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void saveDescription()}
-              style={{
-                marginTop: "0.5rem",
-                padding: "0.45rem 0.85rem",
-                borderRadius: 0,
-                border: "none",
-                background: "#18181b",
-                color: "#fff",
-                cursor: busy ? "wait" : "pointer",
-              }}
-            >
-              {busy ? "Saving…" : "Save description"}
-            </button>
-          </>
-        ) : doc.description?.trim() ? (
-          <p style={{ margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.5, color: "#3f3f46" }}>{doc.description.trim()}</p>
-        ) : (
-          <p style={{ margin: 0, color: "#71717a", fontSize: "0.9rem" }}>No description.</p>
-        )}
-      </section>
-
-      {canViewAudit ? (
-        <section style={{ marginTop: "1rem", padding: "1rem", background: "#fafafa", borderRadius: 0, border: "1px solid #e4e4e7" }}>
-          <h2 style={{ marginTop: 0 }}>Activity</h2>
-          {auditEntries.length === 0 ? (
-            <p style={{ color: "#71717a", fontSize: "0.9rem" }}>No audit entries yet.</p>
-          ) : (
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, fontSize: "0.88rem" }}>
-              {auditEntries.map((e) => (
-                <li
-                  key={e.id}
-                  style={{
-                    padding: "0.45rem 0",
-                    borderBottom: "1px solid #e4e4e7",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "0.35rem",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <span>
-                    <strong>{e.action}</strong>
-                    {e.user ? (
-                      <span style={{ color: "#52525b" }}>
-                        {" "}
-                        · {e.user.name ?? e.user.email}
-                      </span>
-                    ) : null}
-                  </span>
-                  <time style={{ color: "#71717a" }} dateTime={e.createdAt}>
-                    {new Date(e.createdAt).toLocaleString()}
-                  </time>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ) : null}
-
-      {canManage ? (
-        <section style={{ marginTop: "1rem", padding: "1rem", background: "#f4f4f5", borderRadius: 0 }}>
-          <h2 style={{ marginTop: 0 }}>Upload new version</h2>
-          <form onSubmit={onUploadVersion} style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}>
-            <input type="file" required onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-            <button
-              type="submit"
-              disabled={busy || !file}
-              style={{
-                padding: "0.5rem 0.8rem",
-                borderRadius: 0,
-                border: "none",
-                background: "#18181b",
-                color: "#fff",
-                cursor: busy ? "wait" : "pointer",
-              }}
-            >
-              {busy ? "Uploading..." : "Upload version"}
-            </button>
-          </form>
-        </section>
-      ) : null}
-
-      {error ? (
-        <p role="alert" style={{ color: "var(--error)", marginTop: "1rem" }}>
-          {error}
-        </p>
-      ) : null}
-
-      <section style={{ marginTop: "1.5rem" }}>
-        <h2>Versions</h2>
-        {doc.versions.length === 0 ? <p>No versions found.</p> : null}
-        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-          {doc.versions.map((v) => (
-            <li
-              key={v.id}
-              style={{
-                borderBottom: "1px solid #e4e4e7",
-                padding: "0.75rem 0",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "1rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <div>
-                <div>
-                  <strong>v{v.versionNumber}</strong> · {v.fileName}
-                </div>
-                <div style={{ fontSize: "0.87rem", color: "#52525b", marginTop: 4 }}>
-                  {Math.round(v.sizeBytes / 1024)} KB ·{" "}
-                  {v.processingStatus === "PROCESSING"
-                    ? `Processing ${v.processingProgress}%`
-                    : v.processingStatus === "PENDING"
-                      ? "Queued"
-                      : v.processingStatus}
-                  {canManage && v.processingStatus === "FAILED" && v.processingError ? ` — ${v.processingError}` : ""}
-                </div>
-                {(v.processingStatus === "PROCESSING" || v.processingStatus === "PENDING") ? (
-                  <div style={{ height: 5, background: "#e4e4e7", borderRadius: 3, marginTop: 6, overflow: "hidden" }}>
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${v.processingProgress}%`,
-                        background: v.processingStatus === "PENDING" ? "#a1a1aa" : "#2563eb",
-                        borderRadius: 3,
-                        transition: "width 0.4s ease",
-                        minWidth: 2,
-                      }}
-                    />
+        <div className={shellStyles.docNavRight}>
+          {me ? (
+            <div className={shellStyles.profileWrap} ref={profileMenuRef}>
+              <UserAvatarNavButton
+                className={shellStyles.profileBtn}
+                imgClassName={shellStyles.profileBtnImg}
+                pictureUrl={me.profilePictureUrl}
+                name={me.name}
+                email={me.email}
+                aria-haspopup="menu"
+                aria-expanded={profileMenuOpen}
+                onClick={() => setProfileMenuOpen((v) => !v)}
+                title={me.email}
+              />
+              {profileMenuOpen ? (
+                <div className={shellStyles.profileMenu} role="menu">
+                  <div className={shellStyles.profileMenuHeader}>
+                    <div>{me.name ?? me.email}</div>
+                    <div>{me.email}</div>
                   </div>
-                ) : null}
-              </div>
-              <div style={{ display: "flex", gap: "0.55rem" }}>
-                <button
-                  type="button"
-                  onClick={() => void onDownload(v.id, v.fileName)}
-                  disabled={downloadingId === v.id}
-                  style={{
-                    padding: "0.42rem 0.66rem",
-                    border: "1px solid #d4d4d8",
-                    borderRadius: 0,
-                    background: "#fff",
-                    cursor: downloadingId === v.id ? "wait" : "pointer",
-                  }}
-                >
-                  {downloadingId === v.id ? "Downloading..." : "Download"}
-                </button>
-                {canManage && v.processingStatus === "FAILED" ? (
+                  <Link
+                    prefetch={false}
+                    className={shellStyles.profileMenuItem}
+                    href="/profile"
+                    role="menuitem"
+                    onClick={() => setProfileMenuOpen(false)}
+                  >
+                    Profile
+                  </Link>
+                  <Link
+                    prefetch={false}
+                    className={shellStyles.profileMenuItem}
+                    href="/dashboard"
+                    role="menuitem"
+                    onClick={() => setProfileMenuOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  {userCanOpenManagerDashboard(me) ? (
+                    <Link
+                      prefetch={false}
+                      className={shellStyles.profileMenuItem}
+                      href="/manager"
+                      role="menuitem"
+                      onClick={() => setProfileMenuOpen(false)}
+                    >
+                      Department overview
+                    </Link>
+                  ) : null}
                   <button
                     type="button"
-                    onClick={() => void onRetry(v.id)}
-                    disabled={busy}
-                    style={{
-                      padding: "0.42rem 0.66rem",
-                      border: "1px solid #d4d4d8",
-                      borderRadius: 0,
-                      background: "#fff",
-                      cursor: busy ? "wait" : "pointer",
+                    className={shellStyles.profileMenuItem}
+                    role="menuitem"
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      void signOut();
                     }}
                   >
-                    Retry processing
+                    Log out
                   </button>
-                ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </header>
+
+      <div className={styles.detailWorkspace}>
+        <div className={styles.detailScroll}>
+          <div className={styles.detailInner}>
+            <div className={styles.heroCard}>
+              <div className={styles.heroTop}>
+                <button
+                  type="button"
+                  className={styles.heroBackBtn}
+                  onClick={() => router.back()}
+                  aria-label="Go back to previous page"
+                  title="Back"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <div className={styles.heroText}>
+                  <h1 className={styles.heroTitle}>{doc.title}</h1>
+                  <p className={styles.heroMeta}>
+                    Visibility: <strong>{formatVisibility(doc.visibility)}</strong>
+                    {" · "}
+                    Uploaded by {doc.createdBy.name}
+                    {" · "}
+                    {new Date(doc.createdAt).toLocaleString()}
+                    {doc.isArchived ? (
+                      <>
+                        {" "}
+                        · <strong>Archived</strong>
+                      </>
+                    ) : null}
+                  </p>
+                </div>
               </div>
-            </li>
-          ))}
-        </ul>
-      </section>
+            </div>
+
+            {error ? (
+              <p className={styles.alertError} role="alert">
+                {error}
+              </p>
+            ) : null}
+
+            <section className={styles.sectionCard} aria-labelledby="versions-heading">
+              <h2 id="versions-heading" className={styles.sectionHead}>
+                Versions
+              </h2>
+              {canManage ? (
+                <div className={styles.uploadZone}>
+                  <p className={styles.uploadIntro}>Add a new file version. Drop a file here or browse — same types as the library (PDF, Office, images, text).</p>
+                  <form onSubmit={onUploadVersion} className={styles.uploadForm}>
+                    <div
+                      className={`${styles.uploadDropZone} ${uploadDragActive ? styles.uploadDropZoneActive : ""} ${file ? styles.uploadDropZoneHasFile : ""}`}
+                      onDragEnter={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setUploadDragActive(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!e.currentTarget.contains(e.relatedTarget as Node)) setUploadDragActive(false);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setUploadDragActive(false);
+                        const f = e.dataTransfer.files?.[0];
+                        if (f) setFile(f);
+                      }}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        id={versionFileInputId}
+                        type="file"
+                        className={styles.uploadFileInput}
+                        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                      />
+                      <label htmlFor={versionFileInputId} className={styles.uploadDropLabel}>
+                        <span className={styles.uploadDropIcon} aria-hidden>
+                          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M12 16V4m0 0 4 4m-4-4L8 8" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" strokeLinecap="round" />
+                          </svg>
+                        </span>
+                        <span className={styles.uploadDropTitle}>{file ? "Replace file" : "Drop file or click to browse"}</span>
+                        <span className={styles.uploadDropHint}>This becomes the next version for this document</span>
+                      </label>
+                    </div>
+                    {file ? (
+                      <div className={styles.uploadFilePreview}>
+                        <div className={styles.uploadFilePreviewMain}>
+                          <span className={styles.uploadFilePreviewName}>{file.name}</span>
+                          <span className={styles.uploadFilePreviewMeta}>{formatSize(file.size)}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.uploadFileRemove}
+                          onClick={() => {
+                            setFile(null);
+                            if (fileInputRef.current) fileInputRef.current.value = "";
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : null}
+                    <div className={styles.uploadActions}>
+                      <button type="submit" disabled={busy || !file} className={styles.btnPrimary}>
+                        {busy ? "Uploading…" : "Add new version"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ) : null}
+              <div className={styles.tableWrap}>
+                {doc.versions.length === 0 ? (
+                  <p className={styles.emptyHint}>No file versions yet.</p>
+                ) : (
+                  <table className={styles.versionTable}>
+                    <thead>
+                      <tr>
+                        <th>File</th>
+                        <th>Status</th>
+                        <th>Size</th>
+                        <th style={{ textAlign: "right" }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {doc.versions.map((v) => (
+                        <tr key={v.id}>
+                          <td>
+                            <span className={styles.versionFile}>{v.fileName}</span>
+                            <span className={styles.versionSub}>
+                              v{v.versionNumber}
+                              {v.versionNumber === latestVersionNumber ? " · Latest" : ""}
+                            </span>
+                            {(v.processingStatus === "PROCESSING" || v.processingStatus === "PENDING") ? (
+                              <div className={styles.progressTrack}>
+                                <div
+                                  className={styles.progressFill}
+                                  style={{
+                                    width: `${v.processingProgress}%`,
+                                    background: v.processingStatus === "PENDING" ? "#a1a1aa" : "#2563eb",
+                                  }}
+                                />
+                              </div>
+                            ) : null}
+                            {canManage && v.processingStatus === "FAILED" && v.processingError ? (
+                              <span className={styles.versionSub} style={{ color: "var(--error)" }}>
+                                {v.processingError}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td>
+                            <span className={`${styles.statusPill} ${statusPillClass(v.processingStatus)}`}>
+                              {v.processingStatus === "PROCESSING"
+                                ? `${statusLabel(v.processingStatus)} ${v.processingProgress}%`
+                                : statusLabel(v.processingStatus)}
+                            </span>
+                          </td>
+                          <td>{Math.max(1, Math.round(v.sizeBytes / 1024))} KB</td>
+                          <td>
+                            <div className={styles.rowActions}>
+                              <button
+                                type="button"
+                                className={styles.btnGhost}
+                                onClick={() => void onDownload(v.id, v.fileName)}
+                                disabled={downloadingId === v.id}
+                              >
+                                {downloadingId === v.id ? "Downloading…" : "Download"}
+                              </button>
+                              {canManage && v.processingStatus === "FAILED" ? (
+                                <button type="button" className={styles.btnGhost} onClick={() => void onRetry(v.id)} disabled={busy}>
+                                  Retry
+                                </button>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </section>
+
+            {canViewAudit ? (
+              <section className={styles.sectionCard} aria-labelledby="activity-heading">
+                <h2 id="activity-heading" className={styles.sectionHead}>
+                  Activity
+                </h2>
+                {auditStatus === "loading" ? (
+                  <p className={styles.emptyHint}>Loading activity…</p>
+                ) : auditEntries.length === 0 ? (
+                  <p className={styles.emptyHint}>No activity recorded yet.</p>
+                ) : (
+                  <div className={styles.tableWrap}>
+                    <table className={styles.activityTable}>
+                      <colgroup>
+                        <col className={styles.activityColActivity} />
+                        <col className={styles.activityColUsers} />
+                        <col className={styles.activityColTime} />
+                      </colgroup>
+                      <thead>
+                        <tr>
+                          <th scope="col">Activity</th>
+                          <th scope="col">Users</th>
+                          <th scope="col">Time</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {auditEntries.map((e) => (
+                          <tr key={e.id}>
+                            <td>
+                              <span className={styles.activityType}>{formatAuditAction(e.action)}</span>
+                            </td>
+                            <td className={styles.activityUsersCell}>{e.user ? e.user.name ?? e.user.email : "—"}</td>
+                            <td className={styles.activityTimeCell}>
+                              <time dateTime={e.createdAt}>
+                                {new Date(e.createdAt).toLocaleString(undefined, {
+                                  dateStyle: "medium",
+                                  timeStyle: "short",
+                                })}
+                              </time>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            ) : null}
+          </div>
+        </div>
+      </div>
     </main>
   );
 }

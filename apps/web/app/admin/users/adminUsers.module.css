@@ -30,7 +30,7 @@
   gap: 0.1rem;
   padding: 0.65rem 0.35rem;
   border-right: 1px solid var(--border);
-  background: color-mix(in srgb, var(--card-bg) 94%, var(--bg) 6%);
+  background: #fff;
   overflow-x: hidden;
   overflow-y: auto;
   position: relative;
@@ -143,7 +143,7 @@
   gap: 0.45rem;
   padding: 0.55rem 1.1rem;
   border: none;
-  border-radius: 0;
+  border-radius: 8px;
   background: var(--success);
   color: #fff;
   font-size: 0.92rem;
@@ -173,7 +173,7 @@
 .tableCard {
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: 10px;
   box-shadow: 0 1px 2px rgba(2, 2, 2, 0.04);
   overflow: hidden;
   transition: box-shadow 0.25s ease;
@@ -212,7 +212,7 @@
   align-items: center;
   gap: 0.45rem;
   padding: 0.4rem 0.65rem;
-  border-radius: 0;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: #fafafa;
   min-width: 200px;
@@ -248,7 +248,7 @@
   width: 38px;
   height: 38px;
   padding: 0;
-  border-radius: 0;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--card-bg);
   color: var(--text);
@@ -281,7 +281,7 @@
   gap: 0.45rem;
   min-height: 38px;
   padding: 0 0.75rem;
-  border-radius: 0;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--card-bg);
   color: var(--text);
@@ -323,11 +323,61 @@
   padding: 0.85rem;
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: 10px;
   box-shadow: 0 12px 28px rgba(2, 2, 2, 0.12);
   display: grid;
   gap: 0.65rem;
   animation: adminPopoverIn 0.18s ease-out;
+}
+
+/* Fixed to viewport; rendered via createPortal(document.body) so .tableCard overflow:hidden cannot clip it */
+.filterPopoverFixed {
+  position: fixed;
+  z-index: 10050;
+  min-width: 260px;
+  max-width: min(560px, calc(100vw - 16px));
+  /* maxHeight set inline from JS so the panel fits the viewport below the Filter button */
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.85rem;
+  margin: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(2, 2, 2, 0.18), 0 4px 12px rgba(2, 2, 2, 0.08);
+  display: flex;
+  flex-direction: column;
+  animation: adminPopoverIn 0.18s ease-out;
+}
+
+.filterPopoverGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  align-content: start;
+}
+
+@media (max-width: 519px) {
+  .filterPopoverGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.filterPopoverFullRow {
+  grid-column: 1 / -1;
+}
+
+.filterPopoverCheckbox {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+div.filterPopoverFullRow {
+  display: flex;
 }
 
 @keyframes adminPopoverIn {
@@ -341,14 +391,16 @@
   }
 }
 
-.filterPopover label {
+.filterPopover label,
+.filterPopoverFixed label {
   display: grid;
   gap: 0.25rem;
   font-size: 0.82rem;
   color: var(--muted);
 }
 
-.filterPopover select {
+.filterPopover select,
+.filterPopoverFixed select {
   padding: 0.45rem 0.5rem;
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -444,7 +496,7 @@
   width: 34px;
   height: 34px;
   border: none;
-  border-radius: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -510,7 +562,7 @@
 
 .paginationBar button {
   padding: 0.4rem 0.75rem;
-  border-radius: 0;
+  border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--card-bg);
   font: inherit;
@@ -544,7 +596,7 @@
 
 .modalPanel {
   background: var(--card-bg);
-  border-radius: 0;
+  border-radius: 14px;
   padding: 1.35rem;
   max-width: 440px;
   width: 100%;
@@ -585,7 +637,7 @@
 .formGrid input,
 .formGrid select {
   padding: 0.5rem 0.6rem;
-  border-radius: 0;
+  border-radius: 8px;
   border: 1px solid var(--border);
   font: inherit;
   transition: border-color 0.2s ease;
@@ -606,7 +658,7 @@
 
 .btnPrimary {
   padding: 0.55rem 1rem;
-  border-radius: 0;
+  border-radius: 8px;
   border: none;
   background: #18181b;
   color: #fafafa;
@@ -633,7 +685,7 @@
 
 .btnGhost {
   padding: 0.55rem 1rem;
-  border-radius: 0;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--card-bg);
   font: inherit;
@@ -727,7 +779,7 @@
 
 .btnDanger {
   padding: 0.45rem 0.9rem;
-  border-radius: 0;
+  border-radius: 8px;
   border: 1px solid #dc2626;
   background: #fef2f2;
   color: #991b1b;
@@ -763,7 +815,7 @@
 }
 
 .rowArchived .cellMuted {
-  color: color-mix(in srgb, var(--text-muted) 85%, transparent);
+  color: color-mix(in srgb, var(--muted) 85%, transparent);
 }
 
 .modalRestrictionSection {

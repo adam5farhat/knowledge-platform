@@ -7,7 +7,18 @@ import { ProfileAvatarImage } from "@/components/ProfileAvatarImage";
 import { ProfilePhotoModal } from "@/components/ProfilePhotoModal";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
 import { profilePictureDisplayUrl, userInitialsFromName } from "@/lib/profilePicture";
-import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../lib/authClient";
+import {
+  clearStoredSession,
+  fetchWithAuth,
+  getValidAccessToken,
+  KP_AUTH_SESSION_REFRESHED,
+} from "../../lib/authClient";
+import {
+  DEFAULT_USER_RESTRICTIONS,
+  RoleNameApi,
+  userCanOpenManagerDashboard,
+  type UserRestrictionsDto,
+} from "../../lib/restrictions";
 import dash from "../components/shellNav.module.css";
 import p from "./profile.module.css";
 
@@ -24,6 +35,9 @@ type User = {
   role: string;
   department: { id: string; name: string };
   mustChangePassword?: boolean;
+  restrictions?: UserRestrictionsDto;
+  manageableDepartmentIds?: string[];
+  canAccessManagerDashboard?: boolean;
 };
 
 export default function ProfileClient() {
@@ -91,6 +105,30 @@ export default function ProfileClient() {
       setPhase("ready");
     })();
   }, [router]);
+
+  useEffect(() => {
+    function onSessionRefreshed() {
+      void (async () => {
+        const t = await getValidAccessToken();
+        if (!t) return;
+        const res = await fetchWithAuth(`${API}/auth/me`);
+        if (res.status === 401 || !res.ok) return;
+        const data = (await res.json()) as { user: User };
+        setUser(data.user);
+        if (!data.user.mustChangePassword) {
+          setPwdUrlGate(false);
+        }
+        setName(data.user.name);
+        setEmail(data.user.email);
+        setPhoneNumber(data.user.phoneNumber ?? "");
+        setPosition(data.user.position ?? "");
+        setEmployeeBadgeNumber(data.user.employeeBadgeNumber ?? "");
+        setProfilePictureUrl(data.user.profilePictureUrl ?? "");
+      })();
+    }
+    window.addEventListener(KP_AUTH_SESSION_REFRESHED, onSessionRefreshed);
+    return () => window.removeEventListener(KP_AUTH_SESSION_REFRESHED, onSessionRefreshed);
+  }, []);
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -221,8 +259,9 @@ export default function ProfileClient() {
   }
 
   const showPwdBanner = pwdUrlGate || !!user.mustChangePassword;
-  const isAdmin = user.role === "ADMIN";
-  const isManagerOrAdmin = user.role === "MANAGER" || isAdmin;
+  const isAdmin = user.role === RoleNameApi.ADMIN;
+  const rs = user.restrictions ?? DEFAULT_USER_RESTRICTIONS;
+  const showDashboardInMenu = rs.accessDashboardAllowed && userCanOpenManagerDashboard(user);
   const photoDisplaySrc = profilePictureDisplayUrl(user.profilePictureUrl);
 
   return (
@@ -256,12 +295,12 @@ export default function ProfileClient() {
               <Link prefetch={false} className={dash.menuItem} href="/profile" role="menuitem" onClick={() => setMenuOpen(false)}>
                 View Profile
               </Link>
-              {isManagerOrAdmin ? (
+              {showDashboardInMenu ? (
                 <Link prefetch={false} className={dash.menuItem} href="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>
                   Dashboard
                 </Link>
               ) : null}
-              {user.role === "MANAGER" ? (
+              {userCanOpenManagerDashboard(user) ? (
                 <Link prefetch={false} className={dash.menuItem} href="/manager" role="menuitem" onClick={() => setMenuOpen(false)}>
                   Department overview
                 </Link>
@@ -361,8 +400,8 @@ export default function ProfileClient() {
             <hr className={p.divider} />
 
             <h3 className={p.sideSectionTitle}>Password</h3>
-            <form className={p.formSection} onSubmit={(e) => void savePassword(e)} style={{ marginBottom: 0 }}>
-              <div className={p.field} style={{ marginBottom: "0.75rem" }}>
+            <form className={p.formSection} onSubmit={(e) => void savePassword(e)}>
+              <div className={p.field}>
                 <label className={p.label} htmlFor="profile-current-pw">
                   Current password
                 </label>
@@ -376,7 +415,7 @@ export default function ProfileClient() {
                   autoComplete="current-password"
                 />
               </div>
-              <div className={p.field} style={{ marginBottom: "0.75rem" }}>
+              <div className={p.field}>
                 <label className={p.label} htmlFor="profile-new-pw">
                   New password
                 </label>
@@ -391,7 +430,7 @@ export default function ProfileClient() {
                   autoComplete="new-password"
                 />
               </div>
-              <div className={p.field} style={{ marginBottom: "0.85rem" }}>
+              <div className={p.field}>
                 <label className={p.label} htmlFor="profile-confirm-pw">
                   Confirm new password
                 </label>
@@ -407,12 +446,12 @@ export default function ProfileClient() {
                 />
               </div>
               {pwError ? (
-                <p role="alert" className={p.error} style={{ marginBottom: "0.65rem" }}>
+                <p role="alert" className={p.error}>
                   {pwError}
                 </p>
               ) : null}
               {pwOk ? (
-                <p role="status" className={p.ok} style={{ marginBottom: "0.65rem" }}>
+                <p role="status" className={p.ok}>
                   {pwOk}
                 </p>
               ) : null}

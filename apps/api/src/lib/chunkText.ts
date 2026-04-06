@@ -1,6 +1,6 @@
-const TARGET_SIZE = Number(process.env.CHUNK_SIZE_CHARS ?? 3200);
-const MAX_SIZE = Number(process.env.CHUNK_MAX_CHARS ?? 5000);
-const OVERLAP = Number(process.env.CHUNK_OVERLAP_CHARS ?? 400);
+const TARGET_SIZE = Math.max(200, Number(process.env.CHUNK_SIZE_CHARS) || 3200);
+const MAX_SIZE = Math.max(500, Number(process.env.CHUNK_MAX_CHARS) || 5000);
+const OVERLAP = Math.max(0, Number(process.env.CHUNK_OVERLAP_CHARS) || 400);
 
 export interface ChunkWithMeta {
   content: string;
@@ -175,11 +175,18 @@ function addOverlap(chunks: ChunkWithMeta[]): ChunkWithMeta[] {
   for (let i = 1; i < chunks.length; i++) {
     const prev = chunks[i - 1]!.content;
     const tail = prev.slice(-OVERLAP);
-    const overlapText = tail.includes(" ") ? tail.slice(tail.indexOf(" ") + 1) : tail;
-    result.push({
-      content: overlapText + "\n\n" + chunks[i]!.content,
-      sectionTitle: chunks[i]!.sectionTitle,
-    });
+    const sentenceStart = tail.search(/(?<=\.)\s+[A-Z]/);
+    const overlapText = sentenceStart > 0
+      ? tail.slice(sentenceStart).replace(/^\.\s*/, "").trim()
+      : (tail.includes(" ") ? tail.slice(tail.indexOf(" ") + 1) : tail);
+    if (overlapText.length >= 20) {
+      result.push({
+        content: overlapText + "\n\n" + chunks[i]!.content,
+        sectionTitle: chunks[i]!.sectionTitle,
+      });
+    } else {
+      result.push(chunks[i]!);
+    }
   }
   return result;
 }

@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { fetchWithAuth } from "@/lib/authClient";
-import { DEFAULT_USER_RESTRICTIONS, homePathForUser, type MeUserDto } from "@/lib/restrictions";
+import {
+  DEFAULT_USER_RESTRICTIONS,
+  homePathForUser,
+  RoleNameApi,
+  userCanOpenManagerDashboard,
+  type MeUserDto,
+} from "@/lib/restrictions";
 import styles from "./page.module.css";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -82,9 +88,9 @@ export default function RestrictedClient() {
         <p className={styles.message}>{copy.message}</p>
         {copy.hint ? <p className={styles.hint}>{copy.hint}</p> : null}
         <Link prefetch={false} href={dashboardHref} className={styles.primary}>
-          {(me?.restrictions ?? DEFAULT_USER_RESTRICTIONS).accessDashboardAllowed === false && me?.role === "ADMIN"
+          {(me?.restrictions ?? DEFAULT_USER_RESTRICTIONS).accessDashboardAllowed === false && me?.role === RoleNameApi.ADMIN
             ? "Go to admin hub"
-            : (me?.restrictions ?? DEFAULT_USER_RESTRICTIONS).accessDashboardAllowed === false && me?.role === "MANAGER"
+            : (me?.restrictions ?? DEFAULT_USER_RESTRICTIONS).accessDashboardAllowed === false && me && userCanOpenManagerDashboard(me)
               ? "Go to department overview"
               : "Go back to dashboard"}
         </Link>

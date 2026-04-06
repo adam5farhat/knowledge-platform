@@ -8,8 +8,8 @@ import { startDocumentIngestWorker, stopDocumentIngestWorker } from "./jobs/docu
 
 if (process.env.NODE_ENV === "production") {
   const secret = process.env.JWT_SECRET;
-  if (!secret || secret.length < 16) {
-    console.error("[api] FATAL: JWT_SECRET must be set (min 16 characters) in production.");
+  if (!secret || secret.length < 32) {
+    console.error("[api] FATAL: JWT_SECRET must be set (min 32 characters) in production.");
     process.exit(1);
   }
 }
@@ -43,8 +43,12 @@ async function shutdown(): Promise<void> {
 }
 
 process.on("SIGTERM", () => {
-  void shutdown().then(() => process.exit(0));
+  void shutdown()
+    .catch((err) => console.error("[api] Shutdown error:", err))
+    .finally(() => process.exit(0));
 });
 process.on("SIGINT", () => {
-  void shutdown().then(() => process.exit(0));
+  void shutdown()
+    .catch((err) => console.error("[api] Shutdown error:", err))
+    .finally(() => process.exit(0));
 });

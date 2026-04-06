@@ -3,7 +3,7 @@
 import { type ReactNode } from "react";
 import css from "./FileTypeIcon.module.css";
 
-﻿type FileIconKind = "pdf" | "csv" | "word" | "slides" | "doc" | "xls" | "ppt" | "other";
+type FileIconKind = "pdf" | "csv" | "word" | "slides" | "doc" | "xls" | "ppt" | "other";
 
 /** Original full-bleed PDF artwork (user SVG). */
 function IconPdfDocument({ className }: { className?: string }) {
@@ -230,7 +230,7 @@ function resolveFileIconKind(fileName: string | undefined): { kind: FileIconKind
   if (["ppt", "pptx"].includes(ext)) return { kind: "slides", bannerLabel: ext === "pptx" ? "PPTX" : "PPT" };
   if (ext === "odp") return { kind: "ppt", bannerLabel: "ODP" };
   const raw = (fileName?.split(".").pop() ?? "FILE").toUpperCase();
-  const bannerLabel = raw.length <= 4 ? raw : `${raw.slice(0, 3)}â€¦`;
+  const bannerLabel = raw.length <= 4 ? raw : `${raw.slice(0, 3)}\u2026`;
   return { kind: "other", bannerLabel };
 }
 

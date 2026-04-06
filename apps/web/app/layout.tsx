@@ -1,21 +1,11 @@
 import type { Metadata } from "next";
-import { Gelasio, Inter } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-  /** Primary UI font — preload for faster first text paint (body uses `var(--font-inter)`). */
-  preload: true,
-});
-
-const gelasio = Gelasio({
-  subsets: ["latin"],
-  variable: "--font-gelasio",
-  display: "swap",
-  preload: false,
-});
+/**
+ * Fonts use system stacks in `globals.css` (--font-inter / --font-gelasio) instead of
+ * `next/font/google`. That avoids dev/SSR fetches to fonts.googleapis.com, which can hang
+ * on some networks and leave the browser tab spinning with no paint.
+ */
 
 export const metadata: Metadata = {
   title: "Knowledge Platform",
@@ -31,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${gelasio.variable}`}>
+    <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>{children}</body>
     </html>
   );

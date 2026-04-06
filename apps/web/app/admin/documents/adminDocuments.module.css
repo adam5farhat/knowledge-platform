@@ -23,7 +23,7 @@
   font-size: 0.88rem;
   font-weight: 600;
   padding: 0.45rem 0.95rem;
-  border-radius: 0;
+  border-radius: 8px;
   border: 1px solid color-mix(in srgb, #b91c1c 45%, var(--border));
   background: #fef2f2;
   color: #991b1b;
@@ -233,7 +233,7 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  border-radius: 0;
+  border-radius: 6px;
   white-space: nowrap;
   border: 1px solid transparent;
 }
@@ -287,7 +287,7 @@
   height: 2.25rem;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -319,7 +319,7 @@
   margin: 0;
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: 10px;
   box-shadow:
     0 16px 48px rgba(15, 23, 42, 0.12),
     0 0 0 1px color-mix(in srgb, var(--interactive) 10%, transparent),
@@ -336,7 +336,7 @@
   font-weight: 500;
   padding: 0.45rem 0.55rem;
   border: none;
-  border-radius: 0;
+  border-radius: 6px;
   background: transparent;
   color: var(--text);
   cursor: pointer;
@@ -784,7 +784,7 @@
   letter-spacing: 0.03em;
   padding: 0.28rem 0.5rem;
   border: 1px solid color-mix(in srgb, var(--border) 80%, var(--interactive) 12%);
-  border-radius: 0;
+  border-radius: 6px;
   background: color-mix(in srgb, var(--interactive) 5%, var(--card-bg));
   color: color-mix(in srgb, var(--text) 90%, var(--interactive) 10%);
   transition:
@@ -1066,7 +1066,7 @@
   flex-direction: column;
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: 14px;
   box-shadow:
     0 24px 64px rgba(15, 23, 42, 0.22),
     0 0 0 1px rgba(255, 255, 255, 0.04) inset;
@@ -1150,7 +1150,7 @@
   background: color-mix(in srgb, #fef2f2 90%, var(--card-bg));
   border: 1px solid color-mix(in srgb, var(--error) 30%, var(--border));
   border-left: 3px solid var(--error);
-  border-radius: 0;
+  border-radius: 8px;
 }
 
 .archivesTableWrap {
@@ -1302,7 +1302,7 @@
   padding: 1.1rem 1.2rem;
   flex-shrink: 0;
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: 10px;
   border-left: 3px solid var(--interactive);
   background: color-mix(in srgb, var(--interactive) 5%, var(--card-bg));
   box-shadow: 0 1px 3px color-mix(in srgb, var(--text) 6%, transparent);
@@ -1357,7 +1357,7 @@
   font-size: 0.875rem;
   font-weight: 600;
   padding: 0.5rem 1.15rem;
-  border-radius: 0;
+  border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--interactive) 88%, #0a4d66);
   background: var(--interactive);
   color: #fff;
@@ -1414,7 +1414,7 @@
   font-size: 0.875rem;
   font-weight: 600;
   padding: 0.55rem 1.25rem;
-  border-radius: 0;
+  border-radius: 8px;
   border: none;
   background: #18181b;
   color: #fafafa;
@@ -1464,7 +1464,7 @@
   min-width: 7.5rem;
   max-width: 12rem;
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: 8px;
   background: var(--card-bg);
   color: var(--text);
 }
@@ -1535,26 +1535,27 @@
   margin: 0;
   padding: 0;
   border: none;
-  background: color-mix(in srgb, #0f172a 42%, transparent);
+  background: rgba(15, 23, 42, 0.45);
   cursor: pointer;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .uploadModal {
-  position: fixed;
-  z-index: 75;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  cursor: default;
+  position: relative;
   box-sizing: border-box;
-  width: min(440px, calc(100vw - 1.5rem));
-  max-height: min(90vh, 640px);
+  width: min(480px, calc(100vw - 1.5rem));
+  max-height: min(90vh, 700px);
   overflow: auto;
   display: flex;
   flex-direction: column;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.2);
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.14);
 }
 
 .uploadModalHeader {
@@ -1562,93 +1563,134 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.85rem 1rem;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 40%, var(--card-bg));
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .uploadModalTitle {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
+.uploadModalSubtitle {
+  margin: 0.3rem 0 0;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: #94a3b8;
+}
+
 .uploadModalClose {
   font: inherit;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   line-height: 1;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--card-bg);
-  color: var(--muted);
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
   cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .uploadModalClose:hover {
+  background: #f1f5f9;
   color: var(--text);
 }
 
 .uploadModalBody {
-  padding: 1rem 1.1rem 1.15rem;
+  padding: 1.1rem 1.2rem 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.9rem;
 }
 
 .uploadModalErr {
   margin: 0;
-  padding: 0.5rem 0.6rem;
+  padding: 0.55rem 0.7rem;
   font-size: 0.8125rem;
+  border-radius: 8px;
   color: var(--error);
-  background: color-mix(in srgb, var(--error) 8%, var(--card-bg));
-  border: 1px solid color-mix(in srgb, var(--error) 28%, var(--border));
+  background: color-mix(in srgb, var(--error) 8%, #fff);
+  border: 1px solid color-mix(in srgb, var(--error) 28%, #e2e8f0);
 }
 
 .uploadModalField {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.35rem;
 }
 
 .uploadModalLabel {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0;
   text-transform: uppercase;
-  color: var(--muted);
+  color: #475569;
 }
 
 .uploadModalInput,
 .uploadModalTextarea {
   font: inherit;
-  font-size: 0.875rem;
-  padding: 0.45rem 0.55rem;
-  border: 1px solid var(--border);
-  border-radius: 0;
-  background: var(--card-bg);
+  font-size: 0.9rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
   color: var(--text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.uploadModalInput:focus,
+.uploadModalTextarea:focus {
+  outline: none;
+  border-color: var(--interactive);
+  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--interactive) 14%, transparent);
 }
 
 .uploadModalTextarea {
   resize: vertical;
-  min-height: 4rem;
+  min-height: 4.5rem;
 }
 
 .uploadModalFile {
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 0.5rem 0;
+  color: var(--text);
+}
+
+.uploadModalFile::file-selector-button {
+  font: inherit;
   font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+  cursor: pointer;
+  margin-right: 0.65rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.uploadModalFile::file-selector-button:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .uploadModalActions {
   display: flex;
   justify-content: flex-end;
   gap: 0.65rem;
-  margin-top: 0.35rem;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f1f5f9;
 }
 
 @media (max-width: 720px) {

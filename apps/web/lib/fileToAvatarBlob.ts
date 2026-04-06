@@ -1,7 +1,12 @@
+const MAX_AVATAR_FILE_BYTES = 25 * 1024 * 1024;
+
 /** Resize image in-browser for avatar upload (JPEG output). */
 export async function fileToAvatarBlob(file: File): Promise<Blob> {
   if (!file.type.startsWith("image/")) {
     throw new Error("Choose an image file");
+  }
+  if (file.size > MAX_AVATAR_FILE_BYTES) {
+    throw new Error(`File is too large (max ${MAX_AVATAR_FILE_BYTES / 1024 / 1024}MB)`);
   }
   const bmp = await createImageBitmap(file);
   try {

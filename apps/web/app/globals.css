@@ -1,4 +1,8 @@
 :root {
+  /* System stacks — no remote font fetch (see app/layout.tsx). */
+  --font-inter: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-gelasio: Georgia, "Times New Roman", Times, serif;
+
   --bg: #f2f3f5;
   --text: #020202;
   --interactive: #006ba6;

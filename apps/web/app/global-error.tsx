@@ -27,7 +27,7 @@ export default function GlobalError({
           >
             Try again
           </button>
-          <a href="/documents">Home</a>
+          <a href="/dashboard">Home</a>
         </p>
       </body>
     </html>

@@ -24,6 +24,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
     port,
     secure,
     auth: user ? { user, pass } : undefined,
+    ...(!secure ? { requireTLS: true } : {}),
   });
 
   await transporter.sendMail({

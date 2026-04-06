@@ -5,8 +5,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileTypeIcon } from "../../components/FileTypeIcon";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
-import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../lib/authClient";
-import { DEFAULT_USER_RESTRICTIONS, restrictedHref, type MeUserDto } from "../../lib/restrictions";
+import {
+  clearStoredSession,
+  fetchWithAuth,
+  getValidAccessToken,
+  KP_AUTH_SESSION_REFRESHED,
+} from "../../lib/authClient";
+import {
+  DEFAULT_USER_RESTRICTIONS,
+  restrictedHref,
+  RoleNameApi,
+  userCanOpenManagerDashboard,
+  type MeUserDto,
+} from "../../lib/restrictions";
 import styles from "./page.module.css";
 import type { Dept, DocRow, LibraryScope, Me } from "./documentsTypes";
 import { MAX_UPLOAD_TAGS, TABLE_TAGS_VISIBLE } from "./documentsTypes";
@@ -17,11 +28,13 @@ import {
   initialsFromPerson,
   normalizeUploadTag,
 } from "./documentsFormat";
+import { VersionArchiveModal } from "./VersionArchiveModal";
 import {
   ActionIconArchive,
   ActionIconDelete,
   ActionIconDownload,
   ActionIconHeart,
+  ActionIconLayers,
   ActionIconOpen,
   DeptCardFolderIcon,
   IconSideBackArrow,
@@ -40,6 +53,7 @@ export default function DocumentsClient() {
   const router = useRouter();
   const [phase, setPhase] = useState<"checking" | "need-login" | "ready">("checking");
   const [me, setMe] = useState<MeUserDto | null>(null);
+  const [sessionRecheck, setSessionRecheck] = useState(0);
   const [documents, setDocuments] = useState<DocRow[]>([]);
   const [departments, setDepartments] = useState<Dept[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -76,6 +90,8 @@ export default function DocumentsClient() {
   const [pdfPreview, setPdfPreview] = useState<{ url: string; title: string; documentId: string } | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
   const [pdfPreviewError, setPdfPreviewError] = useState<string | null>(null);
+  /** Stable id while modal is open so closing the side panel does not break the dialog. */
+  const [versionArchiveDocId, setVersionArchiveDocId] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<{ url: string; title: string } | null>(null);
   const [libraryScope, setLibraryScope] = useState<LibraryScope>(() => {
     if (typeof window === "undefined") return "ALL";
@@ -96,7 +112,7 @@ export default function DocumentsClient() {
   const [bulkErr, setBulkErr] = useState<string | null>(null);
   const statusNotifyRef = useRef<Map<string, string>>(new Map());
 
-  const isAdmin = useMemo(() => me?.role === "ADMIN", [me?.role]);
+  const isAdmin = useMemo(() => me?.role === RoleNameApi.ADMIN, [me?.role]);
 
   const closePdfPreview = useCallback(() => {
     setPdfPreview((prev) => {
@@ -195,6 +211,14 @@ export default function DocumentsClient() {
   ]);
 
   useEffect(() => {
+    function onSessionRefreshed() {
+      setSessionRecheck((n) => n + 1);
+    }
+    window.addEventListener(KP_AUTH_SESSION_REFRESHED, onSessionRefreshed);
+    return () => window.removeEventListener(KP_AUTH_SESSION_REFRESHED, onSessionRefreshed);
+  }, []);
+
+  useEffect(() => {
     if (phase !== "ready") return;
     const busy = documents.some(
       (d) =>
@@ -239,7 +263,7 @@ export default function DocumentsClient() {
 
         if (!cancelled) setMe(meJson.user);
 
-        if (meJson.user.role === "ADMIN") {
+        if (meJson.user.role === RoleNameApi.ADMIN) {
           const dr = await fetchWithAuth(`${API}/admin/departments`);
           if (dr.ok) {
             const d = (await dr.json()) as { departments: Dept[] };
@@ -259,7 +283,7 @@ export default function DocumentsClient() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, sessionRecheck]);
 
   async function recordDocumentView(documentId: string) {
     try {
@@ -477,7 +501,7 @@ export default function DocumentsClient() {
       fd.append("file", file);
       fd.append("title", title.trim());
       fd.append("visibility", visibility);
-      if (visibility === "DEPARTMENT" && me?.role === "ADMIN" && departmentId) {
+      if (visibility === "DEPARTMENT" && me?.role === RoleNameApi.ADMIN && departmentId) {
         fd.append("departmentId", departmentId);
       }
       if (uploadTags.length > 0) {
@@ -574,11 +598,11 @@ export default function DocumentsClient() {
     }
   }
 
-  const isManagerOrAdmin = me?.role === "ADMIN" || me?.role === "MANAGER";
+  const isManagerOrAdmin = me != null && userCanOpenManagerDashboard(me);
   const mr = me?.restrictions ?? DEFAULT_USER_RESTRICTIONS;
   const canManageDocumentsUi = isManagerOrAdmin && mr.manageDocumentsAllowed !== false;
   const canUploadDocuments = canManageDocumentsUi;
-  const canBulkAdmin = me?.role === "ADMIN" && mr.manageDocumentsAllowed !== false;
+  const canBulkAdmin = me?.role === RoleNameApi.ADMIN && mr.manageDocumentsAllowed !== false;
 
   const departmentItems = useMemo(() => {
     if (departmentCountsMeta && departmentCountsMeta.length > 0) {
@@ -670,7 +694,7 @@ export default function DocumentsClient() {
                   <Link prefetch={false} className={styles.profileMenuItem} href="/dashboard" role="menuitem" onClick={() => setProfileMenuOpen(false)}>
                     Dashboard
                   </Link>
-                  {me?.role === "MANAGER" ? (
+                  {me && userCanOpenManagerDashboard(me) ? (
                     <Link
                       prefetch={false}
                       className={styles.profileMenuItem}
@@ -1341,6 +1365,32 @@ export default function DocumentsClient() {
                       </span>
                       <span className={styles.actionLabel}>{selectedDoc.isFavorited ? "Unfavorite" : "Favorite"}</span>
                     </button>
+                    <button
+                      type="button"
+                      className={styles.actionItem}
+                      onClick={() => setVersionArchiveDocId(selectedDoc.id)}
+                    >
+                      <span className={styles.actionIcon} aria-hidden>
+                        <ActionIconLayers />
+                      </span>
+                      <span className={styles.actionLabel}>Versions</span>
+                    </button>
+                    <Link
+                      prefetch={false}
+                      href={`/documents/${selectedDoc.id}`}
+                      className={styles.actionItem}
+                      style={{ textDecoration: "none" }}
+                    >
+                      <span className={styles.actionIcon} aria-hidden>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                          <line x1="16" y1="13" x2="8" y2="13" />
+                          <line x1="16" y1="17" x2="8" y2="17" />
+                        </svg>
+                      </span>
+                      <span className={styles.actionLabel}>Full page</span>
+                    </Link>
                     {canManageDocumentsUi ? (
                       <button
                         type="button"
@@ -1416,16 +1466,6 @@ export default function DocumentsClient() {
             <div className={styles.pdfPreviewHeader}>
               <h2 className={styles.pdfPreviewTitle}>{pdfPreview?.title ?? "Document preview"}</h2>
               <div className={styles.pdfPreviewHeaderActions}>
-                <Link
-                  prefetch={false}
-                  className={styles.pdfPreviewLinkBtn}
-                  href={pdfPreview ? `/documents/${pdfPreview.documentId}` : "#"}
-                  onClick={(e) => {
-                    if (!pdfPreview) e.preventDefault();
-                  }}
-                >
-                  Full page
-                </Link>
                 <button type="button" className={styles.pdfPreviewLinkBtn} onClick={() => closePdfPreview()}>
                   Close
                 </button>
@@ -1681,7 +1721,7 @@ export default function DocumentsClient() {
                     <option value="PRIVATE">Private (only you)</option>
                   </select>
                 </label>
-                {visibility === "DEPARTMENT" && me?.role === "ADMIN" && departments.length > 0 ? (
+                {visibility === "DEPARTMENT" && me?.role === RoleNameApi.ADMIN && departments.length > 0 ? (
                   <label className={styles.uploadLabel}>
                     <span className={styles.uploadFieldLabel}>Department</span>
                     <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} className={styles.uploadFieldSelect}>
@@ -1838,6 +1878,14 @@ export default function DocumentsClient() {
           </div>
         </div>
       ) : null}
+
+      <VersionArchiveModal
+        open={versionArchiveDocId !== null}
+        documentId={versionArchiveDocId}
+        apiBase={API}
+        onClose={() => setVersionArchiveDocId(null)}
+        onVersionsChanged={() => void loadDocuments(listPage, false)}
+      />
     </main>
   );
 }

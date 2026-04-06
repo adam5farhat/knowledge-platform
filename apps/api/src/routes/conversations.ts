@@ -1,7 +1,19 @@
 import { Router } from "express";
 import { z } from "zod";
-import { authenticateToken } from "../middleware/auth.js";
+import { type Prisma, RoleName } from "@prisma/client";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { authenticateToken, requireRole } from "../middleware/auth.js";
+import { requireUseAiQueries } from "../middleware/restrictions.js";
 import { prisma } from "../lib/prisma.js";
+
+const CHAT_MODEL = process.env.GEMINI_CHAT_MODEL ?? "gemini-2.5-flash";
+let genAI: GoogleGenerativeAI | null = null;
+function getGenAI(): GoogleGenerativeAI {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("GEMINI_API_KEY is not set.");
+  if (!genAI) genAI = new GoogleGenerativeAI(key);
+  return genAI;
+}
 
 export const conversationsRouter = Router();
 
@@ -53,6 +65,7 @@ conversationsRouter.get("/:id", authenticateToken, async (req, res) => {
           sources: true,
           confidence: true,
           createdAt: true,
+          feedback: { select: { rating: true } },
         },
       },
     },
@@ -75,7 +88,11 @@ conversationsRouter.post("/", authenticateToken, async (req, res) => {
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const parsed = createBody.safeParse(req.body);
-  const title = parsed.success ? (parsed.data.title ?? "New conversation") : "New conversation";
+  if (!parsed.success) {
+    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+    return;
+  }
+  const title = parsed.data.title ?? "New conversation";
 
   const conversation = await prisma.conversation.create({
     data: { userId: user.id, title },
@@ -85,11 +102,29 @@ conversationsRouter.post("/", authenticateToken, async (req, res) => {
   res.status(201).json({ conversation });
 });
 
+const sourceSchema = z.object({
+  index: z.number().optional(),
+  chunkId: z.string().optional(),
+  content: z.string().max(10000).optional(),
+  chunkIndex: z.number().optional(),
+  sectionTitle: z.string().max(500).nullish(),
+  score: z.number().optional(),
+  document: z.object({
+    id: z.string(),
+    title: z.string().max(500),
+    visibility: z.string().optional(),
+  }).optional(),
+  version: z.object({
+    id: z.string(),
+    fileName: z.string().max(500),
+  }).optional(),
+}).passthrough();
+
 const addMessageBody = z.object({
   role: z.enum(["user", "assistant"]),
   content: z.string().min(1).max(50000),
-  sources: z.any().optional(),
-  confidence: z.string().optional(),
+  sources: z.array(sourceSchema).max(30).optional(),
+  confidence: z.enum(["high", "medium", "low", "none"]).optional(),
 });
 
 conversationsRouter.post("/:id/messages", authenticateToken, async (req, res) => {
@@ -117,7 +152,7 @@ conversationsRouter.post("/:id/messages", authenticateToken, async (req, res) =>
       conversationId: conversation.id,
       role: parsed.data.role,
       content: parsed.data.content,
-      sources: parsed.data.sources ?? undefined,
+      sources: (parsed.data.sources as Prisma.InputJsonValue) ?? undefined,
       confidence: parsed.data.confidence,
     },
     select: { id: true, role: true, content: true, sources: true, confidence: true, createdAt: true },
@@ -129,6 +164,52 @@ conversationsRouter.post("/:id/messages", authenticateToken, async (req, res) =>
   });
 
   res.status(201).json({ message });
+});
+
+/* ── Auto-generate title from first question via LLM ── */
+
+const generateTitleBody = z.object({
+  question: z.string().min(1).max(2000),
+});
+
+conversationsRouter.post("/:id/generate-title", authenticateToken, requireUseAiQueries, async (req, res) => {
+  const user = req.authUser;
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: req.params.id, userId: user.id },
+    select: { id: true },
+  });
+
+  if (!conversation) { res.status(404).json({ error: "Conversation not found" }); return; }
+
+  const parsed = generateTitleBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Validation failed" }); return; }
+
+  let title: string;
+  try {
+    const client = getGenAI();
+    const model = client.getGenerativeModel({
+      model: CHAT_MODEL,
+      generationConfig: { temperature: 0.3, maxOutputTokens: 30 },
+    });
+    const result = await model.generateContent([
+      { text: 'Generate a short, descriptive title (3-7 words) for a conversation that starts with this question. Return ONLY the title text, no quotes, no punctuation at the end, no explanation.' },
+      { text: `Question: "${parsed.data.question}"` },
+    ]);
+    const raw = result.response.text().trim().replace(/^["']|["']$/g, "").replace(/\.+$/, "");
+    title = raw.length > 0 && raw.length <= 80 ? raw : parsed.data.question.slice(0, 57) + "...";
+  } catch {
+    title = parsed.data.question.length > 60 ? parsed.data.question.slice(0, 57) + "..." : parsed.data.question;
+  }
+
+  const updated = await prisma.conversation.update({
+    where: { id: conversation.id },
+    data: { title },
+    select: { id: true, title: true },
+  });
+
+  res.json({ conversation: updated });
 });
 
 const updateBody = z.object({
@@ -163,6 +244,170 @@ conversationsRouter.patch("/:id", authenticateToken, async (req, res) => {
 
   res.json({ conversation: updated });
 });
+
+/* ── Feedback: thumbs up/down on an assistant message ── */
+
+const feedbackBody = z.object({
+  rating: z.enum(["up", "down"]),
+  comment: z.string().max(1000).optional(),
+});
+
+conversationsRouter.post("/:id/messages/:messageId/feedback", authenticateToken, async (req, res) => {
+  const user = req.authUser;
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const message = await prisma.conversationMessage.findFirst({
+    where: {
+      id: req.params.messageId,
+      conversation: { id: req.params.id, userId: user.id },
+      role: "assistant",
+    },
+    select: { id: true },
+  });
+
+  if (!message) {
+    res.status(404).json({ error: "Message not found" });
+    return;
+  }
+
+  const parsed = feedbackBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
+    return;
+  }
+
+  const feedback = await prisma.answerFeedback.upsert({
+    where: { messageId: message.id },
+    update: { rating: parsed.data.rating, comment: parsed.data.comment ?? null },
+    create: {
+      messageId: message.id,
+      userId: user.id,
+      rating: parsed.data.rating,
+      comment: parsed.data.comment ?? null,
+    },
+    select: { id: true, rating: true, comment: true, createdAt: true },
+  });
+
+  res.json({ feedback });
+});
+
+conversationsRouter.delete("/:id/messages/:messageId/feedback", authenticateToken, async (req, res) => {
+  const user = req.authUser;
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  await prisma.answerFeedback.deleteMany({
+    where: {
+      messageId: req.params.messageId,
+      userId: user.id,
+      message: { conversation: { id: req.params.id, userId: user.id } },
+    },
+  });
+
+  res.json({ deleted: true });
+});
+
+/* ── Analytics: feedback summary (admin only) ── */
+
+conversationsRouter.get("/feedback/stats", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+  const user = req.authUser;
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const [total, thumbsUp, thumbsDown, recentNegative] = await Promise.all([
+    prisma.answerFeedback.count(),
+    prisma.answerFeedback.count({ where: { rating: "up" } }),
+    prisma.answerFeedback.count({ where: { rating: "down" } }),
+    prisma.answerFeedback.findMany({
+      where: { rating: "down" },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: {
+        id: true,
+        rating: true,
+        comment: true,
+        createdAt: true,
+        message: {
+          select: {
+            content: true,
+            conversation: {
+              select: {
+                id: true,
+                title: true,
+                messages: {
+                  where: { role: "user" },
+                  orderBy: { createdAt: "asc" },
+                  take: 1,
+                  select: { content: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const weakTopics = analyzeWeakAreas(recentNegative.map((fb) => ({
+    question: fb.message.conversation.messages[0]?.content ?? "",
+    conversationTitle: fb.message.conversation.title,
+  })));
+
+  res.json({
+    total,
+    thumbsUp,
+    thumbsDown,
+    satisfactionRate: total > 0 ? Math.round((thumbsUp / total) * 100) : null,
+    weakTopics,
+    recentNegative: recentNegative.slice(0, 10).map((fb) => ({
+      id: fb.id,
+      rating: fb.rating,
+      comment: fb.comment,
+      createdAt: fb.createdAt,
+      question: fb.message.conversation.messages[0]?.content ?? "",
+      conversationTitle: fb.message.conversation.title,
+      conversationId: fb.message.conversation.id,
+      answerExcerpt: fb.message.content.slice(0, 200),
+    })),
+  });
+});
+
+function analyzeWeakAreas(items: Array<{ question: string; conversationTitle: string }>): Array<{ topic: string; count: number; examples: string[] }> {
+  const TOPIC_PATTERNS: Array<{ topic: string; patterns: RegExp[] }> = [
+    { topic: "Quantity / Tolerance", patterns: [/quantit/i, /toleran/i, /deviat/i, /weight/i, /tonnage/i] },
+    { topic: "Quality / Defects", patterns: [/qualit/i, /defect/i, /appearance/i, /grade/i, /moisture/i] },
+    { topic: "Payment / Invoice", patterns: [/payment/i, /invoice/i, /price/i, /billing/i] },
+    { topic: "Claims / Deadlines", patterns: [/claim/i, /deadline/i, /notif/i, /\bdays?\b/i] },
+    { topic: "Delivery / Shipping", patterns: [/deliver/i, /ship/i, /transport/i, /freight/i] },
+    { topic: "Force Majeure", patterns: [/force\s*majeure/i, /impossible/i, /unforeseeable/i] },
+    { topic: "Arbitration / Disputes", patterns: [/arbitrat/i, /disput/i, /tribunal/i, /court/i] },
+  ];
+
+  const topicCounts = new Map<string, { count: number; examples: string[] }>();
+
+  for (const item of items) {
+    const text = `${item.question} ${item.conversationTitle}`;
+    let matched = false;
+    for (const tp of TOPIC_PATTERNS) {
+      if (tp.patterns.some((p) => p.test(text))) {
+        const entry = topicCounts.get(tp.topic) ?? { count: 0, examples: [] };
+        entry.count++;
+        if (entry.examples.length < 3) entry.examples.push(item.question.slice(0, 100));
+        topicCounts.set(tp.topic, entry);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      const entry = topicCounts.get("Other") ?? { count: 0, examples: [] };
+      entry.count++;
+      if (entry.examples.length < 3) entry.examples.push(item.question.slice(0, 100));
+      topicCounts.set("Other", entry);
+    }
+  }
+
+  return Array.from(topicCounts.entries())
+    .map(([topic, data]) => ({ topic, count: data.count, examples: data.examples }))
+    .sort((a, b) => b.count - a.count);
+}
 
 conversationsRouter.delete("/:id", authenticateToken, async (req, res) => {
   const user = req.authUser;

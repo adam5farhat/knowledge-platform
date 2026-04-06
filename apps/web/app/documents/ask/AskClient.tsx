@@ -6,8 +6,18 @@ import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
-import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
-import { DEFAULT_USER_RESTRICTIONS, restrictedHref, type MeUserDto } from "../../../lib/restrictions";
+import {
+  clearStoredSession,
+  fetchWithAuth,
+  getValidAccessToken,
+} from "../../../lib/authClient";
+import {
+  DEFAULT_USER_RESTRICTIONS,
+  restrictedHref,
+  RoleNameApi,
+  userCanOpenManagerDashboard,
+  type MeUserDto,
+} from "../../../lib/restrictions";
 import styles from "./ask.module.css";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -22,7 +32,7 @@ type Source = {
   sectionTitle?: string | null;
   score: number;
   document: { id: string; title: string; visibility: string };
-  version: { fileName: string };
+  version: { id?: string; fileName: string };
 };
 
 type Message = {
@@ -32,6 +42,9 @@ type Message = {
   sources?: Source[];
   confidence?: ConfidenceLevel;
   streaming?: boolean;
+  corrected?: boolean;
+  feedback?: "up" | "down" | null;
+  dbId?: string;
 };
 
 type ConversationSummary = {
@@ -60,6 +73,7 @@ export default function AskClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedSources, setExpandedSources] = useState<Set<string>>(() => new Set());
+  const [expandedSourceContent, setExpandedSourceContent] = useState<Set<string>>(() => new Set());
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -67,6 +81,7 @@ export default function AskClient() {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +107,10 @@ export default function AskClient() {
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [menuOpen]);
+
+  useEffect(() => {
+    return () => { abortRef.current?.abort(); };
+  }, []);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -140,6 +159,7 @@ export default function AskClient() {
           messages: Array<{
             id: string; role: string; content: string;
             sources: Source[] | null; confidence: string | null;
+            feedback?: { rating: string } | null;
           }>;
         };
       };
@@ -147,34 +167,41 @@ export default function AskClient() {
       setMessages(
         data.conversation.messages.map((m) => ({
           id: m.id,
+          dbId: m.id,
           role: m.role as "user" | "assistant",
           content: m.content,
           sources: m.sources ?? undefined,
           confidence: (m.confidence as ConfidenceLevel) ?? undefined,
+          feedback: (m.feedback?.rating as "up" | "down") ?? null,
         })),
       );
       setExpandedSources(new Set());
+      setExpandedSourceContent(new Set());
       setError(null);
     } catch { /* ignore */ }
   }
 
-  async function saveMessage(convId: string, msg: { role: string; content: string; sources?: unknown; confidence?: string }) {
+  async function saveMessage(convId: string, msg: { role: string; content: string; sources?: unknown; confidence?: string }): Promise<string | null> {
     try {
-      await fetchWithAuth(`${API}/conversations/${convId}/messages`, {
+      const res = await fetchWithAuth(`${API}/conversations/${convId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(msg),
       });
+      if (res.ok) {
+        const data = (await res.json()) as { message: { id: string } };
+        return data.message.id;
+      }
     } catch { /* ignore */ }
+    return null;
   }
 
   async function autoTitle(convId: string, question: string) {
-    const title = question.length > 60 ? question.slice(0, 57) + "..." : question;
     try {
-      await fetchWithAuth(`${API}/conversations/${convId}`, {
-        method: "PATCH",
+      await fetchWithAuth(`${API}/conversations/${convId}/generate-title`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title }),
+        body: JSON.stringify({ question }),
       });
       void loadConversations();
     } catch { /* ignore */ }
@@ -211,6 +238,10 @@ export default function AskClient() {
     if (convId) void saveMessage(convId, { role: "user", content: question });
     if (convId && messages.length === 0) void autoTitle(convId, question);
 
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const currentController = controller;
     try {
       const token = await getValidAccessToken();
       if (!token) { router.replace("/login"); return; }
@@ -219,6 +250,7 @@ export default function AskClient() {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ question, history }),
+        signal: controller.signal,
       });
 
       if (res.status === 401) { clearStoredSession(); router.replace("/login"); return; }
@@ -240,7 +272,11 @@ export default function AskClient() {
 
       if (contentType.includes("text/event-stream")) {
         const reader = res.body?.getReader();
-        if (!reader) { setError("Could not read response stream."); return; }
+        if (!reader) {
+          setError("Could not read response stream.");
+          setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+          return;
+        }
         const decoder = new TextDecoder();
         let buffer = "";
 
@@ -264,6 +300,9 @@ export default function AskClient() {
                 } else if (currentEvent === "token" && typeof data.token === "string") {
                   finalContent += data.token;
                   setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: m.content + data.token } : m));
+                } else if (currentEvent === "correction" && typeof data.correctedAnswer === "string") {
+                  finalContent = data.correctedAnswer;
+                  setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: data.correctedAnswer as string, corrected: true } : m));
                 }
               } catch { /* skip */ }
               currentEvent = "";
@@ -279,12 +318,19 @@ export default function AskClient() {
       }
 
       if (convId && finalContent) {
-        void saveMessage(convId, { role: "assistant", content: finalContent, sources: finalSources, confidence: finalConfidence });
+        const savedId = await saveMessage(convId, { role: "assistant", content: finalContent, sources: finalSources, confidence: finalConfidence });
+        if (savedId) {
+          setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, dbId: savedId } : m));
+        }
         void loadConversations();
       }
-    } catch {
-      setError("Could not reach the server.");
-      setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        /* Request was cancelled intentionally — no error to show */
+      } else {
+        setError("Could not reach the server.");
+        setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+      }
     } finally {
       setLoading(false);
       inputRef.current?.focus();
@@ -301,11 +347,30 @@ export default function AskClient() {
     setMessages([]);
     setError(null);
     setExpandedSources(new Set());
+    setExpandedSourceContent(new Set());
     inputRef.current?.focus();
   }
 
   function toggleSources(msgId: string) {
     setExpandedSources((prev) => { const next = new Set(prev); if (next.has(msgId)) next.delete(msgId); else next.add(msgId); return next; });
+  }
+
+  async function submitFeedback(msg: Message, rating: "up" | "down") {
+    if (!activeConvId || !msg.dbId) return;
+    const prev = msg.feedback;
+    const isToggleOff = prev === rating;
+    setMessages((ms) => ms.map((m) => m.id === msg.id ? { ...m, feedback: isToggleOff ? null : rating } : m));
+    try {
+      if (isToggleOff) {
+        await fetchWithAuth(`${API}/conversations/${activeConvId}/messages/${msg.dbId}/feedback`, { method: "DELETE" });
+      } else {
+        await fetchWithAuth(`${API}/conversations/${activeConvId}/messages/${msg.dbId}/feedback`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rating }),
+        });
+      }
+    } catch { /* best-effort */ }
   }
 
   async function copyAnswer(msgId: string, content: string) {
@@ -328,7 +393,9 @@ export default function AskClient() {
     return <main data-ask-fullscreen="true" style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center" }}><p>Loading...</p></main>;
   }
 
-  const isManagerOrAdmin = user && (user.role === "ADMIN" || user.role === "MANAGER");
+  const rs = user?.restrictions ?? DEFAULT_USER_RESTRICTIONS;
+  const showDashboardInProfileMenu =
+    !!user && rs.accessDashboardAllowed && userCanOpenManagerDashboard(user);
 
   return (
     <div className={styles.shell} data-ask-fullscreen="true">
@@ -414,17 +481,17 @@ export default function AskClient() {
                 <Link prefetch={false} className={styles.menuItem} href="/profile" role="menuitem" onClick={() => setMenuOpen(false)}>
                   View Profile
                 </Link>
-                {isManagerOrAdmin && (
+                {showDashboardInProfileMenu && (
                   <Link prefetch={false} className={styles.menuItem} href="/dashboard" role="menuitem" onClick={() => setMenuOpen(false)}>
                     Dashboard
                   </Link>
                 )}
-                {user?.role === "MANAGER" && (
+                {user && userCanOpenManagerDashboard(user) && (
                   <Link prefetch={false} className={styles.menuItem} href="/manager" role="menuitem" onClick={() => setMenuOpen(false)}>
                     Department overview
                   </Link>
                 )}
-                {user?.role === "ADMIN" && (
+                {user?.role === RoleNameApi.ADMIN && (
                   <>
                     <Link prefetch={false} className={styles.menuItem} href="/admin" role="menuitem" onClick={() => setMenuOpen(false)}>Admin hub</Link>
                     <Link prefetch={false} className={styles.menuItem} href="/admin/users" role="menuitem" onClick={() => setMenuOpen(false)}>Users</Link>
@@ -488,7 +555,7 @@ export default function AskClient() {
                       <div className={styles.messageBody}>
                         {isAssistant ? (
                           <div className={styles.markdown}>
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ children, href, ...rest }) => <a href={href} target="_blank" rel="noopener noreferrer nofollow" {...rest}>{children}</a> }}>
                               {msg.content || (msg.streaming ? "" : "...")}
                             </ReactMarkdown>
                             {msg.streaming && <span className={styles.cursor} />}
@@ -507,6 +574,28 @@ export default function AskClient() {
                               <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</>
                             )}
                           </button>
+                          <button
+                            type="button"
+                            className={`${styles.feedbackBtn} ${msg.feedback === "up" ? styles.feedbackActive : ""}`}
+                            onClick={() => void submitFeedback(msg, "up")}
+                            title="Good answer"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill={msg.feedback === "up" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M7 22V11l-5 0 7-9v7h6l-1 8H7z" transform="translate(2,1)"/></svg>
+                          </button>
+                          <button
+                            type="button"
+                            className={`${styles.feedbackBtn} ${msg.feedback === "down" ? styles.feedbackActive : ""}`}
+                            onClick={() => void submitFeedback(msg, "down")}
+                            title="Bad answer"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill={msg.feedback === "down" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M7 22V11l-5 0 7-9v7h6l-1 8H7z" transform="translate(2,1) rotate(180 12 12)"/></svg>
+                          </button>
+                          {msg.corrected && (
+                            <span className={styles.refinedBadge}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>
+                              Self-verified &amp; refined
+                            </span>
+                          )}
                         </div>
                       )}
 
@@ -522,24 +611,58 @@ export default function AskClient() {
                             {expandedSources.has(msg.id) ? `Hide sources (${msg.sources.length})` : `Show sources (${msg.sources.length})`}
                           </button>
                           {expandedSources.has(msg.id) && (
-                            <div className={styles.sourcesGrid}>
-                              {msg.sources.map((s) => (
-                                <div key={s.chunkId} className={styles.sourceCard}>
-                                  <div className={styles.sourceCardHeader}>
-                                    <span className={styles.sourceBadge}>[{s.index}]</span>
-                                    <Link prefetch={false} href={`/documents/${s.document.id}`} className={styles.sourceTitle}>
-                                      {s.document.title}
-                                    </Link>
-                                    <span className={styles.sourceScore}>{(s.score * 100).toFixed(0)}%</span>
+                            <div className={styles.sourcesList}>
+                              {msg.sources.map((s) => {
+                                const isExpanded = expandedSourceContent.has(`${msg.id}-${s.chunkId}`);
+                                const needsTruncation = s.content.length > 300;
+                                const displayContent = isExpanded || !needsTruncation ? s.content : s.content.slice(0, 300) + "…";
+
+                                return (
+                                  <div key={s.chunkId} className={styles.sourceCard}>
+                                    <div className={styles.sourceCardHeader}>
+                                      <span className={styles.sourceBadge}>[{s.index}]</span>
+                                      <Link
+                                        prefetch={false}
+                                        href={`/documents/${s.document.id}?chunk=${s.chunkId}`}
+                                        className={styles.sourceDocLink}
+                                        title={`Open "${s.document.title}" — ${s.version.fileName}`}
+                                      >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ flexShrink: 0 }}>
+                                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                          <polyline points="14 2 14 8 20 8"/>
+                                        </svg>
+                                        <span className={styles.sourceDocTitle}>{s.document.title}</span>
+                                      </Link>
+                                      <span className={styles.sourceScore}>{(s.score * 100).toFixed(0)}%</span>
+                                    </div>
+
+                                    <p className={styles.sourceMeta}>
+                                      <span className={styles.sourceFileName}>{s.version.fileName}</span>
+                                      {s.sectionTitle && <span className={styles.sourceSection}>{s.sectionTitle}</span>}
+                                    </p>
+
+                                    <div className={styles.sourceContent}>
+                                      <p className={styles.sourceText}>{displayContent}</p>
+                                      {needsTruncation && (
+                                        <button
+                                          type="button"
+                                          className={styles.sourceExpandBtn}
+                                          onClick={() => {
+                                            const key = `${msg.id}-${s.chunkId}`;
+                                            setExpandedSourceContent((prev) => {
+                                              const next = new Set(prev);
+                                              if (next.has(key)) next.delete(key); else next.add(key);
+                                              return next;
+                                            });
+                                          }}
+                                        >
+                                          {isExpanded ? "Show less" : "Show full source"}
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
-                                  <p className={styles.sourceMeta}>
-                                    {s.sectionTitle ? `${s.sectionTitle} — ${s.version.fileName}` : `${s.version.fileName} · section ${s.chunkIndex + 1}`}
-                                  </p>
-                                  <p className={styles.sourceSnippet}>
-                                    {s.content.length > 200 ? `${s.content.slice(0, 200)}...` : s.content}
-                                  </p>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </div>

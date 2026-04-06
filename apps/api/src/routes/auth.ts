@@ -9,12 +9,30 @@ import { authenticateToken } from "../middleware/auth.js";
 import { mapUserResponse } from "../lib/mapUser.js";
 import { generateRawResetToken, hashResetToken } from "../lib/passwordReset.js";
 import { sendPasswordResetEmail } from "../lib/email.js";
-import { loginRateLimiter, forgotPasswordRateLimiter } from "../lib/rateLimiter.js";
+import { loginRateLimiter, forgotPasswordRateLimiter, refreshRateLimiter, resetPasswordRateLimiter } from "../lib/rateLimiter.js";
 import { generateRawRefreshToken, hashRefreshToken, refreshTokenTtlMs } from "../lib/refreshToken.js";
 import { isAllowedProfilePictureUrlForUser } from "../lib/avatar.js";
 import { clearUserAvatar, commitAvatarUpload } from "../lib/avatarOps.js";
+import { normalizeClientIp } from "../lib/clientIp.js";
+import {
+  buildManagerDashboardUserFields,
+  managerDashboardFieldsFromAuthUser,
+} from "../lib/managerDashboard.js";
+import type { Request } from "express";
 
 export const authRouter = Router();
+
+/** Keep /me-shaped fields on any user payload returned from authenticated routes (caller must use `authenticateToken`). */
+function meUserWithManagerFields(req: Request, user: ReturnType<typeof mapUserResponse>) {
+  const a = req.authUser!;
+  return {
+    ...user,
+    ...managerDashboardFieldsFromAuthUser({
+      role: a.role,
+      manageableDepartmentIds: a.manageableDepartmentIds,
+    }),
+  };
+}
 
 const avatarUpload = multer({
   storage: multer.memoryStorage(),
@@ -78,7 +96,7 @@ function requestMeta(req: { headers: Record<string, unknown>; ip?: string }): {
 } {
   const userAgentHeader = req.headers["user-agent"];
   const userAgent = typeof userAgentHeader === "string" ? userAgentHeader.slice(0, 500) : undefined;
-  const ipAddress = req.ip?.slice(0, 100);
+  const ipAddress = normalizeClientIp(req.ip);
   return { userAgent, ipAddress };
 }
 
@@ -153,6 +171,7 @@ authRouter.post("/login", loginRateLimiter, async (req, res) => {
   });
 
   if (!user || !user.isActive || user.deletedAt) {
+    await verifyPassword(password, "$2a$12$dummyhashtopreventtimingsidechannel.");
     await logAuthEvent({
       eventType: AuthEventType.LOGIN_FAILURE,
       ...meta,
@@ -175,22 +194,25 @@ authRouter.post("/login", loginRateLimiter, async (req, res) => {
 
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) {
-    const attempts = user.failedLoginAttempts + 1;
-    const shouldLock = attempts >= LOGIN_MAX_FAILED_ATTEMPTS;
-    await prisma.user.update({
+    const updated = await prisma.user.update({
       where: { id: user.id },
-      data: {
-        failedLoginAttempts: shouldLock ? 0 : attempts,
-        ...(shouldLock ? { loginLockedUntil: new Date(Date.now() + LOGIN_LOCK_WINDOW_MS) } : {}),
-      },
+      data: { failedLoginAttempts: { increment: 1 } },
+      select: { failedLoginAttempts: true },
     });
+    const shouldLock = updated.failedLoginAttempts >= LOGIN_MAX_FAILED_ATTEMPTS;
+    if (shouldLock) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: 0, loginLockedUntil: new Date(Date.now() + LOGIN_LOCK_WINDOW_MS) },
+      });
+    }
     await logAuthEvent({
       userId: user.id,
       eventType: shouldLock ? AuthEventType.LOGIN_LOCKED : AuthEventType.LOGIN_FAILURE,
       ...meta,
       metadata: {
         reason: "invalid_credentials",
-        failedAttemptCount: attempts,
+        failedAttemptCount: updated.failedLoginAttempts,
       },
     });
     res.status(401).json({ error: "Invalid email or password" });
@@ -248,14 +270,19 @@ authRouter.post("/login", loginRateLimiter, async (req, res) => {
     ...meta,
   });
 
+  const managerFields = await buildManagerDashboardUserFields({
+    id: userForResponse.id,
+    role: userForResponse.role,
+  });
+
   res.json({
-    user: mapUserResponse(userForResponse),
+    user: { ...mapUserResponse(userForResponse), ...managerFields },
     token: tokens.accessToken,
     refreshToken: tokens.refreshToken,
   });
 });
 
-authRouter.post("/refresh", async (req, res) => {
+authRouter.post("/refresh", refreshRateLimiter, async (req, res) => {
   const parsed = refreshBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
@@ -280,10 +307,13 @@ authRouter.post("/refresh", async (req, res) => {
     !session.user.isActive ||
     session.user.deletedAt
   ) {
+    const reason =
+      !session ? "unknown_token" : session.revokedAt ? "revoked" : session.expiresAt < new Date() ? "expired" : "user_inactive";
     await logAuthEvent({
+      userId: session?.userId,
       eventType: AuthEventType.REFRESH_FAILURE,
       ...meta,
-      metadata: { reason: "invalid_session" },
+      metadata: { reason: "invalid_session", detail: reason },
     });
     res.status(401).json({ error: "Invalid or expired refresh token" });
     return;
@@ -356,11 +386,15 @@ authRouter.post("/refresh", async (req, res) => {
     authVersion: session.user.authVersion,
   });
 
+  const refreshManagerFields = await buildManagerDashboardUserFields({
+    id: session.user.id,
+    role: session.user.role,
+  });
+
   res.json({
     token: accessToken,
     refreshToken: nextRaw,
-    user: mapUserResponse(session.user),
-    sessionId: created.id,
+    user: { ...mapUserResponse(session.user), ...refreshManagerFields },
   });
   await logAuthEvent({
     userId: session.userId,
@@ -377,13 +411,19 @@ authRouter.post("/logout", async (req, res) => {
     return;
   }
   const tokenHash = hashRefreshToken(parsed.data.refreshToken);
+  const meta = requestMeta(req);
+  const existing = await prisma.refreshSession.findUnique({
+    where: { tokenHash },
+    select: { userId: true },
+  });
   const updated = await prisma.refreshSession.updateMany({
     where: { tokenHash, revokedAt: null },
     data: { revokedAt: new Date(), lastUsedAt: new Date() },
   });
   await logAuthEvent({
+    userId: existing?.userId,
     eventType: AuthEventType.LOGOUT,
-    ...requestMeta(req),
+    ...meta,
     metadata: { revokedSessions: updated.count },
   });
   res.json({ ok: true });
@@ -427,7 +467,13 @@ authRouter.get("/me", authenticateToken, async (req, res) => {
     return;
   }
 
-  res.json({ user: mapUserResponse(user) });
+  const auth = req.authUser!;
+  const managerFields = managerDashboardFieldsFromAuthUser({
+    role: auth.role,
+    manageableDepartmentIds: auth.manageableDepartmentIds,
+  });
+
+  res.json({ user: { ...mapUserResponse(user), ...managerFields } });
 });
 
 authRouter.patch("/profile", authenticateToken, async (req, res) => {
@@ -507,7 +553,11 @@ authRouter.patch("/profile", authenticateToken, async (req, res) => {
       refreshToken = tokens.refreshToken;
     }
 
-    res.json({ user: mapUserResponse(user), ...(token ? { token } : {}), ...(refreshToken ? { refreshToken } : {}) });
+    res.json({
+      user: meUserWithManagerFields(req, mapUserResponse(user)),
+      ...(token ? { token } : {}),
+      ...(refreshToken ? { refreshToken } : {}),
+    });
   } catch (e: unknown) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       const meta = e.meta as { target?: string[] } | undefined;
@@ -549,7 +599,7 @@ authRouter.post(
     }
     try {
       const user = await commitAvatarUpload(req, id, file.buffer);
-      res.json({ user });
+      res.json({ user: meUserWithManagerFields(req, user) });
     } catch (e: unknown) {
       const code = (e as { code?: string }).code;
       if (code === "INVALID_IMAGE") {
@@ -573,7 +623,7 @@ authRouter.delete("/profile/avatar", authenticateToken, async (req, res) => {
   }
   try {
     const user = await clearUserAvatar(id);
-    res.json({ user });
+    res.json({ user: meUserWithManagerFields(req, user) });
   } catch (e: unknown) {
     const code = (e as { code?: string }).code;
     if (code === "NOT_FOUND") {
@@ -598,6 +648,11 @@ authRouter.post("/change-password", authenticateToken, async (req, res) => {
   }
 
   const { currentPassword, newPassword } = parsed.data;
+
+  if (currentPassword === newPassword) {
+    res.status(400).json({ error: "New password must be different from current password" });
+    return;
+  }
 
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user || !user.isActive) {
@@ -643,7 +698,11 @@ authRouter.post("/change-password", authenticateToken, async (req, res) => {
     ...requestMeta(req),
   });
 
-  res.json({ token: tokens.accessToken, refreshToken: tokens.refreshToken, user: mapUserResponse(updated) });
+  res.json({
+    token: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    user: meUserWithManagerFields(req, mapUserResponse(updated)),
+  });
 });
 
 /** Public: request reset link (always 200 to avoid email enumeration). */
@@ -656,6 +715,8 @@ authRouter.post("/forgot-password", forgotPasswordRateLimiter, async (req, res) 
 
   const { email } = parsed.data;
   const user = await prisma.user.findUnique({ where: { email } });
+
+  const start = Date.now();
 
   if (user && user.isActive) {
     await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
@@ -681,13 +742,19 @@ authRouter.post("/forgot-password", forgotPasswordRateLimiter, async (req, res) 
     });
   }
 
+  const elapsed = Date.now() - start;
+  const minResponseMs = 500;
+  if (elapsed < minResponseMs) {
+    await new Promise((r) => setTimeout(r, minResponseMs - elapsed + Math.random() * 200));
+  }
+
   res.json({
     message: "If an account exists for that email, you will receive password reset instructions shortly.",
   });
 });
 
 /** Public: set new password using reset token from email. */
-authRouter.post("/reset-password", async (req, res) => {
+authRouter.post("/reset-password", resetPasswordRateLimiter, async (req, res) => {
   const parsed = resetPasswordBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Validation failed", details: parsed.error.flatten() });
@@ -696,32 +763,31 @@ authRouter.post("/reset-password", async (req, res) => {
 
   const { token: rawToken, newPassword } = parsed.data;
   const tokenHash = hashResetToken(rawToken);
+  const passwordHash = await hashPassword(newPassword);
 
-  const record = await prisma.passwordResetToken.findUnique({
-    where: { tokenHash },
-    include: { user: true },
+  const record = await prisma.$transaction(async (tx) => {
+    const rec = await tx.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+    if (!rec || rec.expiresAt < new Date() || !rec.user.isActive) return null;
+
+    await tx.user.update({
+      where: { id: rec.userId },
+      data: { passwordHash, authVersion: { increment: 1 } },
+    });
+    await tx.passwordResetToken.delete({ where: { id: rec.id } });
+    await tx.refreshSession.updateMany({
+      where: { userId: rec.userId, revokedAt: null },
+      data: { revokedAt: new Date(), lastUsedAt: new Date() },
+    });
+    return rec;
   });
 
-  if (!record || record.expiresAt < new Date() || !record.user.isActive) {
+  if (!record) {
     res.status(400).json({ error: "Invalid or expired reset link. Request a new one." });
     return;
   }
-
-  const passwordHash = await hashPassword(newPassword);
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: record.userId },
-      data: {
-        passwordHash,
-        authVersion: { increment: 1 },
-      },
-    }),
-    prisma.passwordResetToken.delete({ where: { id: record.id } }),
-    prisma.refreshSession.updateMany({
-      where: { userId: record.userId, revokedAt: null },
-      data: { revokedAt: new Date(), lastUsedAt: new Date() },
-    }),
-  ]);
 
   await logAuthEvent({
     userId: record.userId,

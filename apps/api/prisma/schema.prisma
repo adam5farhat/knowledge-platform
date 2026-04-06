@@ -26,6 +26,26 @@ enum DocumentProcessingStatus {
   FAILED
 }
 
+enum DepartmentAccessLevel {
+  MEMBER
+  MANAGER
+  VIEWER
+}
+
+model UserDepartmentAccess {
+  id           String                @id @default(uuid())
+  userId       String
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department            @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  accessLevel  DepartmentAccessLevel
+  createdAt    DateTime              @default(now())
+
+  @@unique([userId, departmentId])
+  @@index([userId])
+  @@index([departmentId])
+}
+
 enum DocumentAuditAction {
   CREATED
   VERSION_UPLOADED
@@ -49,8 +69,9 @@ model Department {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  users     User[]
-  documents Document[]
+  users              User[]
+  documents          Document[]
+  userAccess         UserDepartmentAccess[]
 }
 
 model Role {
@@ -97,6 +118,8 @@ model User {
   refreshSessions         RefreshSession[]
   authEvents              AuthEvent[]
   conversations           Conversation[]
+  answerFeedbacks         AnswerFeedback[]
+  departmentAccess        UserDepartmentAccess[]
 
   @@index([email])
   @@index([departmentId])
@@ -273,14 +296,28 @@ model Conversation {
 }
 
 model ConversationMessage {
-  id             String       @id @default(uuid())
+  id             String            @id @default(uuid())
   conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   role           String
-  content        String       @db.Text
+  content        String            @db.Text
   sources        Json?
   confidence     String?
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime          @default(now())
+  feedback       AnswerFeedback?
 
   @@index([conversationId, createdAt])
+}
+
+model AnswerFeedback {
+  id        String             @id @default(uuid())
+  messageId String             @unique
+  message   ConversationMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating    String             // "up" | "down"
+  comment   String?            @db.Text
+  createdAt DateTime           @default(now())
+
+  @@index([userId, createdAt])
 }

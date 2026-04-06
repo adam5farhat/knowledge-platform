@@ -5,7 +5,7 @@ const skipInTest = (): boolean => process.env.VITEST === "true";
 /** Brute-force protection on login (per IP). */
 export const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 40,
+  max: 15,
   standardHeaders: true,
   legacyHeaders: false,
   skip: skipInTest,
@@ -20,6 +20,26 @@ export const forgotPasswordRateLimiter = rateLimit({
   legacyHeaders: false,
   skip: skipInTest,
   message: { error: "Too many reset requests. Try again later." },
+});
+
+/** Limit token refresh abuse (per IP). */
+export const refreshRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  message: { error: "Too many refresh attempts. Try again in a few minutes." },
+});
+
+/** Limit reset-password attempts (per IP). */
+export const resetPasswordRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  message: { error: "Too many password reset attempts. Try again in a few minutes." },
 });
 
 /** Throttle expensive LLM-powered Q&A (per IP). */

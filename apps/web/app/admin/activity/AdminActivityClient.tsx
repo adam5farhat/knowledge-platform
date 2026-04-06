@@ -110,6 +110,54 @@ function metadataPretty(meta: unknown): string {
   }
 }
 
+/** Match API normalization for older rows still stored as IPv4-mapped IPv6. */
+function formatIpDisplay(ip: string | null | undefined): string {
+  if (ip == null || ip === "") return "—";
+  if (ip.startsWith("::ffff:")) {
+    const v4 = ip.slice(7);
+    if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(v4)) return v4;
+  }
+  return ip;
+}
+
+/** Email captured on login attempts when no user row is linked (e.g. wrong email). */
+function metadataSignInEmail(metadata: unknown): string | null {
+  if (metadata == null || typeof metadata !== "object") return null;
+  const email = (metadata as Record<string, unknown>).email;
+  return typeof email === "string" && email.includes("@") ? email : null;
+}
+
+function eventUserCell(e: AuthEventRow) {
+  const attempted = metadataSignInEmail(e.metadata);
+  if (e.user) {
+    return (
+      <>
+        <Link
+          href={`/admin/users?q=${encodeURIComponent(e.user.email)}`}
+          className={styles.userLink}
+          title="Open Users with this email"
+        >
+          {e.user.name}
+        </Link>
+        <div className={u.cellMuted} style={{ fontSize: "0.8125rem" }}>
+          {e.user.email}
+        </div>
+      </>
+    );
+  }
+  if (attempted) {
+    return (
+      <div>
+        <span className={u.cellMuted} style={{ fontSize: "0.72rem", display: "block", marginBottom: "0.15rem" }}>
+          Attempted sign-in
+        </span>
+        <span title="No user account tied to this event; email from the request">{attempted}</span>
+      </div>
+    );
+  }
+  return <span className={u.cellMuted}>—</span>;
+}
+
 export default function AdminActivityClient() {
   const router = useRouter();
   const pathname = usePathname();
@@ -554,26 +602,9 @@ export default function AdminActivityClient() {
                           <td>
                             <span className={eventPillClass(e.eventType)}>{eventTypeLabel(e.eventType)}</span>
                           </td>
-                          <td onClick={(ev) => ev.stopPropagation()}>
-                            {e.user ? (
-                              <>
-                                <Link
-                                  href={`/admin/users?q=${encodeURIComponent(e.user.email)}`}
-                                  className={styles.userLink}
-                                  title="Open Users with this email"
-                                >
-                                  {e.user.name}
-                                </Link>
-                                <div className={u.cellMuted} style={{ fontSize: "0.8125rem" }}>
-                                  {e.user.email}
-                                </div>
-                              </>
-                            ) : (
-                              <span className={u.cellMuted}>—</span>
-                            )}
-                          </td>
+                          <td onClick={(ev) => ev.stopPropagation()}>{eventUserCell(e)}</td>
                           <td style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.8125rem" }}>
-                            {e.ipAddress ?? "—"}
+                            {formatIpDisplay(e.ipAddress)}
                           </td>
                           <td className={`${u.cellMuted} ${styles.userAgentCell} ${styles.hideNarrow}`}>
                             {e.userAgent?.trim() ? e.userAgent : "—"}
@@ -664,6 +695,11 @@ export default function AdminActivityClient() {
                           </Link>
                         </div>
                       </>
+                    ) : metadataSignInEmail(detailEvent.metadata) ? (
+                      <>
+                        <span className={u.cellMuted}>Attempted sign-in: </span>
+                        {metadataSignInEmail(detailEvent.metadata)}
+                      </>
                     ) : (
                       "—"
                     )}
@@ -671,7 +707,7 @@ export default function AdminActivityClient() {
                 </div>
                 <div className={styles.detailRow}>
                   <dt className={styles.detailDt}>IP</dt>
-                  <dd className={styles.detailDd}>{detailEvent.ipAddress ?? "—"}</dd>
+                  <dd className={styles.detailDd}>{formatIpDisplay(detailEvent.ipAddress)}</dd>
                 </div>
                 <div className={styles.detailRow}>
                   <dt className={styles.detailDt}>Client</dt>

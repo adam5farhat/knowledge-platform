@@ -2,20 +2,44 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "@/lib/authClient";
+import {
+  clearStoredSession,
+  fetchWithAuth,
+  getValidAccessToken,
+  KP_AUTH_SESSION_REFRESHED,
+} from "@/lib/authClient";
+import { RoleNameApi, userCanOpenManagerDashboard, type MeUserDto } from "@/lib/restrictions";
 import type { AdminChromeSessionUser } from "../admin/AdminChromeHeader";
 
 export type ManagerGuardPhase = "checking" | "need-login" | "forbidden" | "load-error" | "ready";
 
+export type ManagerSessionRestrictions = {
+  manageDocumentsAllowed: boolean;
+  accessDocumentsAllowed: boolean;
+  useAiQueriesAllowed: boolean;
+  accessDashboardAllowed: boolean;
+};
+
 type Result = {
   phase: ManagerGuardPhase;
   sessionUser: AdminChromeSessionUser | null;
+  restrictions: ManagerSessionRestrictions | null;
 };
 
 export function useManagerGuard(): Result {
   const router = useRouter();
   const [phase, setPhase] = useState<ManagerGuardPhase>("checking");
   const [sessionUser, setSessionUser] = useState<AdminChromeSessionUser | null>(null);
+  const [restrictions, setRestrictions] = useState<ManagerSessionRestrictions | null>(null);
+  const [sessionRecheck, setSessionRecheck] = useState(0);
+
+  useEffect(() => {
+    function onSessionRefreshed() {
+      setSessionRecheck((n) => n + 1);
+    }
+    window.addEventListener(KP_AUTH_SESSION_REFRESHED, onSessionRefreshed);
+    return () => window.removeEventListener(KP_AUTH_SESSION_REFRESHED, onSessionRefreshed);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,10 +62,8 @@ export function useManagerGuard(): Result {
           }
           return;
         }
-        const me = (await meRes.json().catch(() => ({}))) as {
-          user?: { id?: string; name?: string; email?: string; role?: string; profilePictureUrl?: string | null };
-        };
-        if (!meRes.ok || me.user?.role !== "MANAGER") {
+        const me = (await meRes.json().catch(() => ({}))) as { user?: MeUserDto };
+        if (!meRes.ok || !me.user || !userCanOpenManagerDashboard(me.user)) {
           if (!cancelled) setPhase("forbidden");
           return;
         }
@@ -50,8 +72,15 @@ export function useManagerGuard(): Result {
             id: me.user?.id,
             name: me.user?.name ?? "",
             email: me.user?.email ?? "",
-            role: me.user?.role ?? "MANAGER",
+            role: me.user?.role ?? RoleNameApi.MANAGER,
             profilePictureUrl: me.user?.profilePictureUrl ?? null,
+          });
+          const r = me.user?.restrictions;
+          setRestrictions({
+            manageDocumentsAllowed: r?.manageDocumentsAllowed ?? true,
+            accessDocumentsAllowed: r?.accessDocumentsAllowed ?? true,
+            useAiQueriesAllowed: r?.useAiQueriesAllowed ?? true,
+            accessDashboardAllowed: r?.accessDashboardAllowed ?? true,
           });
           setPhase("ready");
         }
@@ -62,7 +91,7 @@ export function useManagerGuard(): Result {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, sessionRecheck]);
 
-  return { phase, sessionUser };
+  return { phase, sessionUser, restrictions };
 }

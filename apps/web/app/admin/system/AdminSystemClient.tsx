@@ -533,13 +533,17 @@ export default function AdminSystemClient() {
 
   const loadKpis = useCallback(async (p: KpiPeriod) => {
     setError(null);
-    const res = await fetchWithAuth(`${API}/admin/stats/kpis?period=${encodeURIComponent(p)}`);
-    if (!res.ok) {
-      setError("Could not load KPIs.");
-      return;
+    try {
+      const res = await fetchWithAuth(`${API}/admin/stats/kpis?period=${encodeURIComponent(p)}`);
+      if (!res.ok) {
+        setError("Could not load KPIs.");
+        return;
+      }
+      const data = (await res.json()) as KpisResponse;
+      setKpis(data);
+    } catch {
+      setError("Could not reach the server.");
     }
-    const data = (await res.json()) as KpisResponse;
-    setKpis(data);
   }, []);
 
   useEffect(() => {
@@ -648,11 +652,11 @@ export default function AdminSystemClient() {
             </p>
           ) : null}
 
-          {error ? (
+      {error ? (
             <p role="alert" className={styles.errorText}>
-              {error}
-            </p>
-          ) : null}
+          {error}
+        </p>
+      ) : null}
 
           {kpis ? (
             <div className={styles.moduleStack}>

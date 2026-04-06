@@ -55,7 +55,7 @@ export default function ResetClient() {
         subtitle="Invalid or missing reset link. Request a new one from the forgot password page."
         footer={<Link href="/forgot-password">Forgot password</Link>}
       >
-        <p style={{ color: "var(--error)", margin: 0 }}>This link may have expired or already been used.</p>
+        <p style={{ color: "var(--error)", margin: 0, fontSize: "0.875rem" }}>This link may have expired or already been used.</p>
       </AuthCard>
     );
   }
@@ -66,8 +66,8 @@ export default function ResetClient() {
       subtitle="Use at least 8 characters. You’ll be redirected to sign in when complete."
       footer={<Link href="/login">Sign in</Link>}
     >
-      <form onSubmit={(e) => void onSubmit(e)} style={{ display: "grid", gap: "0.75rem" }}>
-        <label style={{ display: "grid", gap: 4 }}>
+      <form onSubmit={(e) => void onSubmit(e)} style={{ display: "grid", gap: "1rem" }}>
+        <label style={{ display: "grid", gap: "0.3rem", fontSize: "0.8125rem", fontWeight: 600, color: "#475569" }}>
           <span>New password (min 8 characters)</span>
           <input
             type="password"
@@ -76,10 +76,10 @@ export default function ResetClient() {
             required
             minLength={8}
             autoComplete="new-password"
-            style={{ padding: "0.5rem 0.6rem", borderRadius: 6, border: "1px solid #d4d4d8" }}
+            style={{ padding: "0.6rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.9rem", font: "inherit" }}
           />
         </label>
-        <label style={{ display: "grid", gap: 4 }}>
+        <label style={{ display: "grid", gap: "0.3rem", fontSize: "0.8125rem", fontWeight: 600, color: "#475569" }}>
           <span>Confirm password</span>
           <input
             type="password"
@@ -88,11 +88,11 @@ export default function ResetClient() {
             required
             minLength={8}
             autoComplete="new-password"
-            style={{ padding: "0.5rem 0.6rem", borderRadius: 6, border: "1px solid #d4d4d8" }}
+            style={{ padding: "0.6rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.9rem", font: "inherit" }}
           />
         </label>
         {error ? (
-          <p role="alert" style={{ color: "var(--error)", margin: 0 }}>
+          <p role="alert" style={{ color: "var(--error)", margin: 0, fontSize: "0.875rem" }}>
             {error}
           </p>
         ) : null}
@@ -100,11 +100,14 @@ export default function ResetClient() {
           type="submit"
           disabled={loading}
           style={{
-            padding: "0.6rem 1rem",
-            borderRadius: 6,
+            padding: "0.65rem 1rem",
+            borderRadius: 8,
             border: "none",
-            background: "#18181b",
-            color: "#fafafa",
+            background: "#1e293b",
+            color: "#fff",
+            fontSize: "0.9rem",
+            fontWeight: 600,
+            font: "inherit",
             cursor: loading ? "wait" : "pointer",
           }}
         >

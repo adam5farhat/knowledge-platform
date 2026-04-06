@@ -7,7 +7,6 @@ import {
   buildAvatarPublicUrl,
   deleteAvatarFileIfExistsByUrl,
   detectAvatarImageBuffer,
-  isSafeAvatarFilename,
 } from "./avatar.js";
 import { mapUserResponse } from "./mapUser.js";
 
@@ -29,13 +28,15 @@ export async function commitAvatarUpload(req: Request, userId: string, buffer: B
   await saveUploadedFile(key, buffer);
   const filename = path.posix.basename(key);
   const url = buildAvatarPublicUrl(req, userId, filename);
-  await deleteAvatarFileIfExistsByUrl(existing.profilePictureUrl, userId);
+  const oldUrl = existing.profilePictureUrl;
 
   const user = await prisma.user.update({
     where: { id: userId },
     data: { profilePictureUrl: url },
     include: { role: true, department: true },
   });
+
+  await deleteAvatarFileIfExistsByUrl(oldUrl, userId);
   return mapUserResponse(user);
 }
 
@@ -47,11 +48,12 @@ export async function clearUserAvatar(userId: string) {
   if (!existing || existing.deletedAt) {
     throw Object.assign(new Error("User not found"), { code: "NOT_FOUND" as const });
   }
-  await deleteAvatarFileIfExistsByUrl(existing.profilePictureUrl, userId);
+  const oldUrl = existing.profilePictureUrl;
   const user = await prisma.user.update({
     where: { id: userId },
     data: { profilePictureUrl: null },
     include: { role: true, department: true },
   });
+  await deleteAvatarFileIfExistsByUrl(oldUrl, userId);
   return mapUserResponse(user);
 }

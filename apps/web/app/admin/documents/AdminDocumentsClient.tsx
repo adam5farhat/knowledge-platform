@@ -13,7 +13,9 @@ import { useAdminGuard } from "../useAdminGuard";
 import { AdminHubGlyph, type AdminHubGlyphType } from "../AdminHubIcons";
 import u from "../users/adminUsers.module.css";
 import styles from "./adminDocuments.module.css";
-import { normalizeUploadTag } from "../../documents/documentsFormat";
+import { formatSize, normalizeUploadTag } from "../../documents/documentsFormat";
+import { MAX_UPLOAD_TAGS } from "../../documents/documentsTypes";
+import docStyles from "../../documents/page.module.css";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -419,6 +421,30 @@ function PanelIconLayers() {
   );
 }
 
+/** Document record / metadata page (distinct from “open file” quick actions). */
+function PanelIconDetails() {
+  return (
+    <svg className={styles.panelActionSvg} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <polyline
+        points="14 2 14 8 20 8"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <line x1="8" y1="17" x2="14" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export default function AdminDocumentsClient() {
   const pathname = usePathname();
   const { phase: authPhase, sessionUser } = useAdminGuard();
@@ -466,12 +492,16 @@ export default function AdminDocumentsClient() {
   const [owners, setOwners] = useState<OwnerOption[]>([]);
 
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadStep, setUploadStep] = useState<1 | 2 | 3>(1);
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadVisibility, setUploadVisibility] = useState("ALL");
   const [uploadDepartmentId, setUploadDepartmentId] = useState("");
   const [uploadDescription, setUploadDescription] = useState("");
-  const [uploadTagsRaw, setUploadTagsRaw] = useState("");
+  const [uploadTags, setUploadTags] = useState<string[]>([]);
+  const [uploadTagInput, setUploadTagInput] = useState("");
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const [uploadDragActive, setUploadDragActive] = useState(false);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [uploadErr, setUploadErr] = useState<string | null>(null);
 
@@ -483,12 +513,16 @@ export default function AdminDocumentsClient() {
   const headerCheckboxRef = useRef<HTMLInputElement | null>(null);
 
   const resetUploadForm = useCallback(() => {
+    setUploadStep(1);
     setUploadTitle("");
     setUploadFile(null);
     setUploadVisibility("ALL");
     setUploadDepartmentId(departments[0]?.id ?? "");
     setUploadDescription("");
-    setUploadTagsRaw("");
+    setUploadTags([]);
+    setUploadTagInput("");
+    setTagSuggestions([]);
+    setUploadDragActive(false);
     setUploadErr(null);
     if (newDocFileInputRef.current) newDocFileInputRef.current.value = "";
   }, [departments]);
@@ -590,7 +624,7 @@ export default function AdminDocumentsClient() {
       if (tab === "archived") {
         params.set("libraryScope", "ARCHIVED");
       } else {
-        params.set("libraryScope", "ALL");
+      params.set("libraryScope", "ALL");
         if (tab === "all") {
           params.set("includeArchived", "1");
         }
@@ -661,8 +695,8 @@ export default function AdminDocumentsClient() {
       setPanelDetail(null);
       setPanelError(null);
       setPanelLoading(false);
-      return;
-    }
+        return;
+      }
     void loadPanelDetail(selectedDocId);
   }, [selectedDocId, loadPanelDetail]);
 
@@ -682,6 +716,30 @@ export default function AdminDocumentsClient() {
     if (uploadDepartmentId) return;
     if (departments[0]) setUploadDepartmentId(departments[0].id);
   }, [uploadModalOpen, uploadVisibility, uploadDepartmentId, departments]);
+
+  useEffect(() => {
+    if (!uploadModalOpen || uploadStep !== 3) {
+      setTagSuggestions([]);
+      return;
+    }
+    const q = uploadTagInput.trim();
+    const handle = setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await fetchWithAuth(
+            `${API}/documents/tags/suggestions?q=${encodeURIComponent(q)}`,
+          );
+          if (!res.ok) return;
+          const body = (await res.json()) as { tags?: string[] };
+          const list = body.tags ?? [];
+          setTagSuggestions(list.filter((x) => !uploadTags.includes(x)).slice(0, 16));
+    } catch {
+          setTagSuggestions([]);
+        }
+      })();
+    }, 220);
+    return () => clearTimeout(handle);
+  }, [uploadModalOpen, uploadStep, uploadTagInput, uploadTags]);
 
   useLayoutEffect(() => {
     if (!openMenuId) {
@@ -989,10 +1047,8 @@ export default function AdminDocumentsClient() {
       if (uploadDescription.trim()) {
         fd.append("description", uploadDescription.trim());
       }
-      const tagParts = uploadTagsRaw.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
-      const tags = tagParts.map(normalizeUploadTag).filter((t): t is string => Boolean(t));
-      if (tags.length > 0) {
-        fd.append("tags", JSON.stringify(tags));
+      if (uploadTags.length > 0) {
+        fd.append("tags", JSON.stringify(uploadTags));
       }
       const res = await fetchWithAuth(`${API}/documents/upload`, { method: "POST", body: fd });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -1078,7 +1134,7 @@ export default function AdminDocumentsClient() {
   }
 
   if (authPhase === "load-error") {
-    return (
+  return (
       <main style={{ maxWidth: 560 }}>
         <h1>Document administration</h1>
         <p style={{ color: "var(--error)" }}>Could not verify access.</p>
@@ -1184,7 +1240,7 @@ export default function AdminDocumentsClient() {
                   </button>
                   <div className={u.toolbarSearch}>
                     <ToolbarIconSearch />
-                    <input
+          <input
                       type="search"
                       value={searchInput}
                       onChange={(e) => setSearchInput(e.target.value)}
@@ -1212,7 +1268,7 @@ export default function AdminDocumentsClient() {
                       </option>
                     ))}
                   </select>
-                </label>
+        </label>
                 <label className={styles.filterField}>
                   <span className={styles.filterLabel}>Visibility</span>
                   <select
@@ -1260,7 +1316,7 @@ export default function AdminDocumentsClient() {
                 </label>
                 <label className={styles.filterField}>
                   <span className={styles.filterLabel}>Tag</span>
-                  <input
+          <input
                     type="search"
                     className={styles.filterTagInput}
                     value={filterTag}
@@ -1268,7 +1324,7 @@ export default function AdminDocumentsClient() {
                     placeholder="Exact tag…"
                     aria-label="Filter by tag name"
                   />
-                </label>
+        </label>
                 <label className={styles.filterField}>
                   <span className={styles.filterLabel}>Sort</span>
                   <select
@@ -1317,8 +1373,8 @@ export default function AdminDocumentsClient() {
               {bulkErr ? (
                 <p role="alert" className={styles.tableFeedbackErr}>
                   {bulkErr}
-                </p>
-              ) : null}
+          </p>
+        ) : null}
               {bulkMsg ? (
                 <p role="status" className={styles.tableFeedbackOk}>
                   {bulkMsg}
@@ -1345,8 +1401,8 @@ export default function AdminDocumentsClient() {
                         />
                       </th>
                       <th scope="col">
-                        <button
-                          type="button"
+        <button
+          type="button"
                           className={styles.sortThBtn}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1356,7 +1412,7 @@ export default function AdminDocumentsClient() {
                         >
                           Document
                           {sort === "title_asc" ? " ↑" : sort === "title_desc" ? " ↓" : ""}
-                        </button>
+        </button>
                       </th>
                       <th scope="col">Tags</th>
                       <th scope="col">Department</th>
@@ -1581,137 +1637,310 @@ export default function AdminDocumentsClient() {
         </div>
 
         {uploadModalOpen ? (
-          <>
-            <button
-              type="button"
-              className={styles.uploadModalBackdrop}
-              aria-label="Close upload dialog"
-              onClick={() => {
-                setUploadModalOpen(false);
-                resetUploadForm();
-              }}
-            />
+          <div
+            className={styles.uploadModalBackdrop}
+            role="presentation"
+            onClick={() => !uploadBusy && (setUploadModalOpen(false), resetUploadForm())}
+          >
             <div
               role="dialog"
               aria-modal="true"
               aria-labelledby={uploadModalTitleId}
               className={styles.uploadModal}
+              onClick={(e) => e.stopPropagation()}
             >
               <div className={styles.uploadModalHeader}>
-                <h2 id={uploadModalTitleId} className={styles.uploadModalTitle}>
-                  New document
-                </h2>
+                <div>
+                  <h2 id={uploadModalTitleId} className={styles.uploadModalTitle}>
+                    Upload document
+                  </h2>
+                  <p className={styles.uploadModalSubtitle}>
+                    {uploadStep === 1
+                      ? "Choose a file, then add document details and tags."
+                      : uploadStep === 2
+                        ? "Set title and who can see this document."
+                        : "Add tags to help others find this document (optional)."}
+                  </p>
+                </div>
                 <button
                   type="button"
                   className={styles.uploadModalClose}
                   aria-label="Close"
-                  onClick={() => {
-                    setUploadModalOpen(false);
-                    resetUploadForm();
-                  }}
+                  onClick={() => !uploadBusy && (setUploadModalOpen(false), resetUploadForm())}
                 >
                   ×
                 </button>
               </div>
-              <form className={styles.uploadModalBody} onSubmit={(e) => void submitNewDocument(e)}>
-                {uploadErr ? (
-                  <p className={styles.uploadModalErr} role="alert">
-                    {uploadErr}
-                  </p>
-                ) : null}
-                <label className={styles.uploadModalField}>
-                  <span className={styles.uploadModalLabel}>Title</span>
-                  <input
-                    type="text"
-                    className={styles.uploadModalInput}
-                    value={uploadTitle}
-                    onChange={(e) => setUploadTitle(e.target.value)}
-                    autoComplete="off"
-                    required
+
+              <div className={docStyles.uploadStepper} aria-label="Upload progress">
+                <div className={docStyles.uploadStepperBadgeRow}>
+                  <div
+                    className={docStyles.uploadStepperTrack}
+          style={{
+                      background: `linear-gradient(to right, #3b6cff 0%, #3b6cff ${
+                        uploadStep === 1 ? 0 : uploadStep === 2 ? 50 : 100
+                      }%, #e2e8f0 ${uploadStep === 1 ? 0 : uploadStep === 2 ? 50 : 100}%, #e2e8f0 100%)`,
+                    }}
+                    aria-hidden
                   />
-                </label>
-                <label className={styles.uploadModalField}>
-                  <span className={styles.uploadModalLabel}>File</span>
-                  <input
-                    ref={newDocFileInputRef}
-                    type="file"
-                    className={styles.uploadModalFile}
-                    accept=".pdf,.doc,.docx,.txt,.html,.htm,.md,.csv,.xlsx,.xls,.pptx,.png,.jpg,.jpeg,.gif,.webp"
-                    onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
-                    required
-                  />
-                </label>
-                <label className={styles.uploadModalField}>
-                  <span className={styles.uploadModalLabel}>Visibility</span>
-                  <select
-                    className={styles.uploadModalInput}
-                    value={uploadVisibility}
-                    onChange={(e) => setUploadVisibility(e.target.value)}
-                  >
-                    <option value="ALL">All users</option>
-                    <option value="DEPARTMENT">Department</option>
-                    <option value="PRIVATE">Private</option>
-                  </select>
-                </label>
-                {uploadVisibility === "DEPARTMENT" ? (
-                  <label className={styles.uploadModalField}>
-                    <span className={styles.uploadModalLabel}>Department</span>
-                    <select
-                      className={styles.uploadModalInput}
-                      value={uploadDepartmentId}
-                      onChange={(e) => setUploadDepartmentId(e.target.value)}
-                      required
-                    >
-                      {departments.length === 0 ? (
-                        <option value="">Loading…</option>
-                      ) : (
-                        departments.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.name}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </label>
-                ) : null}
-                <label className={styles.uploadModalField}>
-                  <span className={styles.uploadModalLabel}>Description (optional)</span>
-                  <textarea
-                    className={styles.uploadModalTextarea}
-                    value={uploadDescription}
-                    onChange={(e) => setUploadDescription(e.target.value)}
-                    rows={3}
-                  />
-                </label>
-                <label className={styles.uploadModalField}>
-                  <span className={styles.uploadModalLabel}>Tags (optional, comma-separated)</span>
-                  <input
-                    type="text"
-                    className={styles.uploadModalInput}
-                    value={uploadTagsRaw}
-                    onChange={(e) => setUploadTagsRaw(e.target.value)}
-                    placeholder="design, guide"
-                  />
-                </label>
-                <div className={styles.uploadModalActions}>
-                  <button
-                    type="button"
-                    className={u.btnGhost}
-                    disabled={uploadBusy}
-                    onClick={() => {
-                      setUploadModalOpen(false);
-                      resetUploadForm();
+                  <div className={`${docStyles.uploadStepperBadgeSlot} ${uploadStep >= 1 ? docStyles.uploadStepperItemActive : ""}`}>
+                    <span className={docStyles.uploadStepperBadge}>1</span>
+                  </div>
+                  <div className={`${docStyles.uploadStepperBadgeSlot} ${uploadStep >= 2 ? docStyles.uploadStepperItemActive : ""}`}>
+                    <span className={docStyles.uploadStepperBadge}>2</span>
+                  </div>
+                  <div className={`${docStyles.uploadStepperBadgeSlot} ${uploadStep >= 3 ? docStyles.uploadStepperItemActive : ""}`}>
+                    <span className={docStyles.uploadStepperBadge}>3</span>
+                  </div>
+                </div>
+                <div className={docStyles.uploadStepperLabelRow}>
+                  <div className={`${docStyles.uploadStepperLabelCell} ${uploadStep >= 1 ? docStyles.uploadStepperItemActive : ""}`}>
+                    <span className={docStyles.uploadStepperLabel}>File</span>
+                  </div>
+                  <div className={`${docStyles.uploadStepperLabelCell} ${uploadStep >= 2 ? docStyles.uploadStepperItemActive : ""}`}>
+                    <span className={docStyles.uploadStepperLabel}>Details</span>
+                  </div>
+                  <div className={`${docStyles.uploadStepperLabelCell} ${uploadStep >= 3 ? docStyles.uploadStepperItemActive : ""}`}>
+                    <span className={docStyles.uploadStepperLabel}>Tags</span>
+                  </div>
+                </div>
+              </div>
+
+              {uploadStep === 1 ? (
+                <div className={styles.uploadModalBody}>
+                  <p className={docStyles.uploadStepIntro}>Drop a file here or browse. Office documents and PDFs are supported.</p>
+                  <div
+                    className={`${docStyles.uploadDropZone} ${uploadDragActive ? docStyles.uploadDropZoneActive : ""} ${uploadFile ? docStyles.uploadDropZoneHasFile : ""}`}
+                    onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setUploadDragActive(true); }}
+                    onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget as Node)) setUploadDragActive(false); }}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setUploadDragActive(false);
+                      const f = e.dataTransfer.files?.[0];
+                      if (f) setUploadFile(f);
                     }}
                   >
-                    Cancel
-                  </button>
-                  <button type="submit" className={u.btnPrimary} disabled={uploadBusy}>
-                    {uploadBusy ? "Uploading…" : "Upload"}
-                  </button>
+                    <input
+                      ref={newDocFileInputRef}
+                      id="admin-upload-file-input"
+                      type="file"
+                      className={docStyles.uploadFileInput}
+                      accept=".pdf,.doc,.docx,.txt,.html,.htm,.md,.csv,.xlsx,.xls,.pptx,.png,.jpg,.jpeg,.gif,.webp"
+                      onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                    />
+                    <label htmlFor="admin-upload-file-input" className={docStyles.uploadDropLabel}>
+                      <span className={docStyles.uploadDropIcon} aria-hidden>
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M12 16V4m0 0 4 4m-4-4L8 8" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" strokeLinecap="round" />
+                        </svg>
+                      </span>
+                      <span className={docStyles.uploadDropTitle}>{uploadFile ? "Replace file" : "Select or drop file"}</span>
+                      <span className={docStyles.uploadDropHint}>Click to browse your device</span>
+                    </label>
+                  </div>
+                  {uploadFile ? (
+                    <div className={docStyles.uploadFilePreview}>
+                      <div className={docStyles.uploadFilePreviewMain}>
+                        <span className={docStyles.uploadFilePreviewName}>{uploadFile.name}</span>
+                        <span className={docStyles.uploadFilePreviewMeta}>{formatSize(uploadFile.size)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className={docStyles.uploadFileRemove}
+                        onClick={() => { setUploadFile(null); if (newDocFileInputRef.current) newDocFileInputRef.current.value = ""; }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : null}
+                  {uploadErr ? <p role="alert" className={styles.uploadModalErr}>{uploadErr}</p> : null}
+                  <div className={styles.uploadModalActions}>
+                    <button type="button" className={u.btnGhost} disabled={uploadBusy} onClick={() => { setUploadModalOpen(false); resetUploadForm(); }}>
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className={u.btnPrimary}
+                      disabled={!uploadFile || uploadBusy}
+                      onClick={() => {
+                        if (!uploadFile) return;
+                        setUploadErr(null);
+                        if (!uploadTitle.trim()) {
+                          const stem = uploadFile.name.replace(/\.[^/.]+$/, "");
+                          setUploadTitle(stem.length > 0 ? stem : uploadFile.name);
+                        }
+                        setUploadStep(2);
+                      }}
+                    >
+                      Continue
+                    </button>
+                  </div>
                 </div>
-              </form>
+              ) : uploadStep === 2 ? (
+                <div className={styles.uploadModalBody}>
+                  <p className={docStyles.uploadStepIntro}>Document information stored with this file in the library.</p>
+                  <label className={styles.uploadModalField}>
+                    <span className={styles.uploadModalLabel}>Title</span>
+                    <input
+                      type="text"
+                      className={styles.uploadModalInput}
+                      value={uploadTitle}
+                      onChange={(e) => setUploadTitle(e.target.value)}
+                      autoComplete="off"
+                      placeholder="Document title"
+                      required
+                    />
+                  </label>
+                  <label className={styles.uploadModalField}>
+                    <span className={styles.uploadModalLabel}>Description (optional)</span>
+                    <textarea
+                      className={styles.uploadModalTextarea}
+                      value={uploadDescription}
+                      onChange={(e) => setUploadDescription(e.target.value)}
+                      rows={3}
+                      placeholder="Short summary or notes…"
+                    />
+                  </label>
+                  <label className={styles.uploadModalField}>
+                    <span className={styles.uploadModalLabel}>Visibility</span>
+                    <select
+                      className={styles.uploadModalInput}
+                      value={uploadVisibility}
+                      onChange={(e) => setUploadVisibility(e.target.value)}
+                    >
+                      <option value="ALL">Everyone (all users)</option>
+                      <option value="DEPARTMENT">Department only</option>
+                      <option value="PRIVATE">Private (only you)</option>
+                    </select>
+                  </label>
+                  {uploadVisibility === "DEPARTMENT" ? (
+                    <label className={styles.uploadModalField}>
+                      <span className={styles.uploadModalLabel}>Department</span>
+                      <select
+                        className={styles.uploadModalInput}
+                        value={uploadDepartmentId}
+                        onChange={(e) => setUploadDepartmentId(e.target.value)}
+                        required
+                      >
+                        {departments.length === 0 ? (
+                          <option value="">Loading…</option>
+                        ) : (
+                          departments.map((d) => (
+                            <option key={d.id} value={d.id}>{d.name}</option>
+                          ))
+                        )}
+                      </select>
+                    </label>
+                  ) : null}
+                  <div className={docStyles.uploadSummary}>
+                    <span className={docStyles.uploadSummaryLabel}>Attached file</span>
+                    <span className={docStyles.uploadSummaryValue}>{uploadFile?.name ?? "—"}</span>
+                  </div>
+                  {uploadErr ? <p role="alert" className={styles.uploadModalErr}>{uploadErr}</p> : null}
+                  <div className={styles.uploadModalActions}>
+                    <button type="button" className={u.btnGhost} disabled={uploadBusy} onClick={() => { setUploadStep(1); setUploadErr(null); }}>
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      className={u.btnPrimary}
+                      disabled={uploadBusy || !uploadTitle.trim()}
+                      onClick={() => {
+                        if (!uploadTitle.trim()) { setUploadErr("Enter a title."); return; }
+                        setUploadErr(null);
+                        setUploadStep(3);
+                      }}
+                    >
+                      Continue
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form className={styles.uploadModalBody} onSubmit={(e) => void submitNewDocument(e)}>
+                  <p className={docStyles.uploadStepIntro}>
+                    Type a tag and press Enter, or pick a suggestion. Lowercase letters, numbers, spaces, and{" "}
+                    <code className={docStyles.uploadTagCode}>._+-</code> only.
+                  </p>
+                  <div className={docStyles.uploadTagField}>
+                    <label htmlFor="admin-upload-tag-input" className={docStyles.uploadFieldLabel}>
+                      Tags ({uploadTags.length}/{MAX_UPLOAD_TAGS})
+                    </label>
+                    <div className={docStyles.uploadTagInputWrap}>
+                      {uploadTags.map((t) => (
+                        <span key={t} className={docStyles.uploadTagChip}>
+                          {t}
+                          <button
+                            type="button"
+                            className={docStyles.uploadTagChipRemove}
+                            onClick={() => setUploadTags((prev) => prev.filter((x) => x !== t))}
+                            aria-label={`Remove tag ${t}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        id="admin-upload-tag-input"
+                        type="text"
+                        className={docStyles.uploadTagTextInput}
+                        value={uploadTagInput}
+                        onChange={(e) => setUploadTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const n = normalizeUploadTag(uploadTagInput.replace(/,/g, " ").trim());
+                            setUploadTagInput("");
+                            if (!n) return;
+                            if (uploadTags.includes(n)) return;
+                            if (uploadTags.length >= MAX_UPLOAD_TAGS) return;
+                            setUploadTags((prev) => [...prev, n]);
+                          }
+                        }}
+                        placeholder={uploadTags.length >= MAX_UPLOAD_TAGS ? "Tag limit reached" : "Add tag…"}
+                        disabled={uploadTags.length >= MAX_UPLOAD_TAGS}
+                        autoComplete="off"
+                      />
+                    </div>
+                    {tagSuggestions.length > 0 ? (
+                      <ul className={docStyles.uploadTagSuggest} role="listbox" aria-label="Suggested tags">
+                        {tagSuggestions.map((s) => (
+                          <li key={s}>
+                            <button
+                              type="button"
+                              className={docStyles.uploadTagSuggestBtn}
+                              onClick={() => {
+                                if (uploadTags.includes(s) || uploadTags.length >= MAX_UPLOAD_TAGS) return;
+                                setUploadTags((prev) => [...prev, s]);
+                                setUploadTagInput("");
+                              }}
+                            >
+                              {s}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+        ) : null}
+                  </div>
+                  <div className={docStyles.uploadSummary}>
+                    <span className={docStyles.uploadSummaryLabel}>Title</span>
+                    <span className={docStyles.uploadSummaryValue}>{uploadTitle.trim() || "—"}</span>
+                  </div>
+                  {uploadErr ? <p role="alert" className={styles.uploadModalErr}>{uploadErr}</p> : null}
+                  <div className={styles.uploadModalActions}>
+                    <button type="button" className={u.btnGhost} disabled={uploadBusy} onClick={() => { setUploadStep(2); setUploadErr(null); }}>
+                      Back
+                    </button>
+                    <button type="submit" disabled={uploadBusy} className={u.btnPrimary}>
+                      {uploadBusy ? "Uploading…" : "Upload document"}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
-          </>
+          </div>
         ) : null}
 
         <Link
@@ -1892,7 +2121,7 @@ export default function AdminDocumentsClient() {
                               ))}
                             </ul>
                           </section>
-                        ) : null}
+        ) : null}
 
                         <section className={styles.panelBlock}>
                           <h4 className={styles.panelBlockTitle}>Action</h4>
@@ -1904,8 +2133,8 @@ export default function AdminDocumentsClient() {
                               <span className={styles.panelActionLabel}>Open</span>
                             </Link>
                             {latest ? (
-                              <button
-                                type="button"
+        <button
+          type="button"
                                 className={styles.panelActionItem}
                                 disabled={panelActionBusy}
                                 onClick={() => void downloadFile(doc.id, latest.id, latest.fileName)}
@@ -1941,7 +2170,18 @@ export default function AdminDocumentsClient() {
                                 <PanelIconLayers />
                               </span>
                               <span className={styles.panelActionLabel}>Versions</span>
-                            </button>
+        </button>
+                            <Link
+                              prefetch={false}
+                              href={`/documents/${doc.id}`}
+                              className={styles.panelActionItem}
+                              title="Open full document page (metadata, versions, tags)"
+                            >
+                              <span className={styles.panelActionIcon}>
+                                <PanelIconDetails />
+                              </span>
+                              <span className={styles.panelActionLabel}>Details</span>
+                            </Link>
                             {panelDetail.canManage && latest && latest.processingStatus === "FAILED" ? (
                               <button
                                 type="button"
@@ -1982,7 +2222,7 @@ export default function AdminDocumentsClient() {
                               </button>
                             ) : null}
                           </div>
-                        </section>
+      </section>
                       </div>
                     );
                   })()

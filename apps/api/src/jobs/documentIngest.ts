@@ -31,7 +31,7 @@ export async function enqueueDocumentIngest(documentVersionId: string): Promise<
       attempts: 3,
       backoff: { type: "exponential", delay: 8000 },
       removeOnComplete: 1000,
-      removeOnFail: false,
+      removeOnFail: { count: 500, age: 7 * 24 * 3600 },
     },
   );
 }
@@ -73,8 +73,6 @@ async function processIngest(job: Job<{ documentVersionId: string }>): Promise<v
   }
 
   await setVersionStatus(version.id, "PROCESSING", null, 0);
-
-  await prisma.documentChunk.deleteMany({ where: { documentVersionId: version.id } });
 
   try {
     await setProgress(version.id, 5);

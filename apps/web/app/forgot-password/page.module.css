@@ -1,3 +1,5 @@
+/* Forgot password — two-panel auth layout */
+
 .shell {
   width: 100%;
   min-height: 100dvh;
@@ -12,7 +14,7 @@
   grid-template-columns: 1.05fr 1fr;
   border: none;
   overflow: hidden;
-  background: var(--card-bg);
+  background: #fff;
 }
 
 .left {
@@ -39,7 +41,6 @@
 .brandMark {
   height: 32px;
   width: auto;
-  /* Dark logo asset → white on navy left panel (forgot-password only) */
   filter: brightness(0) invert(1);
 }
 
@@ -53,104 +54,138 @@
   max-width: 26rem;
   color: rgba(255, 255, 255, 0.86);
   font-size: 0.95rem;
-  line-height: 1.55;
+  line-height: 1.6;
   margin: 0;
 }
 
 .attribution {
   margin-top: 0.75rem;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.875rem;
 }
 
 .right {
-  padding: 1.75rem;
+  padding: 2rem;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  background: #fff;
 }
 
 .card {
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
   margin: 0 auto;
 }
 
 .title {
   margin: 0;
-  font-size: 1.35rem;
-  font-weight: 650;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text);
 }
 
 .subtitle {
-  margin: 0.5rem 0 0;
-  color: var(--muted);
-  font-size: 0.95rem;
-  line-height: 1.45;
+  margin: 0.4rem 0 0;
+  color: #94a3b8;
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 .status {
   margin: 1rem 0 0;
-  color: var(--success);
-  font-size: 0.9rem;
+  color: #16a34a;
+  font-size: 0.875rem;
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
-  padding: 0.6rem 0.7rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  line-height: 1.4;
 }
 
 .form {
-  margin-top: 1rem;
+  margin-top: 1.25rem;
   display: grid;
-  gap: 0.8rem;
+  gap: 1rem;
 }
 
 .label {
   display: grid;
-  gap: 6px;
-  font-size: 0.92rem;
+  gap: 0.3rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
 }
 
 .input {
-  padding: 0.6rem 0.7rem;
-  border: 1px solid var(--border);
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
   background: #fff;
   color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .input:focus {
-  outline: 2px solid rgba(0, 107, 166, 0.28);
-  outline-offset: 2px;
+  outline: none;
+  border-color: var(--interactive, #006ba6);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive, #006ba6) 12%, transparent);
+}
+
+.input::placeholder {
+  color: #cbd5e1;
 }
 
 .error {
   margin: 0;
   color: var(--error);
-  font-size: 0.92rem;
+  font-size: 0.875rem;
 }
 
 .primary {
   padding: 0.65rem 1rem;
+  border-radius: 8px;
   border: none;
-  background: var(--text);
+  background: #1e293b;
   color: #fff;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.primary:hover:not(:disabled) {
+  background: #334155;
 }
 
 .primary:disabled {
-  opacity: 0.7;
+  opacity: 0.6;
   cursor: wait;
 }
 
 .footerLink {
-  margin-top: 1rem;
-  font-size: 0.9rem;
+  margin-top: 1.25rem;
+  font-size: 0.875rem;
+}
+
+.footerLink a {
+  color: var(--interactive, #006ba6);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.footerLink a:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 880px) {
   .frame {
     grid-template-columns: 1fr;
   }
-
   .left,
   .right {
     padding: 1.5rem;
@@ -161,16 +196,13 @@
   .shell {
     min-height: 100dvh;
   }
-
   .left,
   .right {
     padding: 1.1rem;
   }
-
   .card {
     max-width: 100%;
   }
-
   .frame {
     min-height: 100dvh;
   }

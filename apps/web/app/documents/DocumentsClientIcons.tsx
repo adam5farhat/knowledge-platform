@@ -248,3 +248,32 @@ export function ActionIconArchive() {
     </svg>
   );
 }
+
+/** Stacked layers — version history / archive (matches admin document panel). */
+export function ActionIconLayers() {
+  return (
+    <svg className={styles.actionIconSvg} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.84l8.57 3.91a2 2 0 0 0 1.66 0l8.57-3.9a1 1 0 0 0 0-1.84Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2 12.5a1 1 0 0 0 .52.88l8.57 4.91a2 2 0 0 0 1.82 0l8.57-4.9A1 1 0 0 0 22 12.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2 17.5a1 1 0 0 0 .52.88l8.57 4.91a2 2 0 0 0 1.82 0l8.57-4.9A1 1 0 0 0 22 17.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

@@ -31,6 +31,7 @@
     "express-async-errors": "^3.1.1",
     "express-rate-limit": "^7.5.0",
     "fast-xml-parser": "^5.5.9",
+    "helmet": "^8.1.0",
     "html-to-text": "^9.0.5",
     "ioredis": "^5.4.2",
     "jsonwebtoken": "^9.0.2",

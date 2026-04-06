@@ -1,13 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ProfileAvatarImage } from "@/components/ProfileAvatarImage";
 import { ProfilePhotoModal } from "@/components/ProfilePhotoModal";
 import { profilePictureDisplayUrl } from "@/lib/profilePicture";
 import { fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
-import type { UserRestrictionsDto } from "../../../lib/restrictions";
+import {
+  DepartmentAccessLevelApi,
+  type DepartmentAccessLevelApiValue,
+  RoleNameApi,
+  type UserRestrictionsDto,
+} from "../../../lib/restrictions";
 import { AdminChromeHeader } from "../AdminChromeHeader";
 import { useAdminGuard } from "../useAdminGuard";
 import { AdminHubGlyph, type AdminHubGlyphType } from "../AdminHubIcons";
@@ -157,6 +163,13 @@ type AdminUserRow = {
   mustChangePassword?: boolean;
   lastLoginAt: string | null;
   deletedAt: string | null;
+  departmentAccess?: DeptAccessRow[];
+};
+
+type DeptAccessRow = {
+  departmentId: string;
+  departmentName: string;
+  accessLevel: DepartmentAccessLevelApiValue;
 };
 
 const DEFAULT_RESTRICTIONS: UserRestrictionsDto = {
@@ -249,7 +262,7 @@ export default function AdminUsersClient() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [roleName, setRoleName] = useState("EMPLOYEE");
+  const [roleName, setRoleName] = useState<string>(RoleNameApi.EMPLOYEE);
   const [departmentId, setDepartmentId] = useState("");
   const [employeeBadgeNumber, setEmployeeBadgeNumber] = useState("");
   const [position, setPosition] = useState("");
@@ -258,9 +271,16 @@ export default function AdminUsersClient() {
   const [loading, setLoading] = useState(false);
 
   const filterWrapRef = useRef<HTMLDivElement | null>(null);
+  const filterToggleRef = useRef<HTMLButtonElement | null>(null);
   const headerCheckboxRef = useRef<HTMLInputElement | null>(null);
   const rowMenuBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filterPopoverPlacement, setFilterPopoverPlacement] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [rowMenuUserId, setRowMenuUserId] = useState<string | null>(null);
   const [rowMenuBox, setRowMenuBox] = useState<{ top: number; left: number } | null>(null);
@@ -278,6 +298,13 @@ export default function AdminUsersClient() {
   const [panelPhotoUrlDraft, setPanelPhotoUrlDraft] = useState("");
   const [editPhotoModalOpen, setEditPhotoModalOpen] = useState(false);
   const [editPhotoUrlDraft, setEditPhotoUrlDraft] = useState("");
+
+  const [panelDeptAccess, setPanelDeptAccess] = useState<DeptAccessRow[]>([]);
+  const [deptAccessBusy, setDeptAccessBusy] = useState(false);
+  const [deptAccessAddDeptId, setDeptAccessAddDeptId] = useState("");
+  const [deptAccessAddLevel, setDeptAccessAddLevel] = useState<DepartmentAccessLevelApiValue>(
+    DepartmentAccessLevelApi.VIEWER,
+  );
 
   const bumpUserProfilePicture = useCallback((userId: string, url: string | null) => {
     setDirectoryUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, profilePictureUrl: url } : u)));
@@ -301,7 +328,25 @@ export default function AdminUsersClient() {
   }, [authPhase, guardSession]);
 
   useEffect(() => {
-    if (!panelUser) setPanelPhotoModalOpen(false);
+    if (!panelUser) {
+      setPanelPhotoModalOpen(false);
+      setPanelDeptAccess([]);
+      return;
+    }
+    if (panelUser.departmentAccess) {
+      setPanelDeptAccess(panelUser.departmentAccess);
+    } else {
+      let cancelled = false;
+      void (async () => {
+        try {
+          const r = await fetchWithAuth(`${API}/admin/users/${panelUser.id}/department-access`);
+          if (!r.ok || cancelled) return;
+          const data = (await r.json()) as DeptAccessRow[];
+          if (!cancelled) setPanelDeptAccess(Array.isArray(data) ? data : []);
+        } catch { /* ignore */ }
+      })();
+      return () => { cancelled = true; };
+    }
   }, [panelUser]);
 
   useEffect(() => {
@@ -356,6 +401,50 @@ export default function AdminUsersClient() {
       window.removeEventListener("resize", updatePosition);
     };
   }, [rowMenuUserId]);
+
+  useLayoutEffect(() => {
+    if (!filtersOpen) {
+      setFilterPopoverPlacement(null);
+      return;
+    }
+    function updateFilterPopover() {
+      const btn = filterToggleRef.current;
+      if (!btn) {
+        setFilterPopoverPlacement(null);
+        return;
+      }
+      const rect = btn.getBoundingClientRect();
+      const width =
+        window.innerWidth < 520
+          ? Math.min(340, Math.max(260, window.innerWidth - 16))
+          : Math.min(560, Math.max(480, window.innerWidth - 24));
+      const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
+      const gap = 6;
+      const minH = 200;
+      const belowSpace = window.innerHeight - rect.bottom - 10;
+      const aboveSpace = rect.top - 10;
+      /** Prefer opening below; flip above when the toolbar is low and there is more room above (avoids cramped panels). */
+      const openUp =
+        belowSpace < minH + 100 && aboveSpace > belowSpace && aboveSpace >= minH + 40;
+      let top: number;
+      let maxHeight: number;
+      if (openUp) {
+        maxHeight = Math.max(minH, Math.min(aboveSpace - gap, window.innerHeight * 0.88));
+        top = Math.max(8, rect.top - gap - maxHeight);
+      } else {
+        top = rect.bottom + gap;
+        maxHeight = Math.max(minH, window.innerHeight - top - 10);
+      }
+      setFilterPopoverPlacement({ top, left, width, maxHeight });
+    }
+    updateFilterPopover();
+    window.addEventListener("scroll", updateFilterPopover, true);
+    window.addEventListener("resize", updateFilterPopover);
+    return () => {
+      window.removeEventListener("scroll", updateFilterPopover, true);
+      window.removeEventListener("resize", updateFilterPopover);
+    };
+  }, [filtersOpen]);
 
   const loadDirectory = useCallback(async () => {
     setDirectoryError(null);
@@ -510,7 +599,7 @@ export default function AdminUsersClient() {
     }
     setSubmitError(null);
     setSuccess(null);
-    if (roleName === "EMPLOYEE" && !employeeBadgeNumber.trim()) {
+    if (roleName === RoleNameApi.EMPLOYEE && !employeeBadgeNumber.trim()) {
       setSubmitError("Employee badge is required when role is EMPLOYEE.");
       return;
     }
@@ -659,6 +748,80 @@ export default function AdminUsersClient() {
       window.alert("Could not reach the API.");
     } finally {
       setPillBusy(null);
+    }
+  }
+
+  async function addDeptAccess() {
+    if (!panelUser || !deptAccessAddDeptId) return;
+    setDeptAccessBusy(true);
+    try {
+      const res = await fetchWithAuth(`${API}/admin/users/${panelUser.id}/department-access`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ departmentId: deptAccessAddDeptId, accessLevel: deptAccessAddLevel }),
+      });
+      const data = (await res.json().catch(() => ({}))) as DeptAccessRow & { error?: string };
+      if (!res.ok) {
+        window.alert(data.error ?? "Failed to add access.");
+        return;
+      }
+      if (data.departmentId) {
+        setPanelDeptAccess((prev) => {
+          const next = prev.filter((r) => r.departmentId !== data.departmentId);
+          next.push({ departmentId: data.departmentId, departmentName: data.departmentName, accessLevel: data.accessLevel });
+          return next.sort((a, b) => a.departmentName.localeCompare(b.departmentName));
+        });
+      }
+      setDeptAccessAddDeptId("");
+    } catch {
+      window.alert("Could not reach the API.");
+    } finally {
+      setDeptAccessBusy(false);
+    }
+  }
+
+  async function removeDeptAccess(departmentId: string) {
+    if (!panelUser) return;
+    setDeptAccessBusy(true);
+    try {
+      const res = await fetchWithAuth(
+        `${API}/admin/users/${panelUser.id}/department-access/${departmentId}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        window.alert(data.error ?? "Failed to remove access.");
+        return;
+      }
+      setPanelDeptAccess((prev) => prev.filter((r) => r.departmentId !== departmentId));
+    } catch {
+      window.alert("Could not reach the API.");
+    } finally {
+      setDeptAccessBusy(false);
+    }
+  }
+
+  async function changeDeptAccessLevel(departmentId: string, level: DepartmentAccessLevelApiValue) {
+    if (!panelUser) return;
+    setDeptAccessBusy(true);
+    try {
+      const res = await fetchWithAuth(`${API}/admin/users/${panelUser.id}/department-access`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ departmentId, accessLevel: level }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        window.alert(data.error ?? "Failed to update access.");
+        return;
+      }
+      setPanelDeptAccess((prev) =>
+        prev.map((r) => (r.departmentId === departmentId ? { ...r, accessLevel: level } : r)),
+      );
+    } catch {
+      window.alert("Could not reach the API.");
+    } finally {
+      setDeptAccessBusy(false);
     }
   }
 
@@ -949,6 +1112,7 @@ export default function AdminUsersClient() {
     function onDocMouseDown(e: MouseEvent) {
       const el = e.target as HTMLElement | null;
       if (filterWrapRef.current?.contains(el as Node)) return;
+      if (el?.closest("[data-admin-users-filter-popover]")) return;
       if (el?.closest("[data-admin-users-row-menu]")) return;
       setFiltersOpen(false);
       setRowMenuUserId(null);
@@ -1189,6 +1353,7 @@ export default function AdminUsersClient() {
               <div className={styles.filterWrap} ref={filterWrapRef}>
                 <button
                   type="button"
+                  ref={filterToggleRef}
                   className={styles.filterToggle}
                   aria-expanded={filtersOpen}
                   aria-haspopup="true"
@@ -1198,119 +1363,137 @@ export default function AdminUsersClient() {
                   <IconFilter />
                   <span>Filter</span>
                 </button>
-                {filtersOpen ? (
-                  <div className={styles.filterPopover} role="group" aria-label="Table filters">
-                    <label>
-                      Department
-                      <select
-                        value={filterDepartmentId}
-                        onChange={(e) => setFilterDepartmentId(e.target.value)}
+                {filtersOpen && filterPopoverPlacement
+                  ? createPortal(
+                      <div
+                        className={styles.filterPopoverFixed}
+                        data-admin-users-filter-popover
+                        role="group"
+                        aria-label="Table filters"
+                        style={{
+                          top: filterPopoverPlacement.top,
+                          left: filterPopoverPlacement.left,
+                          width: filterPopoverPlacement.width,
+                          maxHeight: filterPopoverPlacement.maxHeight,
+                        }}
                       >
-                        <option value="">All departments</option>
-                        {departments.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      Role
-                      <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
-                        <option value="">All roles</option>
-                        {roles.map((r) => (
-                          <option key={r.id} value={r.name}>
-                            {r.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      Status
-                      <select value={filterActive} onChange={(e) => setFilterActive(e.target.value)}>
-                        <option value="">Active + inactive</option>
-                        <option value="true">Active only</option>
-                        <option value="false">Inactive only</option>
-                      </select>
-                    </label>
-                    <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <input
-                        type="checkbox"
-                        checked={filterIncludeDeleted}
-                        onChange={(e) => setFilterIncludeDeleted(e.target.checked)}
-                      />
-                      <span>Show archived users</span>
-                    </label>
-                    <label>
-                      Login access
-                      <select value={filterLoginAllowed} onChange={(e) => setFilterLoginAllowed(e.target.value as TriBoolFilter)}>
-                        <option value="">Any</option>
-                        <option value="true">Sign-in allowed</option>
-                        <option value="false">Sign-in disabled</option>
-                      </select>
-                    </label>
-                    <label>
-                      Document access
-                      <select
-                        value={filterAccessDocuments}
-                        onChange={(e) => setFilterAccessDocuments(e.target.value as TriBoolFilter)}
-                      >
-                        <option value="">Any</option>
-                        <option value="true">Documents allowed</option>
-                        <option value="false">Documents blocked</option>
-                      </select>
-                    </label>
-                    <label>
-                      Manage documents
-                      <select
-                        value={filterManageDocuments}
-                        onChange={(e) => setFilterManageDocuments(e.target.value as TriBoolFilter)}
-                      >
-                        <option value="">Any</option>
-                        <option value="true">Allowed</option>
-                        <option value="false">Blocked</option>
-                      </select>
-                    </label>
-                    <label>
-                      Dashboard access
-                      <select
-                        value={filterAccessDashboard}
-                        onChange={(e) => setFilterAccessDashboard(e.target.value as TriBoolFilter)}
-                      >
-                        <option value="">Any</option>
-                        <option value="true">Allowed</option>
-                        <option value="false">Blocked</option>
-                      </select>
-                    </label>
-                    <label>
-                      AI queries
-                      <select value={filterUseAi} onChange={(e) => setFilterUseAi(e.target.value as TriBoolFilter)}>
-                        <option value="">Any</option>
-                        <option value="true">Allowed</option>
-                        <option value="false">Blocked</option>
-                      </select>
-                    </label>
-                    <label>
-                      Password change required
-                      <select
-                        value={filterMustChangePassword}
-                        onChange={(e) => setFilterMustChangePassword(e.target.value as TriBoolFilter)}
-                      >
-                        <option value="">Any</option>
-                        <option value="true">Must change password</option>
-                        <option value="false">Not forced</option>
-                      </select>
-                    </label>
-                    <button
-                      type="button"
-                      className={styles.btnGhost}
-                      style={{ justifySelf: "start" }}
-                      onClick={() => void loadDirectory()}
-                    >
-                      Refresh data
-                    </button>
-                  </div>
-                ) : null}
+                        <div className={styles.filterPopoverGrid}>
+                          <label>
+                            Department
+                            <select
+                              value={filterDepartmentId}
+                              onChange={(e) => setFilterDepartmentId(e.target.value)}
+                            >
+                              <option value="">All departments</option>
+                              {departments.map((d) => (
+                                <option key={d.id} value={d.id}>
+                                  {d.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label>
+                            Role
+                            <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
+                              <option value="">All roles</option>
+                              {roles.map((r) => (
+                                <option key={r.id} value={r.name}>
+                                  {r.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label>
+                            Status
+                            <select value={filterActive} onChange={(e) => setFilterActive(e.target.value)}>
+                              <option value="">Active + inactive</option>
+                              <option value="true">Active only</option>
+                              <option value="false">Inactive only</option>
+                            </select>
+                          </label>
+                          <label>
+                            Login access
+                            <select
+                              value={filterLoginAllowed}
+                              onChange={(e) => setFilterLoginAllowed(e.target.value as TriBoolFilter)}
+                            >
+                              <option value="">Any</option>
+                              <option value="true">Sign-in allowed</option>
+                              <option value="false">Sign-in disabled</option>
+                            </select>
+                          </label>
+                          <label>
+                            Document access
+                            <select
+                              value={filterAccessDocuments}
+                              onChange={(e) => setFilterAccessDocuments(e.target.value as TriBoolFilter)}
+                            >
+                              <option value="">Any</option>
+                              <option value="true">Documents allowed</option>
+                              <option value="false">Documents blocked</option>
+                            </select>
+                          </label>
+                          <label>
+                            Manage documents
+                            <select
+                              value={filterManageDocuments}
+                              onChange={(e) => setFilterManageDocuments(e.target.value as TriBoolFilter)}
+                            >
+                              <option value="">Any</option>
+                              <option value="true">Allowed</option>
+                              <option value="false">Blocked</option>
+                            </select>
+                          </label>
+                          <label>
+                            Dashboard access
+                            <select
+                              value={filterAccessDashboard}
+                              onChange={(e) => setFilterAccessDashboard(e.target.value as TriBoolFilter)}
+                            >
+                              <option value="">Any</option>
+                              <option value="true">Allowed</option>
+                              <option value="false">Blocked</option>
+                            </select>
+                          </label>
+                          <label>
+                            AI queries
+                            <select value={filterUseAi} onChange={(e) => setFilterUseAi(e.target.value as TriBoolFilter)}>
+                              <option value="">Any</option>
+                              <option value="true">Allowed</option>
+                              <option value="false">Blocked</option>
+                            </select>
+                          </label>
+                          <label>
+                            Password change required
+                            <select
+                              value={filterMustChangePassword}
+                              onChange={(e) => setFilterMustChangePassword(e.target.value as TriBoolFilter)}
+                            >
+                              <option value="">Any</option>
+                              <option value="true">Must change password</option>
+                              <option value="false">Not forced</option>
+                            </select>
+                          </label>
+                          <label className={styles.filterPopoverFullRow}>
+                            <span className={styles.filterPopoverCheckbox}>
+                              <input
+                                type="checkbox"
+                                checked={filterIncludeDeleted}
+                                onChange={(e) => setFilterIncludeDeleted(e.target.checked)}
+                              />
+                              <span>Show archived users</span>
+                            </span>
+                          </label>
+                          <div className={styles.filterPopoverFullRow}>
+                            <button type="button" className={styles.btnGhost} onClick={() => void loadDirectory()}>
+                              Refresh data
+                            </button>
+                          </div>
+                        </div>
+                      </div>,
+                      document.body,
+                    )
+                  : null}
               </div>
               <button type="button" className={styles.iconButton} title="Export CSV" onClick={() => exportCsv()}>
                 <IconExport />
@@ -1819,6 +2002,100 @@ export default function AdminUsersClient() {
                 )}
               </div>
 
+              <div className={styles.restrictionSection}>
+                <h4 className={styles.restrictionSectionTitle}>Department access</h4>
+                <p style={{ margin: "0 0 0.75rem", fontSize: "0.8rem", lineHeight: 1.45, color: "#71717a" }}>
+                  Assign which departments this user can access or manage. Inherited access from parent departments is automatic.
+                </p>
+                {panelDeptAccess.length > 0 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginBottom: "0.75rem" }}>
+                    {panelDeptAccess.map((da) => (
+                      <div
+                        key={da.departmentId}
+                        style={{
+                          display: "flex", alignItems: "center", gap: "0.5rem",
+                          padding: "0.45rem 0.7rem", background: "#f9fafb", borderRadius: 8,
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        <span style={{ flex: 1, fontWeight: 500 }}>{da.departmentName}</span>
+                        <select
+                          value={da.accessLevel}
+                          disabled={deptAccessBusy}
+                          onChange={(e) =>
+                            void changeDeptAccessLevel(da.departmentId, e.target.value as DepartmentAccessLevelApiValue)
+                          }
+                          style={{
+                            padding: "0.2rem 0.4rem", borderRadius: 6, border: "1px solid #e4e4e7",
+                            fontSize: "0.8rem", background: "#fff", cursor: "pointer",
+                          }}
+                        >
+                          <option value={DepartmentAccessLevelApi.MEMBER}>Member</option>
+                          <option value={DepartmentAccessLevelApi.MANAGER}>Manager</option>
+                          <option value={DepartmentAccessLevelApi.VIEWER}>Viewer</option>
+                        </select>
+                        <button
+                          type="button"
+                          disabled={deptAccessBusy}
+                          onClick={() => void removeDeptAccess(da.departmentId)}
+                          style={{
+                            background: "none", border: "none", color: "#ef4444", cursor: "pointer",
+                            fontSize: "0.8rem", fontWeight: 600, padding: "0.15rem 0.3rem", borderRadius: 4,
+                          }}
+                          title="Remove access"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ margin: "0 0 0.75rem", fontSize: "0.84rem", color: "#a1a1aa" }}>
+                    No department access assigned yet.
+                  </p>
+                )}
+                <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}>
+                  <select
+                    value={deptAccessAddDeptId}
+                    onChange={(e) => setDeptAccessAddDeptId(e.target.value)}
+                    disabled={deptAccessBusy}
+                    style={{
+                      flex: "1 1 120px", padding: "0.35rem 0.5rem", borderRadius: 8,
+                      border: "1px solid #e4e4e7", fontSize: "0.84rem", minWidth: 0,
+                    }}
+                  >
+                    <option value="">Add department…</option>
+                    {departments
+                      .filter((d) => !panelDeptAccess.some((a) => a.departmentId === d.id))
+                      .map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                  </select>
+                  <select
+                    value={deptAccessAddLevel}
+                    onChange={(e) => setDeptAccessAddLevel(e.target.value as "MEMBER" | "MANAGER" | "VIEWER")}
+                    disabled={deptAccessBusy}
+                    style={{
+                      padding: "0.35rem 0.5rem", borderRadius: 8,
+                      border: "1px solid #e4e4e7", fontSize: "0.84rem",
+                    }}
+                  >
+                    <option value="MEMBER">Member</option>
+                    <option value="MANAGER">Manager</option>
+                    <option value="VIEWER">Viewer</option>
+                  </select>
+                  <button
+                    type="button"
+                    className={styles.restrictionResetBtn}
+                    disabled={deptAccessBusy || !deptAccessAddDeptId}
+                    onClick={() => void addDeptAccess()}
+                    style={{ margin: 0, padding: "0.35rem 0.75rem" }}
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+
               <ul className={styles.profileMenu} role="list">
                 {panelUser.id !== sessionUser.id ? (
                   <li>
@@ -1976,11 +2253,13 @@ export default function AdminUsersClient() {
                 </p>
               </label>
               <label>
-                <span>Employee badge {roleName === "EMPLOYEE" ? "(required for EMPLOYEE)" : "(optional)"}</span>
+                <span>
+                  Employee badge {roleName === RoleNameApi.EMPLOYEE ? "(required for EMPLOYEE)" : "(optional)"}
+                </span>
                 <input
                   value={employeeBadgeNumber}
                   onChange={(e) => setEmployeeBadgeNumber(e.target.value)}
-                  required={roleName === "EMPLOYEE"}
+                  required={roleName === RoleNameApi.EMPLOYEE}
                 />
               </label>
               <label>

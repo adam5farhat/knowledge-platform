@@ -22,6 +22,9 @@ if (!fs.existsSync(path.join(webDir, "package.json"))) {
 
 console.error(`[kp dev-web] cwd=${webDir}`);
 console.error(
+  `[kp dev-web] First visit to localhost can show a long tab spinner while Next compiles / and downloads chunks — often 10–30s on a cold start. If it never finishes, run "npm run dev:clean" and ensure only one process uses WEB_PORT (default 3000).`,
+);
+console.error(
   `[kp dev-web] If console shows "RSC payload … dev … client … production" or prefetch errors: you have PRODUCTION _next chunks cached while on DEV. Fix: stop "next start", run only "npm run dev", then Chrome → DevTools → Application → Clear site data for localhost (or use a private window), then hard-refresh.`,
 );
 console.error(

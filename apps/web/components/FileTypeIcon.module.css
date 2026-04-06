@@ -9,7 +9,7 @@
 .fileTypeIcon {
   width: 46px;
   height: 56px;
-  border-radius: 0;
+  border-radius: 4px;
   border: 1px solid #d6d9df;
   background: transparent;
   display: flex;

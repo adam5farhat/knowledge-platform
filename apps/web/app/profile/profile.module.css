@@ -1,10 +1,10 @@
-/* Profile settings — two-column layout aligned with platform tokens */
+/* Profile settings — matches platform design tokens */
 
 .shell {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
+  background: #f8f9fb;
 }
 
 .headerSpacer {
@@ -13,8 +13,8 @@
 
 .content {
   flex: 1;
-  padding: 1rem 1.25rem 2.5rem;
-  max-width: 1120px;
+  padding: 1.75rem 2.5rem 3rem;
+  max-width: 1200px;
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
@@ -29,54 +29,69 @@
 }
 
 .pageSub {
-  margin: 0 0 1.25rem;
+  margin: 0 0 1.5rem;
   font-size: 0.875rem;
   color: var(--muted);
   line-height: 1.5;
 }
 
 .banner {
-  margin: 0 0 1.25rem;
-  padding: 0.75rem 1rem;
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 1.1rem;
   background: #fffbeb;
   border: 1px solid #fcd34d;
   color: #92400e;
   font-size: 0.875rem;
   line-height: 1.45;
-  border-radius: 0;
+  border-radius: 10px;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
-  gap: 1.75rem 2.25rem;
-  align-items: start;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: stretch;
 }
 
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;
   }
+  .content {
+    padding: 1.25rem 1rem 2rem;
+  }
 }
 
+/* ── Left column: account management ── */
+
 .leftCol {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 0;
-  padding: 1.35rem 1.25rem 1.5rem;
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.5rem 1.35rem 1.75rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+}
+
+.leftTitle {
+  margin: 0 0 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
 }
 
 .photoPreview {
   position: relative;
-  width: 100%;
-  aspect-ratio: 1;
-  max-width: 220px;
-  margin: 0 auto 0.85rem;
-  border: 1px solid var(--border);
+  width: 160px;
+  height: 160px;
+  margin: 0 auto 1rem;
+  border: 3px solid #e2e8f0;
   border-radius: 50%;
   overflow: hidden;
-  background: color-mix(in srgb, var(--card-bg) 88%, var(--border) 12%);
+  background: #f1f5f9;
 }
 
 .photoPreviewImg {
@@ -95,11 +110,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: clamp(1.5rem, 6vw, 2.25rem);
+  font-size: 2.25rem;
   font-weight: 700;
   letter-spacing: -0.04em;
-  color: var(--muted);
-  background: linear-gradient(160deg, #fafafa 0%, #e4e4e7 100%);
+  color: #94a3b8;
+  background: linear-gradient(160deg, #f8fafc 0%, #e2e8f0 100%);
   border-radius: 50%;
 }
 
@@ -107,75 +122,79 @@
   font: inherit;
   font-size: 0.875rem;
   font-weight: 600;
-  width: 100%;
-  padding: 0.6rem 1rem;
-  border-radius: 0;
-  border: 1px solid var(--border);
-  background: var(--card-bg);
-  color: var(--text);
+  display: block;
+  margin: 0 auto;
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: var(--interactive);
   cursor: pointer;
-  transition:
-    border-color 0.15s ease,
-    background-color 0.15s ease,
-    color 0.15s ease;
+  transition: all 0.15s ease;
 }
 
 .photoModalTrigger:hover {
-  border-color: color-mix(in srgb, var(--interactive) 45%, var(--border));
-  color: var(--interactive);
-  background: color-mix(in srgb, var(--card-bg) 94%, var(--interactive) 6%);
+  border-color: var(--interactive);
+  background: color-mix(in srgb, var(--interactive) 6%, #fff);
 }
 
 .photoHint {
-  margin: 0.5rem 0 0;
-  font-size: 0.72rem;
-  line-height: 1.45;
-  color: var(--muted);
+  margin: 0.45rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #b0b8c9;
   text-align: center;
 }
 
-.leftTitle {
-  margin: 0 0 1rem;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text);
-}
-
 .divider {
-  margin: 1.35rem 0 1.15rem;
+  margin: 1.25rem 0;
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid #f1f5f9;
 }
 
 .sideSectionTitle {
-  margin: 0 0 0.85rem;
-  font-size: 0.78rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: #94a3b8;
 }
 
+.leftCol .formSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+/* ── Right column: profile info + contact ── */
+
 .rightCol {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 0;
-  padding: 1.35rem 1.35rem 1.6rem;
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.75rem 1.75rem 1.75rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .formSection {
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .formSection:last-of-type {
   margin-bottom: 1rem;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .sectionHeading {
   margin: 0 0 1rem;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 650;
   letter-spacing: -0.02em;
   color: var(--text);
@@ -196,7 +215,7 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.3rem;
   min-width: 0;
 }
 
@@ -207,43 +226,42 @@
 .label {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: color-mix(in srgb, var(--text) 88%, var(--muted) 12%);
+  color: #475569;
 }
 
 .optional {
-  font-weight: 500;
-  color: var(--muted);
+  font-weight: 450;
+  color: #94a3b8;
 }
 
 .input {
-  padding: 0.55rem 0.7rem;
-  border-radius: 0;
-  border: 1px solid var(--border);
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
   font: inherit;
   font-size: 0.9rem;
   color: var(--text);
-  background: color-mix(in srgb, var(--card-bg) 94%, var(--border) 6%);
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .input:focus {
   outline: none;
-  border-color: color-mix(in srgb, var(--interactive) 55%, var(--border));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive) 18%, transparent);
+  border-color: var(--interactive);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive) 12%, transparent);
 }
 
 .input:disabled,
 .inputReadonly {
-  opacity: 0.85;
+  opacity: 0.8;
   cursor: not-allowed;
-  background: color-mix(in srgb, var(--bg) 65%, var(--card-bg) 35%);
+  background: #f8fafc;
+  color: #64748b;
 }
 
 .hint {
-  margin: 0.35rem 0 0;
-  font-size: 0.78rem;
+  margin: 0.3rem 0 0;
+  font-size: 0.75rem;
   color: var(--muted);
   line-height: 1.4;
 }
@@ -254,48 +272,52 @@
   font-size: 0.9rem;
   width: 100%;
   padding: 0.65rem 1rem;
-  border-radius: 0;
+  border-radius: 8px;
   border: none;
   background: var(--interactive);
   color: #fff;
   cursor: pointer;
-  transition: filter 0.15s ease;
+  transition: filter 0.15s ease, transform 0.1s ease;
 }
 
 .btnPrimary:hover:not(:disabled) {
-  filter: brightness(1.06);
+  filter: brightness(1.05);
+}
+
+.btnPrimary:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .btnPrimary:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: wait;
 }
 
-/* narrow column: match platform dark CTA for password */
 .leftCol .btnPrimary {
-  background: color-mix(in srgb, var(--text) 92%, var(--interactive) 8%);
+  background: #1e293b;
 }
 
 .leftCol .btnPrimary:hover:not(:disabled) {
-  filter: brightness(1.08);
+  background: #334155;
 }
 
 .messages {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  gap: 0.4rem;
+  margin-bottom: 0.85rem;
 }
 
 .error {
   margin: 0;
   color: var(--error);
   font-size: 0.875rem;
+  font-weight: 500;
 }
 
 .ok {
   margin: 0;
   color: var(--success);
   font-size: 0.875rem;
+  font-weight: 500;
 }
-

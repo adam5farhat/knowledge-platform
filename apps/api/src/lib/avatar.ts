@@ -63,7 +63,7 @@ export async function deleteAvatarFileIfExistsByUrl(
   await deleteFileIfExists(key);
 }
 
-/** External https URLs, or our /avatars/{ownerUserId}/… URLs only for that user. */
+/** Only platform-hosted /avatars/{ownerUserId}/… URLs are allowed. */
 export function isAllowedProfilePictureUrlForUser(url: string, ownerUserId: string): boolean {
   try {
     const u = new URL(url);
@@ -71,10 +71,7 @@ export function isAllowedProfilePictureUrlForUser(url: string, ownerUserId: stri
   } catch {
     return false;
   }
-  if (avatarStorageKeyFromPublicUrl(url)) {
-    return avatarStorageKeyFromPublicUrl(url, ownerUserId) !== null;
-  }
-  return true;
+  return avatarStorageKeyFromPublicUrl(url, ownerUserId) !== null;
 }
 
 export function buildAvatarPublicUrl(req: Request, userId: string, filename: string): string {

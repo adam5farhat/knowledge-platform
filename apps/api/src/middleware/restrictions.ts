@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { RoleName } from "@prisma/client";
+import { isEmployeeRole } from "../lib/platformRoles.js";
 import { jsonFeatureRestricted } from "../lib/userRestrictions.js";
 
 export function requireDocLibraryAccess(req: Request, res: Response, next: NextFunction): void {
@@ -26,7 +26,7 @@ export function requireManageDocumentsCapability(req: Request, res: Response, ne
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  if (u.role === RoleName.EMPLOYEE) {
+  if (isEmployeeRole(u.role)) {
     jsonFeatureRestricted(res, "manageDocuments", "You do not have permission to manage documents.");
     return;
   }

@@ -28,7 +28,7 @@ export default function ErrorBoundary({
         >
           Try again
         </button>
-        <Link prefetch={false} href="/documents">Home</Link>
+        <Link prefetch={false} href="/dashboard">Home</Link>
       </p>
     </main>
   );

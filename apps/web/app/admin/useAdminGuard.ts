@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "@/lib/authClient";
+import {
+  clearStoredSession,
+  fetchWithAuth,
+  getValidAccessToken,
+  KP_AUTH_SESSION_REFRESHED,
+} from "@/lib/authClient";
+import { RoleNameApi } from "@/lib/restrictions";
 import type { AdminChromeSessionUser } from "./AdminChromeHeader";
 
 export type AdminGuardPhase = "checking" | "need-login" | "forbidden" | "load-error" | "ready";
@@ -16,6 +22,15 @@ export function useAdminGuard(): Result {
   const router = useRouter();
   const [phase, setPhase] = useState<AdminGuardPhase>("checking");
   const [sessionUser, setSessionUser] = useState<AdminChromeSessionUser | null>(null);
+  const [sessionRecheck, setSessionRecheck] = useState(0);
+
+  useEffect(() => {
+    function onSessionRefreshed() {
+      setSessionRecheck((n) => n + 1);
+    }
+    window.addEventListener(KP_AUTH_SESSION_REFRESHED, onSessionRefreshed);
+    return () => window.removeEventListener(KP_AUTH_SESSION_REFRESHED, onSessionRefreshed);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,7 +56,7 @@ export function useAdminGuard(): Result {
         const me = (await meRes.json().catch(() => ({}))) as {
           user?: { id?: string; name?: string; email?: string; role?: string; profilePictureUrl?: string | null };
         };
-        if (!meRes.ok || me.user?.role !== "ADMIN") {
+        if (!meRes.ok || me.user?.role !== RoleNameApi.ADMIN) {
           if (!cancelled) setPhase("forbidden");
           return;
         }
@@ -50,7 +65,7 @@ export function useAdminGuard(): Result {
             id: me.user?.id,
             name: me.user?.name ?? "",
             email: me.user?.email ?? "",
-            role: me.user?.role ?? "ADMIN",
+            role: me.user?.role ?? RoleNameApi.ADMIN,
             profilePictureUrl: me.user?.profilePictureUrl ?? null,
           });
           setPhase("ready");
@@ -62,7 +77,7 @@ export function useAdminGuard(): Result {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, sessionRecheck]);
 
   return { phase, sessionUser };
 }

@@ -7,8 +7,7 @@
   gap: 0;
   padding: 0;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--interactive) 3%, #eef0f5) 0%, #e9ecf2 48%, #e6e9f0 100%);
+  background: #fff;
 }
 
 /* Below full-width nav: library sidebar | filters + explorer */
@@ -29,26 +28,22 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-left: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
-  background: linear-gradient(180deg, #fafbfc 0%, #f6f7f9 32%, #f3f4f6 100%);
+  border-left: none;
+  background: #fafbfc;
 }
 
 .sidebar {
   flex: 0 0 clamp(240px, 28vw, 276px);
   width: clamp(240px, 28vw, 276px);
   align-self: stretch;
-  background: linear-gradient(180deg, #fcfcfd 0%, #f7f8fa 55%, #f3f5f8 100%);
-  border-right: 1px solid color-mix(in srgb, var(--border) 82%, #94a3b8);
+  background: #fff;
+  border-right: 1px solid var(--border);
   border-radius: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  box-shadow:
-    1px 0 0 rgba(255, 255, 255, 0.85) inset,
-    4px 0 24px -12px rgba(15, 23, 42, 0.06);
 }
 
 .sideScroll {
@@ -74,8 +69,8 @@
   flex-shrink: 0;
   margin-top: auto;
   padding: 0.85rem 0.75rem;
-  border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, #fff 55%, #eef1f6) 0%, #e8ecf2 100%);
+  border-top: 1px solid var(--border);
+  background: #fff;
 }
 
 .sideBackBtn {
@@ -85,8 +80,8 @@
   gap: 0.5rem;
   width: 100%;
   border: none;
-  border-radius: 0;
-  background: color-mix(in srgb, var(--interactive) 16%, #e8eef3);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--interactive) 12%, #edf1f5);
   color: var(--interactive);
   min-height: 44px;
   padding: 0.5rem 0.75rem;
@@ -141,8 +136,8 @@
 
 .sideBrand {
   padding: 1.35rem 1.1rem 1rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-  background: linear-gradient(180deg, #fff 0%, #fafbfc 100%);
+  border-bottom: 1px solid var(--border);
+  background: #fff;
 }
 
 .sideBrandText {
@@ -205,7 +200,7 @@
   border: 1px solid transparent;
   border-left: 3px solid transparent;
   background: transparent;
-  border-radius: 0;
+  border-radius: 6px;
   padding: 0.5rem 0.5rem 0.5rem 0.45rem;
   cursor: pointer;
   text-align: left;
@@ -218,8 +213,8 @@
 }
 
 .sideBtn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.85);
-  border-color: #e2e8f0;
+  background: #f1f5f9;
+  border-color: transparent;
 }
 
 .sideBtn:disabled {
@@ -228,12 +223,10 @@
 }
 
 .activeSideBtn {
-  background: #fff;
-  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--interactive) 8%, #f0f6fa);
+  border-color: transparent;
   border-left-color: var(--interactive);
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 0 0 1px color-mix(in srgb, var(--interactive) 8%, transparent);
+  box-shadow: none;
   font-weight: 600;
   color: var(--text);
 }
@@ -260,16 +253,13 @@
   width: 100%;
   box-sizing: border-box;
   padding: 0.72rem 1.5rem;
-  background: color-mix(in srgb, #fff 88%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: #fff;
   border: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-bottom: 1px solid var(--border);
   border-radius: 0;
   flex-shrink: 0;
   position: relative;
   z-index: 12;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .docNavLeft {
@@ -350,7 +340,7 @@
   width: 220px;
   background: var(--card-bg);
   border: 1px solid #d1d5db;
-  border-radius: 0;
+  border-radius: 10px;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
   z-index: 50;
   overflow: hidden;
@@ -387,9 +377,9 @@
   gap: 0.85rem;
   flex-wrap: wrap;
   padding: 0.7rem 1.5rem 0.85rem;
-  background: color-mix(in srgb, #fff 55%, #f1f3f6);
+  background: #fff;
   border: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   border-radius: 0;
   flex-shrink: 0;
 }
@@ -417,7 +407,7 @@
   height: 36px;
   padding: 0 0.75rem;
   border: 1px solid color-mix(in srgb, var(--border) 85%, #94a3b8);
-  border-radius: 0;
+  border-radius: 7px;
   background: #fff;
   color: var(--text);
   font-size: 0.875rem;
@@ -444,7 +434,7 @@
 .input,
 .select {
   border: 1px solid color-mix(in srgb, var(--border) 82%, #94a3b8);
-  border-radius: 0;
+  border-radius: 7px;
   height: 36px;
   padding: 0 0.5rem;
   background: #fff;
@@ -456,7 +446,7 @@
 
 .primary {
   border: none;
-  border-radius: 0;
+  border-radius: 7px;
   height: 36px;
   padding: 0 0.85rem;
   background: var(--interactive);
@@ -477,7 +467,7 @@
 
 .ghost {
   border: 1px solid #cbd5e1;
-  border-radius: 0;
+  border-radius: 7px;
   height: 36px;
   padding: 0 0.85rem;
   background: #fff;
@@ -509,18 +499,20 @@
 
 .panelCard {
   background: #fff;
-  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
-  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 10px;
   padding: 1.2rem 1.35rem 1.55rem;
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 12px 40px -20px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
 }
 
 .explorerCard {
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .explorerHeadRow {
@@ -694,12 +686,12 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
-  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 10px;
   padding: 1.05rem 1rem 1.1rem;
   background: #fff;
   cursor: pointer;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.03);
   transition:
     border-color 0.22s ease,
     box-shadow 0.22s ease,
@@ -770,7 +762,7 @@
 .fileCard {
   position: relative;
   border: 1px solid #e2e8f0;
-  border-radius: 0;
+  border-radius: 10px;
   padding: 1rem 0.85rem 1.1rem;
   background: #fff;
   cursor: pointer;
@@ -805,15 +797,15 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.65rem;
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  padding: 0;
+  border-top: none;
 }
 
 .listPagerMeta {
-  font-size: 0.8125rem;
-  color: var(--muted);
+  font-size: 0.75rem;
+  color: #94a3b8;
   margin-right: auto;
 }
 
@@ -831,7 +823,7 @@
 .fileTypeIcon {
   width: 46px;
   height: 56px;
-  border-radius: 0;
+  border-radius: 5px;
   border: 1px solid #d6d9df;
   background: transparent;
   display: flex;
@@ -970,6 +962,7 @@
 
 .tableRow {
   cursor: pointer;
+  transition: background 0.12s ease;
 }
 
 .tableRow:hover {
@@ -977,27 +970,25 @@
 }
 
 .tableRowSelected {
-  background: color-mix(in srgb, var(--interactive) 9%, #f8fafc);
+  background: color-mix(in srgb, var(--interactive) 6%, #fafcff);
 }
 
 .tableRowSelected:hover {
-  background: color-mix(in srgb, var(--interactive) 12%, #f1f5f9);
+  background: color-mix(in srgb, var(--interactive) 9%, #f5f8fc);
 }
 
 .documentsListTitle {
-  margin: 0 0 1rem;
-  font-size: 1.125rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--interactive);
-  line-height: 1.25;
+  display: none;
 }
 
 .tableScroll {
   width: 100%;
   overflow-x: auto;
-  border: 1px solid #e8ecf1;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
   background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+  flex: 0 1 auto;
 }
 
 .table.tableListView {
@@ -1007,21 +998,33 @@
 
 .table.tableListView th,
 .table.tableListView td {
-  border-bottom: 1px solid #eef1f5;
-  padding: 1.05rem 1.15rem;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 0.5rem 0.7rem;
   vertical-align: middle;
 }
 
 .table.tableListView thead th {
-  background: #fff;
+  background: #fafbfc;
   border-bottom: 1px solid #e2e8f0;
   color: #64748b;
-  font-size: 0.8125rem;
+  font-size: 0.6875rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: none;
-  padding-top: 0.85rem;
-  padding-bottom: 0.85rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.table.tableListView thead th:first-child {
+  border-top-left-radius: 9px;
+}
+
+.table.tableListView thead th:last-child {
+  border-top-right-radius: 9px;
+}
+
+.table.tableListView tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .tableThSr {
@@ -1047,23 +1050,23 @@
 }
 
 .tableColCheck {
-  width: 3rem;
+  width: 2.5rem;
 }
 
 .tableColFav {
-  width: 3.25rem;
+  width: 2.5rem;
 }
 
 .tableColModified {
-  width: 9.75rem;
+  width: 12%;
 }
 
 .tableColShared {
-  width: 8.75rem;
+  width: 11%;
 }
 
 .tableColTags {
-  width: 26%;
+  width: 16%;
 }
 
 .tableColName {
@@ -1077,15 +1080,16 @@
 
 .tableTdModified {
   text-align: right;
-  color: #64748b;
+  color: #94a3b8;
   font-variant-numeric: tabular-nums;
-  font-size: 0.9rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .tableNameCell {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.55rem;
   min-width: 0;
 }
 
@@ -1094,53 +1098,52 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 48px;
+  width: 28px;
+  height: 34px;
 }
 
 .tableNameTexts {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0;
 }
 
 .tableNameTitle {
-  font-weight: 700;
+  font-size: 0.8125rem;
+  font-weight: 600;
   color: #1e293b;
   line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  white-space: nowrap;
 }
 
 .tableNameSub {
-  font-size: 0.8125rem;
+  font-size: 0.6875rem;
   color: #94a3b8;
-  font-weight: 500;
+  font-weight: 450;
+  line-height: 1.3;
 }
 
 .tableTagsRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.25rem;
   align-items: center;
 }
 
 .tableTagPill {
   display: inline-flex;
   align-items: center;
-  max-width: 7.5rem;
-  padding: 0.22rem 0.58rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  max-width: 6.5rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-weight: 550;
   color: #2563eb;
   background: #eff6ff;
-  border: 1px solid color-mix(in srgb, #2563eb 14%, transparent);
+  border: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1156,19 +1159,19 @@
 }
 
 .tableAvatar {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: 2px solid #fff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 800;
   line-height: 1;
-  margin-left: -10px;
+  margin-left: -8px;
   flex-shrink: 0;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06);
 }
 
 .tableAvatar:first-child {
@@ -1205,8 +1208,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   margin: 0 auto;
   border: none;
   border-radius: 50%;
@@ -1240,8 +1243,8 @@
 }
 
 .tableFavSvg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   display: block;
 }
 
@@ -1253,15 +1256,15 @@
 }
 
 .tableListRow:hover {
-  background: #fafbfc;
+  background: #f8fafc;
 }
 
 .tableListRow.tableRowSelected {
-  background: color-mix(in srgb, var(--interactive) 7%, #fff);
+  background: color-mix(in srgb, var(--interactive) 5%, #fafbfc);
 }
 
 .tableListRow.tableRowSelected:hover {
-  background: color-mix(in srgb, var(--interactive) 10%, #fafbfc);
+  background: color-mix(in srgb, var(--interactive) 8%, #f8fafc);
 }
 
 .detailsWrap {
@@ -1275,7 +1278,8 @@
   top: 0;
   right: 0;
   width: min(400px, 94vw);
-  height: 100dvh;
+  height: min(100dvh, 100svh);
+  max-height: 100svh;
   padding: 0;
   transform: translateX(100%);
   transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -1294,14 +1298,17 @@
   background: #fff;
   border: none;
   border-radius: 0;
-  border-left: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  height: 100dvh;
-  overflow: auto;
-  padding: 1.2rem 1.4rem 2rem;
-  box-shadow:
-    -40px 0 80px -20px rgba(15, 23, 42, 0.09),
-    -16px 0 36px rgba(15, 23, 42, 0.05),
-    inset 1px 0 0 rgba(255, 255, 255, 0.9);
+  border-left: 1px solid var(--border);
+  /* svh avoids drawing past visible viewport when dvh is taller than the usable area (taskbar / browser chrome). */
+  height: min(100dvh, 100svh);
+  max-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 1.2rem 1.4rem 1rem;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  box-shadow: -12px 0 40px -10px rgba(15, 23, 42, 0.07);
+  box-sizing: border-box;
 }
 
 .detailsHeader {
@@ -1313,6 +1320,7 @@
   margin-bottom: 0;
   border-bottom: none;
   box-shadow: none;
+  flex-shrink: 0;
 }
 
 .detailsTitle {
@@ -1327,19 +1335,17 @@
 
 .detailsPanelBackBtn {
   flex-shrink: 0;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   display: grid;
   place-items: center;
   border: none;
   border-radius: 50%;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--interactive) 92%, #fff) 0%, var(--interactive) 100%);
+  background: var(--interactive);
   color: #fff;
   cursor: pointer;
-  box-shadow:
-    0 2px 14px color-mix(in srgb, var(--interactive) 42%, transparent),
-    0 0 24px color-mix(in srgb, var(--interactive) 22%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive) 30%, transparent);
   transition:
     transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 0.22s ease,
@@ -1347,11 +1353,9 @@
 }
 
 .detailsPanelBackBtn:hover {
-  transform: translateY(-2px) scale(1.03);
-  filter: brightness(1.08);
-  box-shadow:
-    0 6px 28px color-mix(in srgb, var(--interactive) 52%, transparent),
-    0 0 40px color-mix(in srgb, var(--interactive) 32%, transparent);
+  transform: translateY(-1px) scale(1.04);
+  filter: brightness(1.06);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--interactive) 38%, transparent);
 }
 
 .detailsPanelBackBtn:active {
@@ -1389,6 +1393,38 @@
   gap: 0;
   width: 100%;
   padding-top: 0.35rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.5rem;
+}
+
+/* Shorter viewports: less vertical chrome so actions stay on-screen or need less scroll */
+@media (max-height: 820px) {
+  .detailsPreviewFrame {
+    padding: 0.85rem 0.4rem 0.9rem;
+  }
+
+  .detailsDocTitleBlock {
+    padding: 0.2rem 0 0.65rem;
+  }
+
+  .actionsRow {
+    gap: 0.5rem 0.9rem;
+  }
+
+  .actionItem {
+    gap: 0.4rem;
+    min-width: 4rem;
+  }
+
+  .actionIcon {
+    width: 48px;
+    height: 48px;
+  }
 }
 
 .detailsPreviewFrame {
@@ -1573,7 +1609,7 @@
   border: none;
   cursor: pointer;
   color: var(--text);
-  border-radius: 0;
+  border-radius: 8px;
   font-family: inherit;
   background: transparent;
   box-shadow: none;
@@ -1616,9 +1652,9 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--interactive) 14%, transparent);
+  background: color-mix(in srgb, var(--interactive) 10%, transparent);
   color: var(--interactive);
-  box-shadow: 0 4px 20px color-mix(in srgb, var(--interactive) 18%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive) 12%, transparent);
   transition:
     background 0.28s cubic-bezier(0.22, 1, 0.36, 1),
     color 0.28s ease,
@@ -1627,15 +1663,15 @@
 }
 
 .actionItemDanger .actionIcon {
-  background: color-mix(in srgb, var(--error) 14%, transparent);
+  background: color-mix(in srgb, var(--error) 10%, transparent);
   color: var(--error);
-  box-shadow: 0 4px 20px color-mix(in srgb, var(--error) 14%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--error) 10%, transparent);
 }
 
 .actionItemFavoriteActive .actionIcon {
-  background: color-mix(in srgb, #dc2626 16%, transparent);
+  background: color-mix(in srgb, #dc2626 12%, transparent);
   color: #dc2626;
-  box-shadow: 0 4px 20px color-mix(in srgb, #dc2626 18%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, #dc2626 12%, transparent);
 }
 
 .actionItemFavoriteActive .actionLabel {
@@ -1649,19 +1685,15 @@
 .actionItem:hover:not(:disabled) .actionIcon {
   background: var(--interactive);
   color: #fff;
-  transform: scale(1.08);
-  box-shadow:
-    0 8px 32px color-mix(in srgb, var(--interactive) 42%, transparent),
-    0 0 48px color-mix(in srgb, var(--interactive) 22%, transparent);
+  transform: scale(1.06);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--interactive) 32%, transparent);
 }
 
 .actionItemDanger:hover:not(:disabled) .actionIcon {
   background: var(--error);
   color: #fff;
-  transform: scale(1.08);
-  box-shadow:
-    0 8px 32px color-mix(in srgb, var(--error) 38%, transparent),
-    0 0 44px color-mix(in srgb, var(--error) 22%, transparent);
+  transform: scale(1.06);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--error) 28%, transparent);
 }
 
 .actionIconSvg {
@@ -1698,10 +1730,8 @@
 .actionItemFavoriteActive:hover:not(:disabled) .actionIcon {
   background: #dc2626;
   color: #fff;
-  transform: scale(1.08);
-  box-shadow:
-    0 8px 32px color-mix(in srgb, #dc2626 42%, transparent),
-    0 0 48px color-mix(in srgb, #dc2626 22%, transparent);
+  transform: scale(1.06);
+  box-shadow: 0 4px 16px color-mix(in srgb, #dc2626 32%, transparent);
 }
 
 .actionItemFavoriteActive:hover:not(:disabled) .actionLabel {
@@ -1872,10 +1902,10 @@
   max-height: min(90dvh, 640px);
   overflow: auto;
   background: #fff;
-  border: 1px solid #cbd5e1;
-  border-radius: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
   padding: 0;
-  box-shadow: 0 24px 56px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.14);
   animation: uploadModalIn 240ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
@@ -1908,7 +1938,7 @@
   width: 36px;
   height: 36px;
   border: none;
-  border-radius: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--muted);
   font-size: 1.5rem;
@@ -2028,7 +2058,7 @@
   position: relative;
   min-height: 168px;
   border: 2px dashed #cbd5e1;
-  border-radius: 0;
+  border-radius: 10px;
   background: #f8fafc;
   transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
@@ -2114,7 +2144,7 @@
   gap: 0.75rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid #e2e8f0;
-  border-radius: 0;
+  border-radius: 8px;
   background: #fff;
 }
 
@@ -2141,7 +2171,7 @@
 .uploadFileRemove {
   flex-shrink: 0;
   border: 1px solid #e2e8f0;
-  border-radius: 0;
+  border-radius: 6px;
   background: #fff;
   color: var(--text);
   font-size: 0.82rem;
@@ -2166,7 +2196,7 @@
   width: 100%;
   box-sizing: border-box;
   border: 1px solid #d6d9df;
-  border-radius: 0;
+  border-radius: 8px;
   padding: 0.5rem 0.6rem;
   font-size: 0.9rem;
   background: #fff;
@@ -2184,7 +2214,7 @@
   display: grid;
   gap: 0.25rem;
   padding: 0.65rem 0.75rem;
-  border-radius: 0;
+  border-radius: 8px;
   background: #f8fafc;
   border: 1px solid #eef2f7;
 }
@@ -2206,7 +2236,7 @@
   font-size: 0.8em;
   padding: 0.1em 0.25em;
   background: #f1f5f9;
-  border-radius: 0;
+  border-radius: 4px;
 }
 
 .uploadTagField {
@@ -2222,7 +2252,7 @@
   min-height: 42px;
   padding: 0.35rem 0.45rem;
   border: 1px solid #d6d9df;
-  border-radius: 0;
+  border-radius: 8px;
   background: #fff;
 }
 
@@ -2240,7 +2270,7 @@
   font-weight: 500;
   color: #1e3a5f;
   background: #e8f0ff;
-  border-radius: 0;
+  border-radius: 5px;
   border: 1px solid #c7dbff;
 }
 
@@ -2252,7 +2282,7 @@
   font-size: 1rem;
   line-height: 1;
   padding: 0 0.1rem;
-  border-radius: 0;
+  border-radius: 4px;
 }
 
 .uploadTagChipRemove:hover {
@@ -2286,7 +2316,7 @@
   color: var(--text);
   font-size: 0.8rem;
   padding: 0.25rem 0.5rem;
-  border-radius: 0;
+  border-radius: 5px;
   cursor: pointer;
 }
 
@@ -2308,7 +2338,7 @@
   text-transform: none;
   letter-spacing: 0;
   padding: 0.15rem 0.4rem;
-  border-radius: 0;
+  border-radius: 4px;
   background: #eef2ff;
   color: #4338ca;
   border: 1px solid #c7d2fe;
@@ -2369,7 +2399,7 @@
     min-height: 100dvh;
     overflow: visible;
     padding: 0.5rem;
-    background: #eef0f5;
+    background: #f5f7fa;
   }
 
   .docNavbar {
@@ -2450,9 +2480,9 @@
   display: flex;
   flex-direction: column;
   background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 0;
-  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.2);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.14);
   overflow: hidden;
   animation: uploadModalIn 240ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
@@ -2488,7 +2518,7 @@
   padding: 0.35rem 0.65rem;
   font-size: 0.88rem;
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: 7px;
   background: #fff;
   color: var(--text);
   cursor: pointer;

@@ -3,6 +3,7 @@ import request from "supertest";
 import { createHttpApp } from "./httpApp.js";
 import { prisma } from "./lib/prisma.js";
 import { hashPassword } from "./lib/password.js";
+import { AuthErrorCode } from "./lib/authErrorCodes.js";
 import { RoleName } from "@prisma/client";
 
 const app = createHttpApp();
@@ -59,7 +60,7 @@ describe("authentication API", () => {
     expect(res.body.token).toBeTruthy();
     expect(res.body.refreshToken).toBeTruthy();
     expect(res.body.user?.email).toBe(TEST_EMAIL);
-    expect(res.body.user?.role).toBe("ADMIN");
+    expect(res.body.user?.role).toBe(RoleName.ADMIN);
   });
 
   it("POST /auth/refresh rotates refresh token and returns new access token", async () => {
@@ -92,6 +93,33 @@ describe("authentication API", () => {
     const res = await request(app).get("/auth/me").set("Authorization", `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.user?.email).toBe(TEST_EMAIL);
+  });
+
+  it("GET /auth/me returns 401 ACCESS_TOKEN_OUTDATED when JWT claims disagree with DB (no authVersion bump)", async () => {
+    const login = await request(app).post("/auth/login").send({
+      email: TEST_EMAIL,
+      password: TEST_PASSWORD,
+    });
+    expect(login.status).toBe(200);
+    const token = login.body.token as string;
+
+    const employeeRole = await prisma.role.findUnique({ where: { name: RoleName.EMPLOYEE } });
+    if (!employeeRole) throw new Error("Missing EMPLOYEE role — run seed.");
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: TEST_EMAIL } });
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { roleId: employeeRole.id, employeeBadgeNumber: `itest-${Date.now()}` },
+    });
+
+    const stale = await request(app).get("/auth/me").set("Authorization", `Bearer ${token}`);
+    expect(stale.status).toBe(401);
+    expect(stale.body.code).toBe(AuthErrorCode.ACCESS_TOKEN_OUTDATED);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { roleId: roleAdminId, employeeBadgeNumber: null },
+    });
   });
 
   it("PATCH /auth/profile updates badge and profile picture URL", async () => {

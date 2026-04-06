@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { useRouter } from "next/navigation";
 import { clearStoredSession, fetchWithAuth, getValidAccessToken } from "../lib/authClient";
 import { homePathForUser, type MeResponse } from "../lib/restrictions";
@@ -11,8 +11,21 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 export default function HomeEntryClient() {
   const router = useRouter();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let cancelled = false;
+
+    try {
+      const hasAccess = localStorage.getItem("kp_access_token");
+      const hasRefresh = localStorage.getItem("kp_refresh_token");
+      if (!hasAccess && !hasRefresh) {
+        router.replace("/login");
+        return;
+      }
+    } catch {
+      router.replace("/login");
+      return;
+    }
+
     void (async () => {
       const token = await getValidAccessToken();
       if (!token) {
@@ -38,6 +51,7 @@ export default function HomeEntryClient() {
       }
       if (!cancelled) router.replace(homePathForUser(body.user));
     })();
+
     return () => {
       cancelled = true;
     };

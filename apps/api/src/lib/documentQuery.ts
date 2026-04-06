@@ -1,21 +1,28 @@
 import type { Prisma } from "@prisma/client";
-import { DocumentProcessingStatus, DocumentVisibility, RoleName } from "@prisma/client";
+import { DocumentProcessingStatus, DocumentVisibility } from "@prisma/client";
 import type { AuthContext } from "./documentAccess.js";
+import { isPlatformAdmin } from "./platformRoles.js";
 import { prisma } from "./prisma.js";
 import { normalizeTagName } from "./tags.js";
 
 export type LibraryScope = "ALL" | "RECENT" | "FAVORITES" | "ARCHIVED";
 
 export function visibilityWhereForUser(user: AuthContext): Prisma.DocumentWhereInput {
-  if (user.role === "ADMIN") {
+  if (isPlatformAdmin(user.role)) {
     return {};
   }
+
+  const deptIds =
+    user.readableDepartmentIds && user.readableDepartmentIds.length > 0
+      ? user.readableDepartmentIds
+      : [user.departmentId];
+
   return {
     OR: [
       { visibility: DocumentVisibility.ALL },
       {
         visibility: DocumentVisibility.DEPARTMENT,
-        departmentId: user.departmentId,
+        departmentId: { in: deptIds },
       },
       {
         visibility: DocumentVisibility.PRIVATE,
@@ -218,7 +225,7 @@ export async function listDocuments(p: ListDocumentsParams): Promise<{
   const scoped =
     p.allScopeIncludeArchived === true &&
     p.libraryScope === "ALL" &&
-    p.user.role === "ADMIN"
+    isPlatformAdmin(p.user.role)
       ? Object.keys(access).length === 0
         ? {}
         : { AND: [access] }
@@ -250,7 +257,7 @@ export async function listDocuments(p: ListDocumentsParams): Promise<{
 
   const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const unionId = p.unionGeneralWithDepartmentId?.trim();
-  if (p.user.role === RoleName.ADMIN && unionId && uuidRe.test(unionId)) {
+  if (isPlatformAdmin(p.user.role) && unionId && uuidRe.test(unionId)) {
     andParts.push({ OR: [{ departmentId: null }, { departmentId: unionId }] });
   } else {
     const deptW = departmentFilterWhere(p.departmentKey ?? "");
@@ -276,11 +283,11 @@ export async function listDocuments(p: ListDocumentsParams): Promise<{
     }
   }
 
-  if (p.createdById && p.user.role === RoleName.ADMIN) {
+  if (p.createdById && isPlatformAdmin(p.user.role)) {
     andParts.push({ createdById: p.createdById });
   }
 
-  if (p.needsAttention && p.user.role === RoleName.ADMIN) {
+  if (p.needsAttention && isPlatformAdmin(p.user.role)) {
     const attentionIds = await documentIdsWhereLatestNotReady();
     if (attentionIds.length === 0) {
       return { documents: [], total: 0, departmentCounts: undefined };
@@ -359,21 +366,33 @@ async function computeDepartmentCounts(
   access: Prisma.DocumentWhereInput,
 ): Promise<{ id: string; name: string; count: number }[]> {
   const baseWhere = applyLibraryScope(user, "ALL", access);
-  const docs = await prisma.document.findMany({
+
+  const groups = await prisma.document.groupBy({
+    by: ["departmentId"],
     where: baseWhere,
-    select: {
-      departmentId: true,
-      department: { select: { name: true } },
-    },
+    _count: { id: true },
   });
-  const map = new Map<string, { id: string; name: string; count: number }>();
-  for (const d of docs) {
-    const id = d.departmentId ?? "__general";
-    const name = d.department?.name ?? (d.departmentId ? "Department" : "General");
-    const prev = map.get(id);
-    map.set(id, { id, name, count: (prev?.count ?? 0) + 1 });
-  }
-  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+  const deptIds = groups
+    .map((g) => g.departmentId)
+    .filter((id): id is string => id !== null);
+
+  const departments =
+    deptIds.length > 0
+      ? await prisma.department.findMany({
+          where: { id: { in: deptIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+  const deptNameMap = new Map(departments.map((d) => [d.id, d.name]));
+
+  return groups
+    .map((g) => ({
+      id: g.departmentId ?? "__general",
+      name: g.departmentId ? (deptNameMap.get(g.departmentId) ?? "Department") : "General",
+      count: g._count.id,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function mapDocumentRow(

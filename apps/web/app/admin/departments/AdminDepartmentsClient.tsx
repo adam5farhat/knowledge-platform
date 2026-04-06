@@ -4,10 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { fetchWithAuth, getValidAccessToken } from "../../../lib/authClient";
-import type { UserRestrictionsDto } from "../../../lib/restrictions";
+import { DepartmentAccessLevelApi, RoleNameApi, type UserRestrictionsDto } from "../../../lib/restrictions";
 import { FileTypeIcon } from "@/components/FileTypeIcon";
 import { ProfileAvatarImage } from "@/components/ProfileAvatarImage";
-import { ProfilePhotoUploader } from "@/components/ProfilePhotoUploader";
+import { ProfilePhotoModal } from "@/components/ProfilePhotoModal";
 import { profilePictureDisplayUrl } from "@/lib/profilePicture";
 import { AdminChromeHeader } from "../AdminChromeHeader";
 import { useAdminGuard } from "../useAdminGuard";
@@ -20,6 +20,14 @@ function IconPlus() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconProfileBack() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -68,6 +76,8 @@ type AdminUserRow = {
   mustChangePassword?: boolean;
   lastLoginAt: string | null;
   deletedAt: string | null;
+  /** From GET /admin/users — junction access (may include the opened department). */
+  departmentAccess?: { departmentId: string; departmentName: string; accessLevel: string }[];
 };
 
 type DocListRow = {
@@ -172,6 +182,48 @@ function accountStatusLabel(u: AdminUserRow): string {
   return u.isActive ? "Active" : "Inactive";
 }
 
+function formatPlatformRole(role: string): string {
+  switch (role) {
+    case RoleNameApi.ADMIN:
+      return "Admin";
+    case RoleNameApi.MANAGER:
+      return "Manager";
+    case RoleNameApi.EMPLOYEE:
+      return "Employee";
+    default:
+      return role || "—";
+  }
+}
+
+function formatDeptAccessLevel(level: string): string {
+  switch (level.toUpperCase()) {
+    case DepartmentAccessLevelApi.MEMBER:
+      return "Member";
+    case DepartmentAccessLevelApi.MANAGER:
+      return "Manager";
+    case DepartmentAccessLevelApi.VIEWER:
+      return "Viewer";
+    default:
+      return level;
+  }
+}
+
+/**
+ * Access level in the opened department: explicit UserDepartmentAccess (from user payload or department access API), else primary-only membership.
+ */
+function departmentAccessInDept(
+  u: AdminUserRow,
+  selectedDeptId: string,
+  deptAccessUsers: { userId: string; accessLevel: string }[],
+): string | null {
+  const fromUser = u.departmentAccess?.find((d) => d.departmentId === selectedDeptId);
+  const fromPanel = deptAccessUsers.find((d) => d.userId === u.id);
+  if (fromUser) return formatDeptAccessLevel(fromUser.accessLevel);
+  if (fromPanel) return formatDeptAccessLevel(fromPanel.accessLevel);
+  if (u.department.id === selectedDeptId) return "Primary";
+  return null;
+}
+
 type SessionUser = { id: string; name: string; email: string; role: string; profilePictureUrl?: string | null };
 
 export default function AdminDepartmentsClient() {
@@ -201,6 +253,8 @@ export default function AdminDepartmentsClient() {
 
   const [cardMenuId, setCardMenuId] = useState<string | null>(null);
   const [panelUser, setPanelUser] = useState<AdminUserRow | null>(null);
+  const [panelPhotoModalOpen, setPanelPhotoModalOpen] = useState(false);
+  const [panelPhotoUrlDraft, setPanelPhotoUrlDraft] = useState("");
   const [pillBusy, setPillBusy] = useState<string | null>(null);
   const [restrictionToast, setRestrictionToast] = useState<string | null>(null);
 
@@ -226,6 +280,17 @@ export default function AdminDepartmentsClient() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createModalError, setCreateModalError] = useState<string | null>(null);
+
+  type DeptAccessUser = {
+    id: string; userId: string; userName: string; userEmail: string;
+    userRole: string; profilePictureUrl: string | null; accessLevel: string;
+  };
+  const [deptAccessUsers, setDeptAccessUsers] = useState<DeptAccessUser[]>([]);
+  const [deptAccessLoading, setDeptAccessLoading] = useState(false);
+  const [deptAccessAddUserId, setDeptAccessAddUserId] = useState("");
+  const [deptAccessAddLevel, setDeptAccessAddLevel] = useState<"MEMBER" | "MANAGER" | "VIEWER">("VIEWER");
+  const [deptAccessBusy, setDeptAccessBusy] = useState(false);
+  const [allUsers, setAllUsers] = useState<{ id: string; name: string; email: string }[]>([]);
   useEffect(() => {
     if (authPhase !== "ready" || !guardSession?.id) {
       setSessionUser(null);
@@ -308,15 +373,17 @@ export default function AdminDepartmentsClient() {
 
   async function fetchDrillForDept(deptId: string) {
     setDrillLoading(true);
+    setDeptAccessLoading(true);
     try {
       const deptMeta = departments.find((d) => d.id === deptId);
       const generalLibraryUnion =
         deptMeta && deptMeta.name.trim().toLowerCase() === "general" ? "&unionGeneralLibrary=1" : "";
-      const [ur, dr] = await Promise.all([
-        fetchWithAuth(`${API}/admin/users?departmentId=${encodeURIComponent(deptId)}&pageSize=500&page=1`),
+      const [ur, dr, ar] = await Promise.all([
+        fetchWithAuth(`${API}/admin/users?inDepartment=${encodeURIComponent(deptId)}&pageSize=100&page=1`),
         fetchWithAuth(
           `${API}/documents?libraryScope=ALL&departmentId=${encodeURIComponent(deptId)}&pageSize=500&page=1${generalLibraryUnion}`,
         ),
+        fetchWithAuth(`${API}/admin/departments/${deptId}/access`),
       ]);
       if (ur.ok) {
         const uj = (await ur.json().catch(() => ({}))) as { users?: AdminUserRow[] };
@@ -330,11 +397,19 @@ export default function AdminDepartmentsClient() {
       } else {
         setDrillDocs([]);
       }
+      if (ar.ok) {
+        const aj = (await ar.json().catch(() => [])) as DeptAccessUser[];
+        setDeptAccessUsers(Array.isArray(aj) ? aj : []);
+      } else {
+        setDeptAccessUsers([]);
+      }
     } catch {
       setDrillUsers([]);
       setDrillDocs([]);
+      setDeptAccessUsers([]);
     } finally {
       setDrillLoading(false);
+      setDeptAccessLoading(false);
     }
   }
 
@@ -343,6 +418,7 @@ export default function AdminDepartmentsClient() {
       setSelectedDeptId(null);
       setDrillUsers([]);
       setDrillDocs([]);
+      setDeptAccessUsers([]);
       setPanelUser(null);
       setPanelDocId(null);
       setPanelDocDetail(null);
@@ -568,7 +644,7 @@ export default function AdminDepartmentsClient() {
     }
     if (panelUser?.id === id) {
       const deptId = panelUser.department.id;
-      const r = await fetchWithAuth(`${API}/admin/users?departmentId=${encodeURIComponent(deptId)}&pageSize=500&page=1`);
+      const r = await fetchWithAuth(`${API}/admin/users?inDepartment=${encodeURIComponent(deptId)}&pageSize=100&page=1`);
       const j = (await r.json().catch(() => ({}))) as { users?: AdminUserRow[] };
       const u = j.users?.find((x) => x.id === id);
       if (u) setPanelUser(normalizeUser(u));
@@ -725,6 +801,90 @@ export default function AdminDepartmentsClient() {
     }
     const data = (await res.json().catch(() => ({}))) as { error?: string };
     window.alert(data.error ?? "Delete failed.");
+  }
+
+  useEffect(() => {
+    if (authPhase !== "ready") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await fetchWithAuth(`${API}/admin/users?pageSize=500&page=1`);
+        if (!r.ok || cancelled) return;
+        const j = (await r.json().catch(() => ({}))) as { users?: { id: string; name: string; email: string }[] };
+        if (!cancelled && Array.isArray(j.users)) {
+          setAllUsers(j.users.map((u) => ({ id: u.id, name: u.name, email: u.email })));
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [authPhase]);
+
+  async function addDeptAccessUser() {
+    if (!selectedDeptId || !deptAccessAddUserId) return;
+    setDeptAccessBusy(true);
+    try {
+      const res = await fetchWithAuth(`${API}/admin/users/${deptAccessAddUserId}/department-access`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ departmentId: selectedDeptId, accessLevel: deptAccessAddLevel }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        window.alert(data.error ?? "Failed.");
+        return;
+      }
+      setDeptAccessAddUserId("");
+      if (selectedDeptId) void fetchDrillForDept(selectedDeptId);
+    } catch {
+      window.alert("Could not reach the API.");
+    } finally {
+      setDeptAccessBusy(false);
+    }
+  }
+
+  async function removeDeptAccessUser(userId: string) {
+    if (!selectedDeptId) return;
+    setDeptAccessBusy(true);
+    try {
+      const res = await fetchWithAuth(
+        `${API}/admin/users/${userId}/department-access/${selectedDeptId}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        window.alert(data.error ?? "Failed.");
+        return;
+      }
+      setDeptAccessUsers((prev) => prev.filter((r) => r.userId !== userId));
+    } catch {
+      window.alert("Could not reach the API.");
+    } finally {
+      setDeptAccessBusy(false);
+    }
+  }
+
+  async function changeDeptAccessUserLevel(userId: string, level: "MEMBER" | "MANAGER" | "VIEWER") {
+    if (!selectedDeptId) return;
+    setDeptAccessBusy(true);
+    try {
+      const res = await fetchWithAuth(`${API}/admin/users/${userId}/department-access`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ departmentId: selectedDeptId, accessLevel: level }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        window.alert(data.error ?? "Failed.");
+        return;
+      }
+      setDeptAccessUsers((prev) =>
+        prev.map((r) => (r.userId === userId ? { ...r, accessLevel: level } : r)),
+      );
+    } catch {
+      window.alert("Could not reach the API.");
+    } finally {
+      setDeptAccessBusy(false);
+    }
   }
 
   async function onMerge() {
@@ -1097,27 +1257,219 @@ export default function AdminDepartmentsClient() {
                   </div>
                 </div>
                 <div className={styles.drillSectionInner}>
-                  <div className={styles.drillGrid}>
+                  <section className={styles.deptAccessSection} aria-labelledby="dept-access-heading">
+                    <div className={styles.deptAccessSectionHeader}>
+                      <div>
+                        <h3 id="dept-access-heading" className={styles.deptAccessSectionTitle}>
+                          Department access
+                        </h3>
+                        <p className={styles.deptAccessSectionHint}>
+                          Users with explicit access to this department. Inherited access from parent departments is
+                          automatic and not listed here.
+                        </p>
+                      </div>
+                      {!deptAccessLoading ? (
+                        <span className={styles.deptAccessCount}>
+                          {deptAccessUsers.length} grant{deptAccessUsers.length === 1 ? "" : "s"}
+                        </span>
+                      ) : null}
+                    </div>
+                    {deptAccessLoading ? (
+                      <div className={styles.deptAccessBody}>
+                        <p className={styles.deptAccessLoading}>Loading access list…</p>
+                      </div>
+                    ) : deptAccessUsers.length === 0 ? (
+                      <div className={styles.deptAccessBody}>
+                        <p className={styles.deptAccessEmpty}>
+                          No explicit access records yet. Add users below, or rely on primary department membership and
+                          hierarchy inheritance.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className={styles.deptAccessBody}>
+                        <p className={styles.deptAccessListCaption}>
+                          Direct assignments for this department only (not inherited from parent departments).
+                        </p>
+                        <ul className={styles.deptAccessList} role="list">
+                          {deptAccessUsers.map((da) => {
+                            const photoSrc = profilePictureDisplayUrl(da.profilePictureUrl);
+                            const accountRole = formatPlatformRole(da.userRole);
+                            return (
+                              <li key={da.userId} className={styles.deptAccessRow}>
+                                <div className={styles.deptAccessAvatar} aria-hidden>
+                                  {photoSrc ? (
+                                    <ProfileAvatarImage src={photoSrc} alt="" width={44} height={44} sizes="44px" />
+                                  ) : (
+                                    <span className={styles.deptAccessAvatarFallback}>{userInitials(da.userName)}</span>
+                                  )}
+                                </div>
+                                <div className={styles.deptAccessUserText}>
+                                  <div className={styles.deptAccessUserNameLine}>
+                                    <span className={styles.deptAccessUserName}>{da.userName}</span>
+                                    <span className={styles.deptAccessBadgeGroup}>
+                                      <span className={styles.privBadge} data-variant="role" title="Global account role">
+                                        {accountRole}
+                                      </span>
+                                      <span
+                                        className={styles.privBadge}
+                                        data-variant="dept"
+                                        title="Access level for this department only"
+                                      >
+                                        {formatDeptAccessLevel(da.accessLevel)}
+                                      </span>
+                                    </span>
+                                  </div>
+                                  <div className={styles.deptAccessUserMeta}>
+                                    <span className={styles.deptAccessUserEmail}>{da.userEmail}</span>
+                                  </div>
+                                </div>
+                                <div className={styles.deptAccessRowActions}>
+                                  <label className={styles.visuallyHidden} htmlFor={`dept-access-level-${da.userId}`}>
+                                    Access level for {da.userName}
+                                  </label>
+                                  <select
+                                    id={`dept-access-level-${da.userId}`}
+                                    className={styles.deptAccessLevelSelect}
+                                    value={da.accessLevel}
+                                    disabled={deptAccessBusy}
+                                    onChange={(e) =>
+                                      void changeDeptAccessUserLevel(
+                                        da.userId,
+                                        e.target.value as "MEMBER" | "MANAGER" | "VIEWER",
+                                      )
+                                    }
+                                  >
+                                    <option value="MEMBER">Member</option>
+                                    <option value="MANAGER">Manager</option>
+                                    <option value="VIEWER">Viewer</option>
+                                  </select>
+                                  <button
+                                    type="button"
+                                    className={styles.deptAccessRemove}
+                                    disabled={deptAccessBusy}
+                                    onClick={() => void removeDeptAccessUser(da.userId)}
+                                    title={`Remove ${da.userName} from this department`}
+                                    aria-label={`Remove ${da.userName} from this department`}
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
+                    <div className={styles.deptAccessAdd}>
+                      <h4 className={styles.deptAccessAddHeading} id="dept-access-grant-heading">
+                        Grant access
+                      </h4>
+                      <div className={styles.deptAccessAddInner}>
+                        <div className={styles.deptAccessAddGrid}>
+                      <div className={styles.deptAccessAddField}>
+                        <span className={styles.deptAccessAddLabel} id="dept-access-add-user-label">
+                          User
+                        </span>
+                        <select
+                          className={styles.deptAccessAddSelect}
+                          value={deptAccessAddUserId}
+                          onChange={(e) => setDeptAccessAddUserId(e.target.value)}
+                          disabled={deptAccessBusy}
+                          aria-labelledby="dept-access-add-user-label"
+                        >
+                          <option value="">Add user…</option>
+                          {allUsers
+                            .filter((u) => !deptAccessUsers.some((dau) => dau.userId === u.id))
+                            .map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.name} ({u.email})
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      <div className={styles.deptAccessAddField}>
+                        <span className={styles.deptAccessAddLabel} id="dept-access-add-level-label">
+                          Level
+                        </span>
+                        <select
+                          className={styles.deptAccessAddSelect}
+                          value={deptAccessAddLevel}
+                          onChange={(e) => setDeptAccessAddLevel(e.target.value as "MEMBER" | "MANAGER" | "VIEWER")}
+                          disabled={deptAccessBusy}
+                          aria-labelledby="dept-access-add-level-label"
+                        >
+                          <option value="MEMBER">Member</option>
+                          <option value="MANAGER">Manager</option>
+                          <option value="VIEWER">Viewer</option>
+                        </select>
+                      </div>
+                      <div className={styles.deptAccessAddField}>
+                        <span className={styles.deptAccessAddLabel} aria-hidden>
+                          {"\u00a0"}
+                        </span>
+                        <button
+                          type="button"
+                          className={styles.deptAccessAddBtn}
+                          disabled={deptAccessBusy || !deptAccessAddUserId}
+                          onClick={() => void addDeptAccessUser()}
+                          aria-labelledby="dept-access-grant-heading"
+                        >
+                          Add access
+                        </button>
+                      </div>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <div className={styles.drillTablesRegion} role="region" aria-labelledby="dept-drill-heading">
+                    <h3 id="dept-drill-heading" className={styles.drillTablesHeading}>
+                      Users &amp; documents
+                    </h3>
+                    <p className={styles.drillTablesIntro}>
+                      Left: people tied to this department (primary home or access). Right: documents whose department is this
+                      unit.
+                    </p>
+                    <div className={styles.drillGrid}>
             <div className={styles.drillPanel}>
               <div className={styles.drillPanelHead}>
                 <span>Users</span>
                 <Link prefetch={false} href="/admin/users" className={styles.drillLink}>
-                  Users admin
+                  Open users admin
                 </Link>
               </div>
+              <p className={styles.drillPanelCaption}>Includes primary department and any linked access.</p>
               <div className={styles.listScroll}>
                 {drillUsers.length === 0 && !drillLoading ? (
-                  <p style={{ padding: "0.75rem 0.85rem", margin: 0, color: "#a1a1aa", fontSize: "0.88rem" }}>
-                    No users in this department.
-                  </p>
+                  <p className={styles.drillPanelEmpty}>No users are listed for this department.</p>
                 ) : (
                   drillUsers.map((u) => {
                     const photoSrc = profilePictureDisplayUrl(u.profilePictureUrl);
+                    const deptPriv =
+                      selectedDeptId != null
+                        ? departmentAccessInDept(u, selectedDeptId, deptAccessUsers)
+                        : null;
+                    const platformRole = formatPlatformRole(u.role);
+                    const privTitle = [
+                      `Account role: ${platformRole}`,
+                      deptPriv
+                        ? deptPriv === "Primary"
+                          ? "Department: primary organization unit (implicit access)"
+                          : `Department access: ${deptPriv}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ");
+                    const ariaLabel = [u.name, `account ${platformRole}`, deptPriv ? `dept ${deptPriv}` : null]
+                      .filter(Boolean)
+                      .join(", ");
                     return (
                       <button
                         key={u.id}
                         type="button"
-                        className={`${styles.listRow} ${panelUser?.id === u.id ? styles.listRowSelected : ""}`}
+                        title={privTitle}
+                        aria-label={ariaLabel}
+                        className={`${styles.listRow} ${styles.listRowUser} ${panelUser?.id === u.id ? styles.listRowSelected : ""}`}
                         onClick={() => {
                           setPanelDocId(null);
                           setPanelDocDetail(null);
@@ -1133,7 +1485,33 @@ export default function AdminDepartmentsClient() {
                             </span>
                           )}
                         </div>
-                        <span className={styles.rowName}>{u.name}</span>
+                        <div className={styles.rowUserMain}>
+                          <span className={styles.drillUserName}>{u.name}</span>
+                          <div className={styles.drillUserPrivLines}>
+                            <p className={styles.drillUserPrivLine}>
+                              <span className={styles.drillPrivLabel}>Account role</span>
+                              <span className={styles.drillPrivValue} data-variant="role">
+                                {platformRole}
+                              </span>
+                            </p>
+                            {deptPriv ? (
+                              <p className={styles.drillUserPrivLine}>
+                                <span className={styles.drillPrivLabel}>In this department</span>
+                                <span
+                                  className={styles.drillPrivValue}
+                                  data-variant="dept"
+                                  title={
+                                    deptPriv === "Primary"
+                                      ? "User’s primary organization unit is this department."
+                                      : `Explicit access level for this department: ${deptPriv}`
+                                  }
+                                >
+                                  {deptPriv === "Primary" ? "Primary unit (home dept.)" : deptPriv}
+                                </span>
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
                       </button>
                     );
                   })
@@ -1144,14 +1522,13 @@ export default function AdminDepartmentsClient() {
               <div className={styles.drillPanelHead}>
                 <span>Documents</span>
                 <Link prefetch={false} href="/admin/documents" className={styles.drillLink}>
-                  Document tools
+                  Open document tools
                 </Link>
               </div>
+              <p className={styles.drillPanelCaption}>Department-scoped or general library items for this unit.</p>
               <div className={styles.listScroll}>
                 {drillDocs.length === 0 && !drillLoading ? (
-                  <p style={{ padding: "0.75rem 0.85rem", margin: 0, color: "#a1a1aa", fontSize: "0.88rem" }}>
-                    No documents in this department.
-                  </p>
+                  <p className={styles.drillPanelEmpty}>No documents are assigned to this department yet.</p>
                 ) : (
                   drillDocs.map((doc) => {
                     const lv = doc.latestVersion;
@@ -1173,6 +1550,7 @@ export default function AdminDepartmentsClient() {
                 )}
               </div>
             </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1259,10 +1637,10 @@ export default function AdminDepartmentsClient() {
                   aria-label="Close"
                   onClick={() => setPanelUser(null)}
                 >
-                  ←
+                  <IconProfileBack />
                 </button>
                 <h2 id="dept-user-drawer-title" className={hubStyles.profileTopTitle}>
-                  User
+                  Profile
                 </h2>
                 <span className={hubStyles.profileTopSpacer} aria-hidden />
               </header>
@@ -1290,16 +1668,29 @@ export default function AdminDepartmentsClient() {
                   Last sign-in {fmtDateTime(panelUser.lastLoginAt)}
                 </p>
                 {!panelUser.deletedAt ? (
-                  <div style={{ marginTop: "0.85rem", width: "100%", maxWidth: 320 }}>
-                    <ProfilePhotoUploader
+                  <>
+                    <button
+                      type="button"
+                      className={hubStyles.profilePhotoBtn}
+                      onClick={() => {
+                        setPanelPhotoUrlDraft(panelUser.profilePictureUrl ?? "");
+                        setPanelPhotoModalOpen(true);
+                      }}
+                    >
+                      Change photo
+                    </button>
+                    <ProfilePhotoModal
+                      open={panelPhotoModalOpen}
+                      onClose={() => setPanelPhotoModalOpen(false)}
                       mode="admin"
                       targetUserId={panelUser.id}
                       displayName={panelUser.name}
                       pictureUrl={panelUser.profilePictureUrl}
-                      compact
+                      pictureUrlDraft={panelPhotoUrlDraft}
+                      onPictureUrlDraftChange={setPanelPhotoUrlDraft}
                       onPictureUpdated={(url) => bumpUserProfilePicture(panelUser.id, url)}
                     />
-                  </div>
+                  </>
                 ) : null}
                 <Link prefetch={false} href="/admin/users" className={hubStyles.profileEditCta} style={{ textDecoration: "none", textAlign: "center" }}>
                   Open in Users directory
@@ -1315,12 +1706,24 @@ export default function AdminDepartmentsClient() {
                   <div className={hubStyles.profileFieldBox}>{panelUser.role}</div>
                 </div>
                 <div className={hubStyles.profileField}>
-                  <span className={hubStyles.profileFieldLabel}>Account</span>
+                  <span className={hubStyles.profileFieldLabel}>Phone</span>
+                  <div className={hubStyles.profileFieldBox}>{panelUser.phoneNumber ?? "—"}</div>
+                </div>
+                <div className={hubStyles.profileField}>
+                  <span className={hubStyles.profileFieldLabel}>Account status</span>
                   <div className={hubStyles.profileFieldBox}>{accountStatusLabel(panelUser)}</div>
                 </div>
                 <div className={hubStyles.profileField}>
                   <span className={hubStyles.profileFieldLabel}>Must change password</span>
                   <div className={hubStyles.profileFieldBox}>{panelUser.mustChangePassword ? "Yes" : "No"}</div>
+                </div>
+                <div className={hubStyles.profileField}>
+                  <span className={hubStyles.profileFieldLabel}>Employee badge</span>
+                  <div className={hubStyles.profileFieldBox}>{panelUser.employeeBadgeNumber ?? "—"}</div>
+                </div>
+                <div className={hubStyles.profileField}>
+                  <span className={hubStyles.profileFieldLabel}>Job title</span>
+                  <div className={hubStyles.profileFieldBox}>{panelUser.position ?? "—"}</div>
                 </div>
                 <div className={hubStyles.profileField}>
                   <span className={hubStyles.profileFieldLabel}>Sign-in lock</span>

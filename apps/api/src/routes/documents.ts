@@ -8,7 +8,12 @@ import { z } from "zod";
 import { authenticateToken, requireRole } from "../middleware/auth.js";
 import { requireDocLibraryAccess, requireManageDocumentsCapability } from "../middleware/restrictions.js";
 import { logDocumentAudit } from "../lib/documentAudit.js";
-import { canManageDocument, canReadDocument } from "../lib/documentAccess.js";
+import {
+  canManageDocument,
+  canReadDocument,
+  userCanAccessDocumentDetailEndpoint,
+} from "../lib/documentAccess.js";
+import { isPlatformAdmin, isGlobalManagerRole } from "../lib/platformRoles.js";
 import { docListInclude, listDocuments, mapDocumentRow, parseLibraryScope } from "../lib/documentQuery.js";
 import { prisma } from "../lib/prisma.js";
 import {
@@ -32,7 +37,7 @@ function unionGeneralDepartmentIdForQuery(
   query: Record<string, unknown>,
   departmentKey: string | undefined,
 ): string | undefined {
-  if (user.role !== RoleName.ADMIN) return undefined;
+  if (!isPlatformAdmin(user.role)) return undefined;
   const on = query.unionGeneralLibrary === "1" || query.unionGeneralLibrary === "true";
   if (!on || !departmentKey || departmentKey === "__general") return undefined;
   if (!DEPT_FILTER_UUID_RE.test(departmentKey)) return undefined;
@@ -64,7 +69,6 @@ documentsRouter.post(
   authenticateToken,
   requireDocLibraryAccess,
   requireManageDocumentsCapability,
-  requireRole(RoleName.ADMIN, RoleName.MANAGER),
   (req, res, next) => {
     upload.single("file")(req, res, (err: unknown) => {
       if (err) {
@@ -111,9 +115,12 @@ documentsRouter.post(
       }
     }
 
-    if (user.role !== "ADMIN" && departmentId && departmentId !== user.departmentId) {
-      res.status(403).json({ error: "You can only assign documents to your own department" });
-      return;
+    if (!isPlatformAdmin(user.role) && departmentId) {
+      const allowed = user.manageableDepartmentIds?.includes(departmentId) || departmentId === user.departmentId;
+      if (!allowed) {
+        res.status(403).json({ error: "You don't have access to assign documents to that department" });
+        return;
+      }
     }
 
     const mimeType = resolveMimeType(file.originalname, file.mimetype);
@@ -207,7 +214,7 @@ documentsRouter.get("/tags/suggestions", async (req, res) => {
   const qRaw = typeof req.query.q === "string" ? req.query.q.trim() : "";
 
   const visibleDocs: Prisma.DocumentWhereInput =
-    user.role === "ADMIN"
+    isPlatformAdmin(user.role)
       ? { isArchived: false }
       : {
           AND: [
@@ -216,7 +223,7 @@ documentsRouter.get("/tags/suggestions", async (req, res) => {
                 { visibility: DocumentVisibility.ALL },
                 {
                   visibility: DocumentVisibility.DEPARTMENT,
-                  departmentId: user.departmentId,
+                  departmentId: { in: user.readableDepartmentIds?.length ? user.readableDepartmentIds : [user.departmentId] },
                 },
                 {
                   visibility: DocumentVisibility.PRIVATE,
@@ -291,11 +298,11 @@ documentsRouter.get(
       req.query.includeArchived === "1" || req.query.includeArchived === "true";
 
     const needsAttention =
-      user.role === RoleName.ADMIN &&
+      isPlatformAdmin(user.role) &&
       (req.query.needsAttention === "1" || req.query.needsAttention === "true");
 
     let createdById: string | undefined;
-    if (user.role === RoleName.ADMIN && typeof req.query.createdById === "string") {
+    if (isPlatformAdmin(user.role) && typeof req.query.createdById === "string") {
       const c = req.query.createdById.trim();
       if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(c)) {
         createdById = c;
@@ -328,7 +335,10 @@ documentsRouter.get(
         const st = d.versions[0]?.processingStatus ?? "";
         const dept = d.department?.name ?? "General";
         const tags = d.tags.map((t) => t.name).join(";");
-        const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+        const esc = (s: string) => {
+          const v = s.replace(/"/g, '""');
+          return /^[=+\-@\t\r]/.test(v) ? `"'${v}"` : `"${v}"`;
+        };
         return [
           d.id,
           esc(d.title),
@@ -403,13 +413,15 @@ documentsRouter.get("/", async (req, res) => {
   const statusRaw = typeof req.query.status === "string" ? req.query.status : "ALL";
   const libraryScope = parseLibraryScope(req.query.libraryScope);
   let departmentKey = typeof req.query.departmentId === "string" ? req.query.departmentId.trim() : undefined;
-  if (user.role === RoleName.MANAGER) {
+  const scopedLikeManager =
+    isGlobalManagerRole(user.role) || (user.manageableDepartmentIds?.length ?? 0) > 0;
+  if (scopedLikeManager) {
     if (departmentKey === "__general") {
-      res.status(403).json({ error: "Managers can only view documents assigned to their department." });
+      res.status(403).json({ error: "Managers can only view documents assigned to their departments." });
       return;
     }
-    if (departmentKey && departmentKey !== user.departmentId) {
-      res.status(403).json({ error: "You can only filter by your own department." });
+    if (departmentKey && departmentKey !== user.departmentId && !user.readableDepartmentIds?.includes(departmentKey)) {
+      res.status(403).json({ error: "You don't have access to that department." });
       return;
     }
   }
@@ -422,15 +434,15 @@ documentsRouter.get("/", async (req, res) => {
   const dateFilter = typeof req.query.dateFilter === "string" ? req.query.dateFilter : "ALL";
   const includeMeta = req.query.includeMeta === "1" || req.query.includeMeta === "true";
   const allScopeIncludeArchived =
-    user.role === RoleName.ADMIN &&
+    isPlatformAdmin(user.role) &&
     (req.query.includeArchived === "1" || req.query.includeArchived === "true");
 
   const needsAttention =
-    user.role === RoleName.ADMIN &&
+    isPlatformAdmin(user.role) &&
     (req.query.needsAttention === "1" || req.query.needsAttention === "true");
 
   let createdById: string | undefined;
-  if (user.role === RoleName.ADMIN && typeof req.query.createdById === "string") {
+  if (isPlatformAdmin(user.role) && typeof req.query.createdById === "string") {
     const c = req.query.createdById.trim();
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(c)) {
       createdById = c;
@@ -479,7 +491,7 @@ const patchDocumentBody = z
   })
   .refine((o) => Object.keys(o).length > 0, { message: "No fields to update" });
 
-documentsRouter.patch("/:documentId", async (req, res) => {
+documentsRouter.patch("/:documentId", requireManageDocumentsCapability, async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -499,7 +511,7 @@ documentsRouter.patch("/:documentId", async (req, res) => {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  if (user.role === RoleName.EMPLOYEE || !canManageDocument(user, doc)) {
+  if (!canManageDocument(user, doc)) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -518,9 +530,12 @@ documentsRouter.patch("/:documentId", async (req, res) => {
       return;
     }
   }
-  if (user.role !== "ADMIN" && nextDepartmentId && nextDepartmentId !== user.departmentId) {
-    res.status(403).json({ error: "You can only assign documents to your own department" });
-    return;
+  if (!isPlatformAdmin(user.role) && nextDepartmentId) {
+    const allowed = user.manageableDepartmentIds?.includes(nextDepartmentId) || nextDepartmentId === user.departmentId;
+    if (!allowed) {
+      res.status(403).json({ error: "You don't have access to assign documents to that department" });
+      return;
+    }
   }
   if (nextVisibility !== DocumentVisibility.DEPARTMENT) {
     nextDepartmentId = null;
@@ -675,7 +690,6 @@ documentsRouter.delete("/:documentId/favorite", async (req, res) => {
 
 documentsRouter.post(
   "/:documentId/archive",
-  requireRole(RoleName.ADMIN, RoleName.MANAGER),
   requireManageDocumentsCapability,
   async (req, res) => {
   const user = req.authUser;
@@ -708,7 +722,6 @@ documentsRouter.post(
 
 documentsRouter.delete(
   "/:documentId/archive",
-  requireRole(RoleName.ADMIN, RoleName.MANAGER),
   requireManageDocumentsCapability,
   async (req, res) => {
   const user = req.authUser;
@@ -745,13 +758,13 @@ documentsRouter.get("/:documentId/audit", async (req, res) => {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  if (user.role === RoleName.EMPLOYEE) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
   const doc = await prisma.document.findUnique({ where: { id: req.params.documentId } });
   if (!doc || !canReadDocument(user, doc)) {
     res.status(404).json({ error: "Not found" });
+    return;
+  }
+  if (!userCanAccessDocumentDetailEndpoint(user, doc)) {
+    res.status(403).json({ error: "Forbidden" });
     return;
   }
   const logs = await prisma.documentAuditLog.findMany({
@@ -796,8 +809,14 @@ documentsRouter.get("/:documentId", async (req, res) => {
     return;
   }
 
-  const canManage = user.role !== RoleName.EMPLOYEE && canManageDocument(user, doc);
-  const canViewAudit = user.role !== RoleName.EMPLOYEE;
+  const isAdminUser = isPlatformAdmin(user.role);
+  if (!isAdminUser && !userCanAccessDocumentDetailEndpoint(user, doc)) {
+    res.status(403).json({ error: "Only department managers and admins can access document details." });
+    return;
+  }
+
+  const canManage = canManageDocument(user, doc);
+  const canViewAudit = canManage;
 
   res.json({
     document: {
@@ -845,7 +864,7 @@ documentsRouter.post(
       res.status(404).json({ error: "Not found" });
       return;
     }
-    if (user.role === RoleName.EMPLOYEE || !canManageDocument(user, version.document)) {
+    if (!canManageDocument(user, version.document)) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -899,7 +918,7 @@ documentsRouter.post(
       return;
     }
 
-    if (user.role === RoleName.EMPLOYEE || !canManageDocument(user, doc)) {
+    if (!canManageDocument(user, doc)) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -911,28 +930,32 @@ documentsRouter.post(
     await saveUploadedFile(storageKey, file.buffer);
 
     try {
-      const agg = await prisma.documentVersion.aggregate({
-        where: { documentId },
-        _max: { versionNumber: true },
-      });
-      const nextNum = (agg._max.versionNumber ?? 0) + 1;
+      const version = await prisma.$transaction(async (tx) => {
+        const agg = await tx.documentVersion.aggregate({
+          where: { documentId },
+          _max: { versionNumber: true },
+        });
+        const nextNum = (agg._max.versionNumber ?? 0) + 1;
 
-      const version = await prisma.documentVersion.create({
-        data: {
-          documentId,
-          versionNumber: nextNum,
-          fileName: file.originalname,
-          mimeType,
-          storageKey,
-          sizeBytes: file.size,
-          sha256,
-          createdById: user.id,
-        },
-      });
+        const v = await tx.documentVersion.create({
+          data: {
+            documentId,
+            versionNumber: nextNum,
+            fileName: file.originalname,
+            mimeType,
+            storageKey,
+            sizeBytes: file.size,
+            sha256,
+            createdById: user.id,
+          },
+        });
 
-      await prisma.document.update({
-        where: { id: documentId },
-        data: { updatedAt: new Date() },
+        await tx.document.update({
+          where: { id: documentId },
+          data: { updatedAt: new Date() },
+        });
+
+        return v;
       });
 
       await enqueueDocumentIngest(version.id);
@@ -1000,7 +1023,7 @@ documentsRouter.get("/:documentId/versions/:versionId/file", async (req, res) =>
   stream.pipe(res);
 });
 
-documentsRouter.delete("/:documentId", async (req, res) => {
+documentsRouter.delete("/:documentId", requireManageDocumentsCapability, async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });

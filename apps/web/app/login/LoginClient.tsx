@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { fetchWithAuth, getValidAccessToken } from "@/lib/authClient";
+import { fetchPublicApi, fetchWithAuth, getValidAccessToken } from "@/lib/authClient";
 import { homePathForUser, type MeUserDto } from "@/lib/restrictions";
 import styles from "./page.module.css";
 
@@ -52,7 +52,7 @@ export default function LoginClient() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch(`${API}/auth/login`, {
+      const res = await fetchPublicApi(`${API}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),

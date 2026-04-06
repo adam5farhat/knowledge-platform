@@ -14,6 +14,8 @@ declare global {
         manageDocumentsAllowed: boolean;
         accessDashboardAllowed: boolean;
         useAiQueriesAllowed: boolean;
+        readableDepartmentIds: string[];
+        manageableDepartmentIds: string[];
       };
     }
   }

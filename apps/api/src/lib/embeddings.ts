@@ -1,7 +1,10 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, TaskType } from "@google/generative-ai";
+import { TtlCache, withRetry } from "./cache.js";
 
 const MODEL = process.env.GEMINI_EMBEDDING_MODEL ?? "gemini-embedding-001";
 const DIM = 768;
+
+const embedCache = new TtlCache<number[]>(600, 300);
 
 let genAI: GoogleGenerativeAI | null = null;
 
@@ -18,7 +21,7 @@ function getClient(): GoogleGenerativeAI {
 
 export const EMBEDDING_DIMENSIONS = DIM;
 
-export async function embedTexts(texts: string[]): Promise<number[][]> {
+export async function embedTexts(texts: string[], taskType: TaskType = TaskType.RETRIEVAL_DOCUMENT): Promise<number[][]> {
   if (texts.length === 0) return [];
   const client = getClient();
   const model = client.getGenerativeModel({ model: MODEL });
@@ -27,12 +30,13 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
 
   for (let i = 0; i < texts.length; i += batchSize) {
     const slice = texts.slice(i, i + batchSize);
-    const result = await model.batchEmbedContents({
+    const result = await withRetry(() => model.batchEmbedContents({
       requests: slice.map((text) => ({
         content: { role: "user", parts: [{ text }] },
+        taskType,
         outputDimensionality: DIM,
       })),
-    });
+    }));
     for (const emb of result.embeddings) {
       if (!emb.values || emb.values.length !== DIM) {
         throw new Error(`Unexpected embedding length: expected ${DIM}, got ${emb.values?.length}`);
@@ -45,6 +49,13 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
 }
 
 export async function embedQuery(query: string): Promise<number[]> {
-  const [vec] = await embedTexts([query]);
+  const cacheKey = `q:${query.trim().toLowerCase()}`;
+  const cached = embedCache.get(cacheKey);
+  if (cached) return cached;
+
+  const result = await embedTexts([query], TaskType.RETRIEVAL_QUERY);
+  const vec = result[0];
+  if (!vec) throw new Error("Embedding API returned empty result");
+  embedCache.set(cacheKey, vec);
   return vec;
 }

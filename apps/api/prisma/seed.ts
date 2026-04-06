@@ -27,6 +27,9 @@ async function main() {
 
   const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@example.com";
   const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123!";
+  if (!process.env.SEED_ADMIN_PASSWORD) {
+    console.warn("⚠  SEED_ADMIN_PASSWORD not set — using default. Change it before deploying!");
+  }
   const adminRole = await prisma.role.findUniqueOrThrow({ where: { name: RoleName.ADMIN } });
 
   const passwordHash = await hashPassword(adminPassword);
@@ -80,6 +83,9 @@ async function main() {
 
   const managerEmail = process.env.SEED_MANAGER_EMAIL ?? "manager@example.com";
   const managerPassword = process.env.SEED_MANAGER_PASSWORD ?? "ChangeMe123!";
+  if (!process.env.SEED_MANAGER_PASSWORD) {
+    console.warn("⚠  SEED_MANAGER_PASSWORD not set — using default. Change it before deploying!");
+  }
   const managerName = process.env.SEED_MANAGER_NAME ?? "Backoffice Manager";
   const managerRole = await prisma.role.findUniqueOrThrow({ where: { name: RoleName.MANAGER } });
   const managerHash = await hashPassword(managerPassword);

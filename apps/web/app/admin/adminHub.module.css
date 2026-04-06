@@ -59,6 +59,8 @@
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(2, minmax(200px, 1fr));
   border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
   min-height: 0;
   flex: 1;
 }

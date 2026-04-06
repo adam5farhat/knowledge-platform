@@ -242,6 +242,13 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
       "PDF has broken font encoding and GEMINI_API_KEY is not set for OCR fallback.",
     );
   }
+  const MAX_OCR_BYTES = 20 * 1024 * 1024;
+  if (buffer.length > MAX_OCR_BYTES) {
+    throw new Error(
+      `PDF is ${Math.round(buffer.length / 1024 / 1024)}MB — too large for OCR fallback (limit ${MAX_OCR_BYTES / 1024 / 1024}MB).`,
+    );
+  }
+
   console.log("[extractText] PDF text appears garbled — falling back to Gemini OCR");
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: process.env.GEMINI_CHAT_MODEL ?? "gemini-2.5-flash" });
