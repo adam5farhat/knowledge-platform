@@ -133,9 +133,19 @@ export async function refreshAccessToken(): Promise<string | null> {
   return refreshInFlight;
 }
 
+function isTokenExpiringSoon(token: string, bufferMs = 60_000): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]!)) as { exp?: number };
+    if (!payload.exp) return true;
+    return payload.exp * 1000 - Date.now() < bufferMs;
+  } catch {
+    return true;
+  }
+}
+
 export async function getValidAccessToken(): Promise<string | null> {
   if (typeof window === "undefined") return null;
-  if (accessToken) return accessToken;
+  if (accessToken && !isTokenExpiringSoon(accessToken)) return accessToken;
   return refreshAccessToken();
 }
 

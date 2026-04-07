@@ -152,15 +152,19 @@ export default function DashboardClient() {
   const showDashboardInMenu = rs.accessDashboardAllowed && userCanOpenManagerDashboard(user);
   const docHref = documentsCardHref(user);
   const ragHref = askCardHref(user);
+  const showManager = userCanOpenManagerDashboard(user);
+  const showAdmin = user.role === RoleNameApi.ADMIN;
+  const cardCount = 2 + (showManager ? 1 : 0) + (showAdmin ? 1 : 0);
+  const cardsClass = cardCount % 2 !== 0 ? styles.cardsOdd : "";
 
   return (
     <main className={styles.page} data-dashboard-fullscreen="true">
       <header className={styles.navbar}>
         <nav className={styles.navLeft} aria-label="Primary">
-          <a className={styles.brand} href="/dashboard">
+          <Link prefetch={false} className={styles.brand} href="/dashboard">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className={styles.brandMark} src="/logo-swapped.svg" alt="Platform" />
-          </a>
+          </Link>
         </nav>
 
         <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
@@ -263,7 +267,7 @@ export default function DashboardClient() {
       </header>
 
       <section
-        className={`${styles.cards} ${userCanOpenManagerDashboard(user) ? styles.cardsWithAdmin : ""}`}
+        className={`${styles.cards} ${cardsClass}`}
         aria-label="Core features"
       >
         <Link
@@ -319,7 +323,7 @@ export default function DashboardClient() {
           </div>
         </Link>
 
-        {userCanOpenManagerDashboard(user) ? (
+        {showManager ? (
           <Link
             prefetch={false}
             className={`${styles.card} ${styles.cardAdmin}`}
@@ -349,7 +353,7 @@ export default function DashboardClient() {
             </div>
           </Link>
         ) : null}
-        {user.role === RoleNameApi.ADMIN ? (
+        {showAdmin ? (
           <Link
             prefetch={false}
             className={`${styles.card} ${styles.cardAdmin}`}

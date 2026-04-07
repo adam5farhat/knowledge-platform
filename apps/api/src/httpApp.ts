@@ -1,4 +1,5 @@
 import "dotenv/config";
+import crypto from "node:crypto";
 import compression from "compression";
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -55,6 +56,14 @@ export function createHttpApp(): express.Application {
   app.use(cookieParser());
   app.use(cors({ origin: buildCorsOrigin(), credentials: true }));
   app.use(express.json({ limit: "1mb" }));
+
+  app.use((req, res, next) => {
+    const requestId = (req.headers["x-request-id"] as string) || crypto.randomUUID();
+    res.locals.requestId = requestId;
+    res.setHeader("x-request-id", requestId);
+    next();
+  });
+
   app.use("/avatars", avatarsPublicRouter);
   app.use("/auth", authRouter);
   app.use("/admin", adminRouter);
@@ -110,11 +119,13 @@ export function createHttpApp(): express.Application {
       return;
     }
 
-    logger.error("Unhandled error", { error: err instanceof Error ? err.message : String(err) });
-    const message = err instanceof Error ? err.message : String(err);
+    logger.error("Unhandled error", {
+      error: err instanceof Error ? err.message : String(err),
+      requestId: res.locals.requestId,
+    });
     res.status(500).json({
       error: "Internal server error",
-      ...(!config.isProd ? { debug: message } : {}),
+      ...(config.isDev ? { debug: err instanceof Error ? err.message : String(err) } : {}),
     });
   });
 

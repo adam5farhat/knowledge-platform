@@ -3,11 +3,12 @@ import path from "node:path";
 import { prisma } from "../lib/prisma.js";
 import { absolutePathForKey } from "../lib/storage.js";
 import { avatarKeyFromParts, isSafeAvatarFilename } from "../lib/avatar.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
 
 /** Public GET for avatar files (opaque UUID filenames). */
 export const avatarsPublicRouter = Router();
 
-avatarsPublicRouter.get("/:userId/:filename", async (req, res) => {
+avatarsPublicRouter.get("/:userId/:filename", asyncHandler(async (req, res) => {
   const userId = req.params.userId;
   const filename = req.params.filename;
   if (!/^[0-9a-f-]{36}$/i.test(userId) || !isSafeAvatarFilename(filename)) {
@@ -60,4 +61,4 @@ avatarsPublicRouter.get("/:userId/:filename", async (req, res) => {
   } catch {
     res.status(404).end();
   }
-});
+}));

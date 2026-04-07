@@ -12,6 +12,7 @@
   padding: 0.85rem clamp(1rem, 2.5vw, 1.75rem) 1.5rem;
   align-self: stretch;
   background: color-mix(in srgb, var(--bg) 88%, #e2e8f0 12%);
+  animation: kp-fadeUp var(--dur-normal) var(--ease-out) both;
 }
 
 .pageHead {
@@ -391,6 +392,10 @@
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 
 .filterBtn:hover {
@@ -476,6 +481,9 @@
   color: var(--text);
   width: 100%;
   box-sizing: border-box;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .searchInput:focus {
@@ -500,6 +508,9 @@
   box-sizing: border-box;
   appearance: none;
   cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .select:focus {
@@ -1146,6 +1157,9 @@
 .docTableRowSelected {
   background: color-mix(in srgb, var(--interactive) 7%, var(--card-bg)) !important;
   box-shadow: inset 2px 0 0 var(--interactive);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .docTableRowSelected:hover {

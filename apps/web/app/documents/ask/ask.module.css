@@ -199,6 +199,10 @@
   gap: 0.55rem;
   color: inherit;
   text-decoration: none;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.brand:hover {
+  opacity: 0.8;
 }
 .brandMark {
   height: 32px;
@@ -226,6 +230,11 @@
   flex-shrink: 0;
   font-size: 0.78rem;
   letter-spacing: 0.02em;
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.profileBtn:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive) 18%, transparent);
 }
 .profileBtnImg {
   width: 100%;
@@ -244,6 +253,7 @@
   box-shadow: 0 12px 22px rgba(2, 2, 2, 0.15);
   z-index: 40;
   overflow: hidden;
+  animation: kp-cardIn var(--dur-modal) var(--ease-out) both;
 }
 .menuHeader {
   padding: 0.65rem 0.8rem;
@@ -262,10 +272,14 @@
   text-decoration: none;
   cursor: pointer;
   font-size: 0.92rem;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .menuItem:hover {
   background: #eef4f8;
   text-decoration: none;
+}
+.menuItem:active {
+  background: #dde8f0;
 }
 
 /* ── Chat area ── */
@@ -357,6 +371,7 @@
   border-bottom: 1px solid var(--border);
   width: 100%;
   padding: 1.25rem 1.5rem;
+  animation: kp-fadeUp var(--dur-normal) var(--ease-out) both;
 }
 .messageInner {
   display: flex;

@@ -52,7 +52,11 @@ const attachmentUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    cb(null, ALLOWED_ATTACH_MIMES.has(file.mimetype));
+    if (ALLOWED_ATTACH_MIMES.has(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`File type ${file.mimetype} is not allowed`));
+    }
   },
 });
 
@@ -177,7 +181,16 @@ notificationsRouter.patch(
 notificationsRouter.post(
   "/send",
   requireRole(RoleName.ADMIN, RoleName.MANAGER),
-  attachmentUpload.single("attachment"),
+  (req, res, next) => {
+    attachmentUpload.single("attachment")(req, res, (err: unknown) => {
+      if (err) {
+        const msg = err instanceof Error ? err.message : "Upload failed";
+        res.status(400).json({ error: msg });
+        return;
+      }
+      next();
+    });
+  },
   asyncHandler(async (req, res) => {
     const parsed = sendSchema.safeParse(req.body);
     if (!parsed.success) {

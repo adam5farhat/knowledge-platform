@@ -20,6 +20,11 @@
   background: #f1f5f9;
 }
 
+.bell:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 .badge {
   position: absolute;
   top: 2px;
@@ -224,11 +229,13 @@
   border-radius: 4px;
 }
 
-.row:hover .rowDeleteBtn {
+.row:hover .rowDeleteBtn,
+.rowDeleteBtn:focus-visible {
   opacity: 1;
 }
 
-.rowDeleteBtn:hover {
+.rowDeleteBtn:hover,
+.rowDeleteBtn:focus-visible {
   color: #ef4444;
   background: #fef2f2;
 }

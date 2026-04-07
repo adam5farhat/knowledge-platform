@@ -25,6 +25,15 @@ function optionalBool(name: string, fallback: boolean): boolean {
   return raw === "true";
 }
 
+function requiredInProd(name: string, fallback: string): string {
+  const val = process.env[name];
+  if (val) return val;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return fallback;
+}
+
 const isProd = process.env.NODE_ENV === "production";
 const isDev = process.env.NODE_ENV === "development";
 const isTest = process.env.VITEST === "true";
@@ -39,7 +48,7 @@ export const config = {
   trustProxy: process.env.TRUST_PROXY ?? "",
   webAppUrl: process.env.WEB_APP_URL ?? "",
 
-  jwtSecret: process.env.JWT_SECRET ?? "",
+  jwtSecret: requiredInProd("JWT_SECRET", "dev-only-jwt-secret-do-not-use-in-prod"),
   jwtExpiresIn: optional("JWT_EXPIRES_IN", "15m"),
 
   redisUrl: optional("REDIS_URL", "redis://127.0.0.1:6379"),

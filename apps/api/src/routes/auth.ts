@@ -9,13 +9,14 @@ import { authenticateToken } from "../middleware/auth.js";
 import { mapUserResponse } from "../lib/mapUser.js";
 import { generateRawResetToken, hashResetToken } from "../lib/passwordReset.js";
 import { sendPasswordResetEmail } from "../lib/email.js";
-import { loginRateLimiter, forgotPasswordRateLimiter, refreshRateLimiter, resetPasswordRateLimiter } from "../lib/rateLimiter.js";
+import { loginRateLimiter, forgotPasswordRateLimiter, refreshRateLimiter, resetPasswordRateLimiter, changePasswordRateLimiter } from "../lib/rateLimiter.js";
 import { generateRawRefreshToken, hashRefreshToken, refreshTokenTtlMs } from "../lib/refreshToken.js";
 import { setRefreshCookie, clearRefreshCookie, readRefreshCookie } from "../lib/refreshCookie.js";
 import { isAllowedProfilePictureUrlForUser } from "../lib/avatar.js";
 import { clearUserAvatar, commitAvatarUpload } from "../lib/avatarOps.js";
 import { config } from "../lib/config.js";
 import { AppError } from "../lib/AppError.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
 import { normalizeClientIp } from "../lib/clientIp.js";
 import {
   buildManagerDashboardUserFields,
@@ -75,13 +76,14 @@ const patchProfileBody = z.object({
   profilePictureUrl: z.string().max(2000).optional().nullable(),
 });
 
-import { PASSWORD_MIN, PASSWORD_RE, PASSWORD_RULE } from "../lib/passwordPolicy.js";
+import { PASSWORD_MIN, PASSWORD_MAX, PASSWORD_RE, PASSWORD_RULE } from "../lib/passwordPolicy.js";
 
 const changePasswordBody = z.object({
   currentPassword: z.string().min(1),
   newPassword: z
     .string()
     .min(PASSWORD_MIN, PASSWORD_RULE)
+    .max(PASSWORD_MAX, PASSWORD_RULE)
     .regex(PASSWORD_RE, PASSWORD_RULE),
 });
 
@@ -94,6 +96,7 @@ const resetPasswordBody = z.object({
   newPassword: z
     .string()
     .min(PASSWORD_MIN, PASSWORD_RULE)
+    .max(PASSWORD_MAX, PASSWORD_RULE)
     .regex(PASSWORD_RE, PASSWORD_RULE),
 });
 
@@ -179,7 +182,7 @@ async function logAuthEvent(input: {
   }
 }
 
-authRouter.post("/login", loginRateLimiter, async (req, res) => {
+authRouter.post("/login", loginRateLimiter, asyncHandler(async (req, res) => {
   const parsed = loginBody.safeParse(req.body);
   if (!parsed.success) {
     throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
@@ -306,9 +309,9 @@ authRouter.post("/login", loginRateLimiter, async (req, res) => {
     user: { ...mapUserResponse(userForResponse), ...managerFields },
     token: tokens.accessToken,
   });
-});
+}));
 
-authRouter.post("/refresh", refreshRateLimiter, async (req, res) => {
+authRouter.post("/refresh", refreshRateLimiter, asyncHandler(async (req, res) => {
   const rawCookie = readRefreshCookie(req);
   if (!rawCookie) {
     res.status(401).json({ error: "Missing refresh token" });
@@ -328,20 +331,48 @@ authRouter.post("/refresh", refreshRateLimiter, async (req, res) => {
 
   if (
     !session ||
-    session.revokedAt ||
     session.expiresAt < new Date() ||
     !session.user.isActive ||
     session.user.deletedAt
   ) {
     const reason =
-      !session ? "unknown_token" : session.revokedAt ? "revoked" : session.expiresAt < new Date() ? "expired" : "user_inactive";
+      !session ? "unknown_token" : session.expiresAt < new Date() ? "expired" : "user_inactive";
     await logAuthEvent({
       userId: session?.userId,
       eventType: AuthEventType.REFRESH_FAILURE,
       ...meta,
       metadata: { reason: "invalid_session", detail: reason },
     });
+    clearRefreshCookie(res);
     res.status(401).json({ error: "Invalid or expired refresh token" });
+    return;
+  }
+
+  if (session.revokedAt) {
+    let nextId = session.replacedById;
+    const now = new Date();
+    while (nextId) {
+      const descendant = await prisma.refreshSession.findUnique({
+        where: { id: nextId },
+        select: { id: true, revokedAt: true, replacedById: true },
+      });
+      if (!descendant) break;
+      if (!descendant.revokedAt) {
+        await prisma.refreshSession.update({
+          where: { id: descendant.id },
+          data: { revokedAt: now },
+        });
+      }
+      nextId = descendant.replacedById;
+    }
+    await logAuthEvent({
+      userId: session.userId,
+      eventType: AuthEventType.REFRESH_FAILURE,
+      ...meta,
+      metadata: { reason: "token_reuse_detected", revokedSessionId: session.id },
+    });
+    clearRefreshCookie(res);
+    res.status(401).json({ error: "Session invalidated for security. Please sign in again." });
     return;
   }
   if (session.user.authVersion !== session.authVersion) {
@@ -355,6 +386,7 @@ authRouter.post("/refresh", refreshRateLimiter, async (req, res) => {
       ...meta,
       metadata: { reason: "auth_version_mismatch" },
     });
+    clearRefreshCookie(res);
     res.status(401).json({ error: "Session expired. Please sign in again." });
     return;
   }
@@ -370,6 +402,7 @@ authRouter.post("/refresh", refreshRateLimiter, async (req, res) => {
       ...meta,
       metadata: { reason: "login_disabled" },
     });
+    clearRefreshCookie(res);
     res.status(403).json({
       error: "Your account has been restricted. Please contact your administrator.",
       code: "ACCOUNT_RESTRICTED",
@@ -428,9 +461,9 @@ authRouter.post("/refresh", refreshRateLimiter, async (req, res) => {
     ...meta,
     metadata: { previousSessionId: session.id, nextSessionId: created.id },
   });
-});
+}));
 
-authRouter.post("/logout", async (req, res) => {
+authRouter.post("/logout", asyncHandler(async (req, res) => {
   const rawCookie = readRefreshCookie(req);
   if (rawCookie) {
     const tokenHash = hashRefreshToken(rawCookie);
@@ -452,9 +485,9 @@ authRouter.post("/logout", async (req, res) => {
   }
   clearRefreshCookie(res);
   res.json({ ok: true });
-});
+}));
 
-authRouter.post("/logout-all", authenticateToken, async (req, res) => {
+authRouter.post("/logout-all", authenticateToken, asyncHandler(async (req, res) => {
   const userId = req.authUser?.id;
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
@@ -471,9 +504,9 @@ authRouter.post("/logout-all", authenticateToken, async (req, res) => {
   });
   clearRefreshCookie(res);
   res.json({ ok: true });
-});
+}));
 
-authRouter.get("/me", authenticateToken, async (req, res) => {
+authRouter.get("/me", authenticateToken, asyncHandler(async (req, res) => {
   const id = req.authUser?.id;
   if (!id) {
     res.status(401).json({ error: "Unauthorized" });
@@ -500,9 +533,9 @@ authRouter.get("/me", authenticateToken, async (req, res) => {
   });
 
   res.json({ user: { ...mapUserResponse(user), ...managerFields } });
-});
+}));
 
-authRouter.patch("/profile", authenticateToken, async (req, res) => {
+authRouter.patch("/profile", authenticateToken, asyncHandler(async (req, res) => {
   const id = req.authUser?.id;
   if (!id) {
     res.status(401).json({ error: "Unauthorized" });
@@ -594,7 +627,7 @@ authRouter.patch("/profile", authenticateToken, async (req, res) => {
     }
     throw e;
   }
-});
+}));
 
 authRouter.post(
   "/profile/avatar",
@@ -609,7 +642,7 @@ authRouter.post(
       next();
     });
   },
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const id = req.authUser?.id;
     if (!id) {
       res.status(401).json({ error: "Unauthorized" });
@@ -635,10 +668,10 @@ authRouter.post(
       }
       throw e;
     }
-  },
+  }),
 );
 
-authRouter.delete("/profile/avatar", authenticateToken, async (req, res) => {
+authRouter.delete("/profile/avatar", authenticateToken, asyncHandler(async (req, res) => {
   const id = req.authUser?.id;
   if (!id) {
     res.status(401).json({ error: "Unauthorized" });
@@ -655,9 +688,9 @@ authRouter.delete("/profile/avatar", authenticateToken, async (req, res) => {
     }
     throw e;
   }
-});
+}));
 
-authRouter.post("/change-password", authenticateToken, async (req, res) => {
+authRouter.post("/change-password", changePasswordRateLimiter, authenticateToken, asyncHandler(async (req, res) => {
   const id = req.authUser?.id;
   if (!id) {
     res.status(401).json({ error: "Unauthorized" });
@@ -725,10 +758,10 @@ authRouter.post("/change-password", authenticateToken, async (req, res) => {
     token: tokens.accessToken,
     user: meUserWithManagerFields(req, mapUserResponse(updated)),
   });
-});
+}));
 
 /** Public: request reset link (always 200 to avoid email enumeration). */
-authRouter.post("/forgot-password", forgotPasswordRateLimiter, async (req, res) => {
+authRouter.post("/forgot-password", forgotPasswordRateLimiter, asyncHandler(async (req, res) => {
   const parsed = forgotPasswordBody.safeParse(req.body);
   if (!parsed.success) {
     throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
@@ -772,10 +805,10 @@ authRouter.post("/forgot-password", forgotPasswordRateLimiter, async (req, res) 
   res.json({
     message: "If an account exists for that email, you will receive password reset instructions shortly.",
   });
-});
+}));
 
 /** Public: set new password using reset token from email. */
-authRouter.post("/reset-password", resetPasswordRateLimiter, async (req, res) => {
+authRouter.post("/reset-password", resetPasswordRateLimiter, asyncHandler(async (req, res) => {
   const parsed = resetPasswordBody.safeParse(req.body);
   if (!parsed.success) {
     throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
@@ -816,4 +849,4 @@ authRouter.post("/reset-password", resetPasswordRateLimiter, async (req, res) =>
   });
 
   res.json({ message: "Password updated. You can sign in with your new password." });
-});
+}));

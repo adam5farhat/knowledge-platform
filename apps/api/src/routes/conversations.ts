@@ -22,7 +22,7 @@ function getGenAI(): GoogleGenerativeAI {
 
 export const conversationsRouter = Router();
 
-conversationsRouter.get("/", authenticateToken, async (req, res) => {
+conversationsRouter.get("/", authenticateToken, asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -52,9 +52,92 @@ conversationsRouter.get("/", authenticateToken, async (req, res) => {
       updatedAt: c.updatedAt,
     })),
   });
-});
+}));
 
-conversationsRouter.get("/:id", authenticateToken, async (req, res) => {
+/* ── Analytics: feedback summary (admin only) — registered before /:id ── */
+
+function analyzeWeakAreas(items: Array<{ question: string; conversationTitle: string }>): Array<{ topic: string; count: number; examples: string[] }> {
+  const TOPIC_PATTERNS: Array<{ topic: string; patterns: RegExp[] }> = [
+    { topic: "Quantity / Tolerance", patterns: [/quantit/i, /toleran/i, /deviat/i, /weight/i, /tonnage/i] },
+    { topic: "Quality / Defects", patterns: [/qualit/i, /defect/i, /appearance/i, /grade/i, /moisture/i] },
+    { topic: "Payment / Invoice", patterns: [/payment/i, /invoice/i, /price/i, /billing/i] },
+    { topic: "Claims / Deadlines", patterns: [/claim/i, /deadline/i, /notif/i, /\bdays?\b/i] },
+    { topic: "Delivery / Shipping", patterns: [/deliver/i, /ship/i, /transport/i, /freight/i] },
+    { topic: "Force Majeure", patterns: [/force\s*majeure/i, /impossible/i, /unforeseeable/i] },
+    { topic: "Arbitration / Disputes", patterns: [/arbitrat/i, /disput/i, /tribunal/i, /court/i] },
+  ];
+  const topicCounts = new Map<string, { count: number; examples: string[] }>();
+  for (const item of items) {
+    const text = `${item.question} ${item.conversationTitle}`;
+    let matched = false;
+    for (const tp of TOPIC_PATTERNS) {
+      if (tp.patterns.some((p) => p.test(text))) {
+        const entry = topicCounts.get(tp.topic) ?? { count: 0, examples: [] };
+        entry.count++;
+        if (entry.examples.length < 3) entry.examples.push(item.question.slice(0, 100));
+        topicCounts.set(tp.topic, entry);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      const entry = topicCounts.get("Other") ?? { count: 0, examples: [] };
+      entry.count++;
+      if (entry.examples.length < 3) entry.examples.push(item.question.slice(0, 100));
+      topicCounts.set("Other", entry);
+    }
+  }
+  return Array.from(topicCounts.entries())
+    .map(([topic, data]) => ({ topic, count: data.count, examples: data.examples }))
+    .sort((a, b) => b.count - a.count);
+}
+
+conversationsRouter.get("/feedback/stats", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
+  const user = req.authUser;
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const [total, thumbsUp, thumbsDown, recentNegative] = await Promise.all([
+    prisma.answerFeedback.count(),
+    prisma.answerFeedback.count({ where: { rating: "up" } }),
+    prisma.answerFeedback.count({ where: { rating: "down" } }),
+    prisma.answerFeedback.findMany({
+      where: { rating: "down" },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: {
+        id: true, rating: true, comment: true, createdAt: true,
+        message: {
+          select: {
+            content: true,
+            conversation: {
+              select: {
+                id: true, title: true,
+                messages: { where: { role: "user" }, orderBy: { createdAt: "asc" }, take: 1, select: { content: true } },
+              },
+            },
+          },
+        },
+      },
+    }),
+  ]);
+  const weakTopics = analyzeWeakAreas(recentNegative.map((fb) => ({
+    question: fb.message.conversation.messages[0]?.content ?? "",
+    conversationTitle: fb.message.conversation.title,
+  })));
+  res.json({
+    total, thumbsUp, thumbsDown,
+    satisfactionRate: total > 0 ? Math.round((thumbsUp / total) * 100) : null,
+    weakTopics,
+    recentNegative: recentNegative.slice(0, 10).map((fb) => ({
+      id: fb.id, rating: fb.rating, comment: fb.comment, createdAt: fb.createdAt,
+      question: fb.message.conversation.messages[0]?.content ?? "",
+      conversationTitle: fb.message.conversation.title,
+      conversationId: fb.message.conversation.id,
+      answerExcerpt: fb.message.content.slice(0, 200),
+    })),
+  });
+}));
+
+conversationsRouter.get("/:id", authenticateToken, asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -82,7 +165,7 @@ conversationsRouter.get("/:id", authenticateToken, async (req, res) => {
   }
 
   res.json({ conversation });
-});
+}));
 
 const createBody = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -212,7 +295,7 @@ const updateBody = z.object({
   title: z.string().min(1).max(200),
 });
 
-conversationsRouter.patch("/:id", authenticateToken, async (req, res) => {
+conversationsRouter.patch("/:id", authenticateToken, asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -238,7 +321,7 @@ conversationsRouter.patch("/:id", authenticateToken, async (req, res) => {
   });
 
   res.json({ conversation: updated });
-});
+}));
 
 /* ── Feedback: thumbs up/down on an assistant message ── */
 
@@ -247,7 +330,7 @@ const feedbackBody = z.object({
   comment: z.string().max(1000).optional(),
 });
 
-conversationsRouter.post("/:id/messages/:messageId/feedback", authenticateToken, async (req, res) => {
+conversationsRouter.post("/:id/messages/:messageId/feedback", authenticateToken, asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -283,9 +366,9 @@ conversationsRouter.post("/:id/messages/:messageId/feedback", authenticateToken,
   });
 
   res.json({ feedback });
-});
+}));
 
-conversationsRouter.delete("/:id/messages/:messageId/feedback", authenticateToken, async (req, res) => {
+conversationsRouter.delete("/:id/messages/:messageId/feedback", authenticateToken, asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -298,112 +381,9 @@ conversationsRouter.delete("/:id/messages/:messageId/feedback", authenticateToke
   });
 
   res.json({ deleted: true });
-});
+}));
 
-/* ── Analytics: feedback summary (admin only) ── */
-
-conversationsRouter.get("/feedback/stats", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
-  const user = req.authUser;
-  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
-
-  const [total, thumbsUp, thumbsDown, recentNegative] = await Promise.all([
-    prisma.answerFeedback.count(),
-    prisma.answerFeedback.count({ where: { rating: "up" } }),
-    prisma.answerFeedback.count({ where: { rating: "down" } }),
-    prisma.answerFeedback.findMany({
-      where: { rating: "down" },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      select: {
-        id: true,
-        rating: true,
-        comment: true,
-        createdAt: true,
-        message: {
-          select: {
-            content: true,
-            conversation: {
-              select: {
-                id: true,
-                title: true,
-                messages: {
-                  where: { role: "user" },
-                  orderBy: { createdAt: "asc" },
-                  take: 1,
-                  select: { content: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    }),
-  ]);
-
-  const weakTopics = analyzeWeakAreas(recentNegative.map((fb) => ({
-    question: fb.message.conversation.messages[0]?.content ?? "",
-    conversationTitle: fb.message.conversation.title,
-  })));
-
-  res.json({
-    total,
-    thumbsUp,
-    thumbsDown,
-    satisfactionRate: total > 0 ? Math.round((thumbsUp / total) * 100) : null,
-    weakTopics,
-    recentNegative: recentNegative.slice(0, 10).map((fb) => ({
-      id: fb.id,
-      rating: fb.rating,
-      comment: fb.comment,
-      createdAt: fb.createdAt,
-      question: fb.message.conversation.messages[0]?.content ?? "",
-      conversationTitle: fb.message.conversation.title,
-      conversationId: fb.message.conversation.id,
-      answerExcerpt: fb.message.content.slice(0, 200),
-    })),
-  });
-});
-
-function analyzeWeakAreas(items: Array<{ question: string; conversationTitle: string }>): Array<{ topic: string; count: number; examples: string[] }> {
-  const TOPIC_PATTERNS: Array<{ topic: string; patterns: RegExp[] }> = [
-    { topic: "Quantity / Tolerance", patterns: [/quantit/i, /toleran/i, /deviat/i, /weight/i, /tonnage/i] },
-    { topic: "Quality / Defects", patterns: [/qualit/i, /defect/i, /appearance/i, /grade/i, /moisture/i] },
-    { topic: "Payment / Invoice", patterns: [/payment/i, /invoice/i, /price/i, /billing/i] },
-    { topic: "Claims / Deadlines", patterns: [/claim/i, /deadline/i, /notif/i, /\bdays?\b/i] },
-    { topic: "Delivery / Shipping", patterns: [/deliver/i, /ship/i, /transport/i, /freight/i] },
-    { topic: "Force Majeure", patterns: [/force\s*majeure/i, /impossible/i, /unforeseeable/i] },
-    { topic: "Arbitration / Disputes", patterns: [/arbitrat/i, /disput/i, /tribunal/i, /court/i] },
-  ];
-
-  const topicCounts = new Map<string, { count: number; examples: string[] }>();
-
-  for (const item of items) {
-    const text = `${item.question} ${item.conversationTitle}`;
-    let matched = false;
-    for (const tp of TOPIC_PATTERNS) {
-      if (tp.patterns.some((p) => p.test(text))) {
-        const entry = topicCounts.get(tp.topic) ?? { count: 0, examples: [] };
-        entry.count++;
-        if (entry.examples.length < 3) entry.examples.push(item.question.slice(0, 100));
-        topicCounts.set(tp.topic, entry);
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      const entry = topicCounts.get("Other") ?? { count: 0, examples: [] };
-      entry.count++;
-      if (entry.examples.length < 3) entry.examples.push(item.question.slice(0, 100));
-      topicCounts.set("Other", entry);
-    }
-  }
-
-  return Array.from(topicCounts.entries())
-    .map(([topic, data]) => ({ topic, count: data.count, examples: data.examples }))
-    .sort((a, b) => b.count - a.count);
-}
-
-conversationsRouter.delete("/:id", authenticateToken, async (req, res) => {
+conversationsRouter.delete("/:id", authenticateToken, asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -419,4 +399,4 @@ conversationsRouter.delete("/:id", authenticateToken, async (req, res) => {
 
   await prisma.conversation.delete({ where: { id: conversation.id } });
   res.json({ deleted: true });
-});
+}));

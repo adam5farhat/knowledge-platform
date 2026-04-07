@@ -28,6 +28,7 @@ function getSecret(): string {
 export function signAccessToken(payload: AccessTokenPayload): string {
   const expiresIn = config.jwtExpiresIn as jwt.SignOptions["expiresIn"];
   const options: jwt.SignOptions = {
+    algorithm: "HS256",
     expiresIn,
     subject: payload.sub,
   };

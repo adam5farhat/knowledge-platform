@@ -86,6 +86,7 @@ model Notification {
 
   @@index([departmentId, createdAt])
   @@index([createdAt])
+  @@index([actorId])
 }
 
 model UserNotification {
@@ -119,7 +120,7 @@ enum DocumentAuditAction {
 
 model Department {
   id                 String   @id @default(uuid())
-  name               String
+  name               String   @unique
   parentDepartmentId String?
   parent             Department?  @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id], onDelete: SetNull)
   children           Department[] @relation("DepartmentHierarchy")
@@ -149,9 +150,9 @@ model User {
   position            String?
   profilePictureUrl   String?
   roleId              String
-  role                Role     @relation(fields: [roleId], references: [id])
+  role                Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
   departmentId        String
-  department          Department @relation(fields: [departmentId], references: [id])
+  department          Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   isActive                 Boolean  @default(true)
   loginAllowed             Boolean  @default(true)
   accessDocumentsAllowed   Boolean  @default(true)
@@ -247,7 +248,7 @@ model Document {
   title        String
   description  String?            @db.Text
   createdById  String
-  createdBy    User               @relation("DocumentCreatedBy", fields: [createdById], references: [id])
+  createdBy    User               @relation("DocumentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   departmentId String?
   department   Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   visibility   DocumentVisibility @default(ALL)
@@ -263,6 +264,8 @@ model Document {
 
   @@index([createdById])
   @@index([departmentId])
+  @@index([departmentId, visibility, isArchived])
+  @@index([createdAt])
 }
 
 model DocumentUserFavorite {
@@ -322,7 +325,7 @@ model DocumentVersion {
   processingProgress Int                      @default(0)
   processingError    String?
   createdById      String
-  createdBy        User                     @relation("DocumentVersionCreatedBy", fields: [createdById], references: [id])
+  createdBy        User                     @relation("DocumentVersionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   createdAt        DateTime                 @default(now())
   chunks           DocumentChunk[]
 

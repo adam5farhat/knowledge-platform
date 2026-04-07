@@ -7,6 +7,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  animation: kp-fadeUp var(--dur-normal) var(--ease-out) both;
 }
 
 .cardToolbarLeft {
@@ -1051,17 +1052,21 @@
   background: color-mix(in srgb, #0f172a 42%, transparent);
   cursor: pointer;
   backdrop-filter: blur(2px);
+  animation: kp-modalBackdropIn var(--dur-modal) var(--ease-out) both;
 }
 
 .archivesDialog {
   position: fixed;
   z-index: 85;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  margin: auto;
   box-sizing: border-box;
   width: min(920px, calc(100vw - 1.5rem));
   max-height: min(88vh, 880px);
+  height: fit-content;
   display: flex;
   flex-direction: column;
   background: var(--card-bg);
@@ -1071,6 +1076,7 @@
     0 24px 64px rgba(15, 23, 42, 0.22),
     0 0 0 1px rgba(255, 255, 255, 0.04) inset;
   overflow: hidden;
+  animation: kp-modalContentIn var(--dur-modal) var(--ease-out) both;
 }
 
 .archivesDialogHeader {
@@ -1181,10 +1187,6 @@
   white-space: nowrap;
 }
 
-.archivesTr {
-  transition: background-color 0.15s ease;
-}
-
 .archivesTr:hover td {
   background: #fafafa;
 }
@@ -1203,6 +1205,7 @@
   color: var(--text);
   line-height: 1.45;
   border-bottom: 1px solid #f4f4f5;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .archivesFileCell {
@@ -1467,6 +1470,9 @@
   border-radius: 8px;
   background: var(--card-bg);
   color: var(--text);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .filterTagInput {
@@ -1541,6 +1547,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  animation: kp-modalBackdropIn var(--dur-modal) var(--ease-out) both;
 }
 
 .uploadModal {
@@ -1556,6 +1563,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   box-shadow: 0 20px 48px rgba(15, 23, 42, 0.14);
+  animation: kp-modalContentIn var(--dur-modal) var(--ease-out) both;
 }
 
 .uploadModalHeader {

@@ -43,6 +43,16 @@ export const resetPasswordRateLimiter = rateLimit({
   message: { error: "Too many password reset attempts. Try again in a few minutes." },
 });
 
+/** Limit change-password attempts (per IP). */
+export const changePasswordRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTest,
+  message: { error: "Too many password change attempts. Try again in a few minutes." },
+});
+
 /** Throttle expensive LLM-powered Q&A (per IP). */
 export const askRateLimiter = rateLimit({
   windowMs: 60 * 1000,

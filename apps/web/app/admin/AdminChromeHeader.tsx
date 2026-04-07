@@ -49,10 +49,10 @@ export function AdminChromeHeader({ user, className, navVariant = "admin" }: Pro
   return (
     <header className={className ?? dash.navbar}>
       <nav className={dash.navLeft} aria-label="Primary">
-        <a className={dash.brand} href="/dashboard">
+        <Link prefetch={false} className={dash.brand} href="/dashboard">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className={dash.brandMark} src="/logo-swapped.svg" alt="Platform" />
-        </a>
+        </Link>
       </nav>
 
       <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>

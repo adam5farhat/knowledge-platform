@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticateToken, requireManagerDashboardAccess } from "../middleware/auth.js";
 import { isPlatformAdmin, isGlobalManagerRole } from "../lib/platformRoles.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
 import { prisma } from "../lib/prisma.js";
 
 export const managerRouter = Router();
@@ -26,7 +27,7 @@ function canManageDepartmentInUi(user: NonNullable<Express.Request["authUser"]>,
 }
 
 /** All departments the manager can manage, with members. */
-managerRouter.get("/departments", async (req, res) => {
+managerRouter.get("/departments", asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -43,10 +44,10 @@ managerRouter.get("/departments", async (req, res) => {
   });
 
   res.json({ departments });
-});
+}));
 
 /** Single department profile + members. Checks access. */
-managerRouter.get("/department", async (req, res) => {
+managerRouter.get("/department", asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -100,4 +101,4 @@ managerRouter.get("/department", async (req, res) => {
       role: m.role.name,
     })),
   });
-});
+}));

@@ -28,6 +28,7 @@ import { resolveMimeType, SUPPORTED_EXTRACTION_MIMES } from "../lib/extractText.
 import { enqueueDocumentIngest } from "../jobs/documentIngest.js";
 import { normalizeTagName, parseTagListInput } from "../lib/tags.js";
 import { logger } from "../lib/logger.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
 import {
   notifyDocumentCreated,
   notifyDocumentUpdated,
@@ -87,7 +88,7 @@ documentsRouter.post(
       next();
     });
   },
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const user = req.authUser;
     if (!user) {
       res.status(401).json({ error: "Unauthorized" });
@@ -210,12 +211,12 @@ documentsRouter.post(
       await deleteFileIfExists(storageKey);
       throw e;
     }
-  },
+  }),
 );
 
 documentsRouter.use(authenticateToken, requireDocLibraryAccess);
 
-documentsRouter.get("/tags/suggestions", async (req, res) => {
+documentsRouter.get("/tags/suggestions", asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -257,7 +258,7 @@ documentsRouter.get("/tags/suggestions", async (req, res) => {
   });
 
   res.json({ tags: tags.map((t) => t.name) });
-});
+}));
 
 function parsePageParams(query: Record<string, unknown>): { page: number; pageSize: number } {
   const page = Math.max(1, Number.parseInt(String(query.page ?? "1"), 10) || 1);
@@ -284,7 +285,7 @@ async function attachFavoriteFlags(
 documentsRouter.get(
   "/export",
   requireRole(RoleName.ADMIN),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const user = req.authUser;
     if (!user) {
       res.status(401).json({ error: "Unauthorized" });
@@ -366,14 +367,14 @@ documentsRouter.get(
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", 'attachment; filename="documents-export.csv"');
     res.send(lines.join("\n"));
-  },
+  }),
 );
 
 documentsRouter.post(
   "/bulk-delete",
   requireRole(RoleName.ADMIN),
   requireManageDocumentsCapability,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const user = req.authUser;
     if (!user) {
       res.status(401).json({ error: "Unauthorized" });
@@ -384,35 +385,47 @@ documentsRouter.post(
       throw AppError.badRequest("Validation failed", undefined, body.error.flatten());
     }
 
-    let deleted = 0;
+    const docsToDelete: { id: string; title: string; departmentId: string | null; storageKeys: string[] }[] = [];
     for (const id of body.data.ids) {
       const doc = await prisma.document.findUnique({
         where: { id },
-        include: { versions: true },
+        include: { versions: { select: { storageKey: true } } },
       });
       if (!doc) continue;
       if (!canManageDocument(user, doc)) continue;
-      await logDocumentAudit(prisma, {
-        documentId: doc.id,
-        userId: user.id,
-        action: DocumentAuditAction.BULK_DELETED,
-        metadata: { bulk: true },
+      docsToDelete.push({
+        id: doc.id,
+        title: doc.title,
+        departmentId: doc.departmentId,
+        storageKeys: doc.versions.map((v) => v.storageKey),
       });
-      const storageKeys = doc.versions.map((v) => v.storageKey);
-      await prisma.document.delete({ where: { id: doc.id } });
-      for (const key of storageKeys) {
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const doc of docsToDelete) {
+        await logDocumentAudit(tx, {
+          documentId: doc.id,
+          userId: user.id,
+          action: DocumentAuditAction.BULK_DELETED,
+          metadata: { bulk: true },
+        });
+        await tx.document.delete({ where: { id: doc.id } });
+      }
+    });
+
+    for (const doc of docsToDelete) {
+      for (const key of doc.storageKeys) {
         await deleteFileIfExists(key);
       }
       if (doc.departmentId) {
         notifyDocumentDeleted(user.id, doc.title, doc.departmentId).catch((err) => logger.error("Notification dispatch failed", { error: err instanceof Error ? err.message : String(err) }));
       }
-      deleted += 1;
     }
-    res.json({ deleted });
-  },
+    res.json({ deleted: docsToDelete.length });
+  }),
 );
 
-documentsRouter.get("/", async (req, res) => {
+documentsRouter.get("/", asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -492,7 +505,7 @@ documentsRouter.get("/", async (req, res) => {
     hasMore: page * pageSize < total,
     ...(includeMeta && departmentCounts ? { meta: { departmentCounts } } : {}),
   });
-});
+}));
 
 const patchDocumentBody = z
   .object({
@@ -504,7 +517,7 @@ const patchDocumentBody = z
   })
   .refine((o) => Object.keys(o).length > 0, { message: "No fields to update" });
 
-documentsRouter.patch("/:documentId", requireManageDocumentsCapability, async (req, res) => {
+documentsRouter.patch("/:documentId", requireManageDocumentsCapability, asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -629,9 +642,9 @@ documentsRouter.patch("/:documentId", requireManageDocumentsCapability, async (r
       })),
     },
   });
-});
+}));
 
-documentsRouter.post("/:documentId/view", async (req, res) => {
+documentsRouter.post("/:documentId/view", asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -654,9 +667,9 @@ documentsRouter.post("/:documentId/view", async (req, res) => {
     metadata: {},
   });
   res.status(204).send();
-});
+}));
 
-documentsRouter.post("/:documentId/favorite", async (req, res) => {
+documentsRouter.post("/:documentId/favorite", asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -679,9 +692,9 @@ documentsRouter.post("/:documentId/favorite", async (req, res) => {
     metadata: {},
   });
   res.status(204).send();
-});
+}));
 
-documentsRouter.delete("/:documentId/favorite", async (req, res) => {
+documentsRouter.delete("/:documentId/favorite", asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -702,12 +715,12 @@ documentsRouter.delete("/:documentId/favorite", async (req, res) => {
     metadata: {},
   });
   res.status(204).send();
-});
+}));
 
 documentsRouter.post(
   "/:documentId/archive",
   requireManageDocumentsCapability,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -733,13 +746,13 @@ documentsRouter.post(
     metadata: {},
   });
   res.status(204).send();
-  },
+  }),
 );
 
 documentsRouter.delete(
   "/:documentId/archive",
   requireManageDocumentsCapability,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -765,10 +778,10 @@ documentsRouter.delete(
     metadata: {},
   });
   res.status(204).send();
-  },
+  }),
 );
 
-documentsRouter.get("/:documentId/audit", async (req, res) => {
+documentsRouter.get("/:documentId/audit", asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -797,9 +810,9 @@ documentsRouter.get("/:documentId/audit", async (req, res) => {
     user: l.user ? { id: l.user.id, name: l.user.name, email: l.user.email } : null,
   }));
   res.json({ entries });
-});
+}));
 
-documentsRouter.get("/:documentId", async (req, res) => {
+documentsRouter.get("/:documentId", asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -861,12 +874,12 @@ documentsRouter.get("/:documentId", async (req, res) => {
     canManage,
     canViewAudit,
   });
-});
+}));
 
 documentsRouter.post(
   "/:documentId/versions/:versionId/reprocess",
   requireManageDocumentsCapability,
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const user = req.authUser;
     if (!user) {
       res.status(401).json({ error: "Unauthorized" });
@@ -897,7 +910,7 @@ documentsRouter.post(
       metadata: { versionId: version.id },
     });
     res.json({ ok: true });
-  },
+  }),
 );
 
 documentsRouter.post(
@@ -913,7 +926,7 @@ documentsRouter.post(
       next();
     });
   },
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const user = req.authUser;
     if (!user) {
       res.status(401).json({ error: "Unauthorized" });
@@ -1001,10 +1014,10 @@ documentsRouter.post(
       await deleteFileIfExists(storageKey);
       throw e;
     }
-  },
+  }),
 );
 
-documentsRouter.get("/:documentId/versions/:versionId/file", async (req, res) => {
+documentsRouter.get("/:documentId/versions/:versionId/file", asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -1042,9 +1055,9 @@ documentsRouter.get("/:documentId/versions/:versionId/file", async (req, res) =>
     }
   });
   stream.pipe(res);
-});
+}));
 
-documentsRouter.delete("/:documentId", requireManageDocumentsCapability, async (req, res) => {
+documentsRouter.delete("/:documentId", requireManageDocumentsCapability, asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) {
     res.status(401).json({ error: "Unauthorized" });
@@ -1086,4 +1099,4 @@ documentsRouter.delete("/:documentId", requireManageDocumentsCapability, async (
   }
 
   res.status(204).send();
-});
+}));

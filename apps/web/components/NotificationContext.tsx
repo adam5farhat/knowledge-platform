@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { fetchWithAuth } from "@/lib/authClient";
+import { fetchWithAuth, KP_AUTH_SESSION_REFRESHED } from "@/lib/authClient";
 import { API_BASE as API } from "@/lib/apiBase";
 
 /* ------------------------------------------------------------------ */
@@ -123,18 +123,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
+    if (mountedRef.current) setLoading(true);
     await fetchPage(1, true);
-    setLoading(false);
+    if (mountedRef.current) setLoading(false);
   }, [fetchPage]);
-
-  const setPanelOpen = useCallback(
-    (v: boolean) => {
-      _setPanelOpen(v);
-      if (v) void refresh();
-    },
-    [refresh],
-  );
 
   const pollUnread = useCallback(async () => {
     try {
@@ -162,6 +154,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const setPanelOpen = useCallback(
+    (v: boolean) => {
+      _setPanelOpen(v);
+      if (v) {
+        void refresh();
+        if (!userRole) void fetchUserMeta();
+      }
+    },
+    [refresh, fetchUserMeta, userRole],
+  );
+
   useEffect(() => {
     mountedRef.current = true;
     void refresh();
@@ -173,12 +176,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     function onVisible() {
       if (document.visibilityState === "visible") void pollUnread();
     }
+    function onSessionRefreshed() {
+      void fetchUserMeta();
+    }
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener(KP_AUTH_SESSION_REFRESHED, onSessionRefreshed);
 
     return () => {
       mountedRef.current = false;
       clearInterval(id);
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener(KP_AUTH_SESSION_REFRESHED, onSessionRefreshed);
     };
   }, [refresh, pollUnread, fetchUserMeta]);
 

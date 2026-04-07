@@ -221,13 +221,11 @@ export function NotificationPanel() {
   const canSend = userRole === "ADMIN" || userRole === "MANAGER" || manageableDepartmentIds.length > 0;
 
   useEffect(() => {
-    if (panelOpen) {
-      void refresh();
-    } else {
+    if (!panelOpen) {
       setSelected(null);
       setSendOpen(false);
     }
-  }, [panelOpen, refresh]);
+  }, [panelOpen]);
 
   useEffect(() => {
     if (!panelOpen) return;

@@ -183,7 +183,54 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
   }, []);
 
   useEffect(() => {
-    void load();
+    let cancelled = false;
+
+    async function loadDoc() {
+      const res = await fetchWithAuth(`${API}/documents/${documentId}`);
+      if (cancelled) return;
+      if (res.status === 401) {
+        clearStoredSession();
+        setPhase("need-login");
+        router.replace("/login");
+        return;
+      }
+      const body = (await res.json().catch(() => ({}))) as DocumentPayload & {
+        error?: string;
+        code?: string;
+        feature?: string;
+      };
+      if (cancelled) return;
+      if (res.status === 403 && body.code === "FEATURE_RESTRICTED" && body.feature) {
+        router.replace(restrictedHref(body.feature));
+        return;
+      }
+      if (!res.ok) {
+        setError(body.error ?? "Could not load document");
+        setPhase("error");
+        return;
+      }
+      setData(body);
+      setAuditEntries([]);
+      if (body.canViewAudit) {
+        setAuditStatus("loading");
+        try {
+          const auditRes = await fetchWithAuth(`${API}/documents/${documentId}/audit`);
+          if (cancelled) return;
+          if (auditRes.ok) {
+            const auditBody = (await auditRes.json()) as { entries?: AuditEntry[] };
+            if (!cancelled) setAuditEntries(auditBody.entries ?? []);
+          }
+        } finally {
+          if (!cancelled) setAuditStatus("ready");
+        }
+      } else {
+        setAuditStatus("idle");
+      }
+      setPhase("ready");
+    }
+
+    void loadDoc();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId]);
 

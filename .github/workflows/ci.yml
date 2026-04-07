@@ -24,6 +24,26 @@ jobs:
       - name: Lint web
         run: npm run lint -w @knowledge-platform/web
 
+      - name: Typecheck API (lint equivalent)
+        run: npx tsc --noEmit -p apps/api/tsconfig.json
+
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: npm audit (production)
+        run: npm audit --omit=dev --audit-level=high
+
   typecheck:
     name: Typecheck & Build
     runs-on: ubuntu-latest
@@ -95,8 +115,9 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/knowledge_platform_test
 
-      - name: Run API tests
-        run: npm run test -w @knowledge-platform/api
+      - name: Run API tests with coverage
+        run: npx vitest run --coverage --coverage.reporter=text --coverage.reporter=json-summary
+        working-directory: apps/api
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/knowledge_platform_test
           REDIS_URL: redis://localhost:6379

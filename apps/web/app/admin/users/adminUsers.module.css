@@ -5,6 +5,7 @@
   display: flex;
   flex-direction: column;
   background: var(--bg);
+  animation: kp-fadeUp var(--dur-normal) var(--ease-out) both;
 }
 
 .navbarRow {
@@ -534,6 +535,9 @@ div.filterPopoverFullRow {
   font-size: 0.88rem;
   color: var(--text);
   cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
 .rowMenuFixed button:hover {
@@ -592,6 +596,7 @@ div.filterPopoverFullRow {
   justify-content: center;
   padding: 1rem;
   z-index: 50;
+  animation: kp-modalBackdropIn var(--dur-modal) var(--ease-out) both;
 }
 
 .modalPanel {
@@ -845,7 +850,7 @@ div.filterPopoverFullRow {
   inset: 0;
   background: rgba(15, 23, 42, 0.35);
   z-index: 4500;
-  animation: adminPopoverIn 0.2s ease-out;
+  animation: kp-modalBackdropIn var(--dur-modal) var(--ease-out) both;
 }
 
 .detailPanel {
@@ -862,7 +867,7 @@ div.filterPopoverFullRow {
   flex-direction: column;
   overflow: hidden;
   border-radius: 20px 0 0 20px;
-  animation: adminModalIn 0.22s ease-out;
+  animation: kp-slideInRight var(--dur-modal) var(--ease-out) both;
 }
 
 .detailPanelInner {

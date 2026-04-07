@@ -62,7 +62,10 @@ async function resolveRecipientIds(
           select: { id: true },
         }),
         prisma.userDepartmentAccess.findMany({
-          where: { departmentId: target.departmentId },
+          where: {
+            departmentId: target.departmentId,
+            user: { isActive: true, deletedAt: null },
+          },
           select: { userId: true },
         }),
       ]);

@@ -42,6 +42,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
   const dismiss = useCallback((id: number) => {
+    const existing = timers.current.get(id);
+    if (existing) { clearTimeout(existing); timers.current.delete(id); }
     setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, exiting: true } : t)));
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), EXIT_MS);
   }, []);

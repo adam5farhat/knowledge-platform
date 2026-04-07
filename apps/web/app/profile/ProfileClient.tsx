@@ -234,10 +234,10 @@ export default function ProfileClient() {
     <main className={p.shell} data-dashboard-fullscreen="true">
       <header className={dash.navbar}>
         <nav className={dash.navLeft} aria-label="Primary">
-          <a className={dash.brand} href="/dashboard">
+          <Link prefetch={false} className={dash.brand} href="/dashboard">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className={dash.brandMark} src="/logo-swapped.svg" alt="Platform" />
-          </a>
+          </Link>
         </nav>
         <div className={p.headerSpacer} aria-hidden />
         <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>

@@ -80,6 +80,7 @@
   width: 100%;
   max-width: 400px;
   margin: 0 auto;
+  animation: kp-fadeUp var(--dur-normal) var(--ease-out) both;
 }
 
 .title {
@@ -160,7 +161,11 @@
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.primary:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .primary:hover:not(:disabled) {
@@ -184,10 +189,12 @@
   color: var(--interactive, #006ba6);
   text-decoration: none;
   font-weight: 500;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 
 .footerLinks a:hover {
   text-decoration: underline;
+  opacity: 0.8;
 }
 
 @media (max-width: 880px) {

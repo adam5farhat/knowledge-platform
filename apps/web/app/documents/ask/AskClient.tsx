@@ -11,6 +11,7 @@ import {
   clearStoredSession,
   fetchWithAuth,
   getValidAccessToken,
+  refreshAccessToken,
   signOut,
 } from "../../../lib/authClient";
 import {
@@ -243,14 +244,24 @@ export default function AskClient() {
       const token = await getValidAccessToken();
       if (!token) { router.replace("/login"); return; }
 
-      const res = await fetch(`${API}/search/ask`, {
+      let res = await fetch(`${API}/search/ask`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ question, history }),
         signal: controller.signal,
       });
 
-      if (res.status === 401) { clearStoredSession(); router.replace("/login"); return; }
+      if (res.status === 401) {
+        const refreshed = await refreshAccessToken();
+        if (!refreshed) { clearStoredSession(); router.replace("/login"); return; }
+        res = await fetch(`${API}/search/ask`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${refreshed}` },
+          body: JSON.stringify({ question, history }),
+          signal: currentController.signal,
+        });
+        if (res.status === 401) { clearStoredSession(); router.replace("/login"); return; }
+      }
       if (res.status === 403) {
         const data = (await res.json().catch(() => ({}))) as { code?: string; feature?: string };
         if (data.code === "FEATURE_RESTRICTED" && data.feature) { router.replace(restrictedHref(data.feature)); return; }
@@ -452,10 +463,10 @@ export default function AskClient() {
             <button type="button" className={styles.menuBtn} onClick={() => setSidebarOpen((v) => !v)} title="Toggle sidebar">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12h18M3 6h18M3 18h18" /></svg>
             </button>
-            <a className={styles.brand} href="/dashboard">
+            <Link prefetch={false} className={styles.brand} href="/dashboard">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img className={styles.brandMark} src="/logo-swapped.svg" alt="Platform" />
-            </a>
+            </Link>
           </nav>
 
           <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>

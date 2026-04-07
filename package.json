@@ -19,7 +19,8 @@
     "docker:down": "docker compose down",
     "db:migrate": "npm run db:migrate -w @knowledge-platform/api",
     "db:generate": "npm run db:generate -w @knowledge-platform/api",
-    "db:seed": "npm run db:seed -w @knowledge-platform/api"
+    "db:seed": "npm run db:seed -w @knowledge-platform/api",
+    "lint": "npm run lint -w @knowledge-platform/web && npx tsc --noEmit -p apps/api/tsconfig.json"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

@@ -2,6 +2,8 @@ import { Router } from "express";
 import { z } from "zod";
 import { DocumentVisibility, Prisma } from "@prisma/client";
 import { authenticateToken } from "../middleware/auth.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
+import { logger } from "../lib/logger.js";
 import { requireDocLibraryAccess, requireUseAiQueries } from "../middleware/restrictions.js";
 import { embedQuery } from "../lib/embeddings.js";
 import {
@@ -91,7 +93,7 @@ const semanticBody = z.object({
   limit: z.number().int().min(1).max(50).optional(),
 });
 
-searchRouter.post("/semantic", authenticateToken, requireDocLibraryAccess, requireUseAiQueries, async (req, res) => {
+searchRouter.post("/semantic", authenticateToken, requireDocLibraryAccess, requireUseAiQueries, asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -132,7 +134,7 @@ searchRouter.post("/semantic", authenticateToken, requireDocLibraryAccess, requi
     }
     throw e;
   }
-});
+}));
 
 /* ------------------------------------------------------------------
    POST /search/ask — Full RAG pipeline with hybrid search + re-ranking
@@ -149,7 +151,7 @@ const askBody = z.object({
   history: z.array(historyEntry).max(20).optional(),
 });
 
-searchRouter.post("/ask", authenticateToken, askRateLimiter, requireDocLibraryAccess, requireUseAiQueries, async (req, res) => {
+searchRouter.post("/ask", authenticateToken, askRateLimiter, requireDocLibraryAccess, requireUseAiQueries, asyncHandler(async (req, res) => {
   const user = req.authUser;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
@@ -307,7 +309,7 @@ searchRouter.post("/ask", authenticateToken, askRateLimiter, requireDocLibraryAc
     if (!res.headersSent) throw e;
     res.end();
   }
-});
+}));
 
 /* ------------------------------------------------------------------
    BM25 keyword search via PostgreSQL full-text search
@@ -351,7 +353,8 @@ async function runBM25Search(
          AND ${filter}
        ORDER BY "rank" DESC
        LIMIT ${limit}::int`;
-  } catch {
+  } catch (err) {
+    logger.error("BM25 full-text search failed", { error: err instanceof Error ? err.message : String(err) });
     return [];
   }
 }

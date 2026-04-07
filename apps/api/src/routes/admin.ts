@@ -13,6 +13,7 @@ import { bulkIdsSchema } from "../lib/schemas.js";
 import { clearUserAvatar, commitAvatarUpload } from "../lib/avatarOps.js";
 import { normalizeStoredIpForDisplay } from "../lib/clientIp.js";
 import { logger } from "../lib/logger.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
 import {
   notifyManagerAssigned,
   notifyManagerRemoved,
@@ -40,11 +41,11 @@ function normalizeProfilePictureInput(v: string | null | undefined): string | nu
   return t === "" ? null : t;
 }
 
-import { PASSWORD_MIN, PASSWORD_RE, PASSWORD_RULE } from "../lib/passwordPolicy.js";
+import { PASSWORD_MIN, PASSWORD_MAX, PASSWORD_RE, PASSWORD_RULE } from "../lib/passwordPolicy.js";
 
 const createUserBody = z.object({
   email: z.string().email(),
-  password: z.string().min(PASSWORD_MIN, PASSWORD_RULE).regex(PASSWORD_RE, PASSWORD_RULE),
+  password: z.string().min(PASSWORD_MIN, PASSWORD_RULE).max(PASSWORD_MAX, PASSWORD_RULE).regex(PASSWORD_RE, PASSWORD_RULE),
   name: z.string().min(1).max(200),
   role: z.nativeEnum(RoleName),
   departmentId: z.string().uuid(),
@@ -107,7 +108,7 @@ const importUsersBody = z.object({
 });
 
 const setPasswordBody = z.object({
-  password: z.string().min(PASSWORD_MIN, PASSWORD_RULE).regex(PASSWORD_RE, PASSWORD_RULE),
+  password: z.string().min(PASSWORD_MIN, PASSWORD_RULE).max(PASSWORD_MAX, PASSWORD_RULE).regex(PASSWORD_RE, PASSWORD_RULE),
 });
 
 const mergeDepartmentsBody = z.object({
@@ -201,7 +202,7 @@ async function departmentChainContains(
   return false;
 }
 
-adminRouter.get("/departments", authenticateToken, requireRole(RoleName.ADMIN), async (_req, res) => {
+adminRouter.get("/departments", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (_req, res) => {
   const departments = await prisma.department.findMany({
     orderBy: { name: "asc" },
     select: { id: true, name: true, parentDepartmentId: true },
@@ -235,17 +236,17 @@ adminRouter.get("/departments", authenticateToken, requireRole(RoleName.ADMIN), 
       memberCount: countByDept.get(d.id) ?? 0,
     })),
   });
-});
+}));
 
-adminRouter.get("/roles", authenticateToken, requireRole(RoleName.ADMIN), async (_req, res) => {
+adminRouter.get("/roles", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (_req, res) => {
   const roles = await prisma.role.findMany({
     orderBy: { name: "asc" },
     select: { id: true, name: true, description: true },
   });
   res.json({ roles });
-});
+}));
 
-adminRouter.post("/departments", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.post("/departments", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const parsed = createDepartmentBody.safeParse(req.body);
   if (!parsed.success) {
     throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
@@ -286,9 +287,9 @@ adminRouter.post("/departments", authenticateToken, requireRole(RoleName.ADMIN),
   });
 
   res.status(201).json({ department });
-});
+}));
 
-adminRouter.patch("/departments/:departmentId", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.patch("/departments/:departmentId", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const parsed = patchDepartmentBody.safeParse(req.body);
   if (!parsed.success) {
     throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
@@ -352,9 +353,9 @@ adminRouter.patch("/departments/:departmentId", authenticateToken, requireRole(R
     select: { id: true, name: true, parentDepartmentId: true },
   });
   res.json({ department: updated });
-});
+}));
 
-adminRouter.delete("/departments/:departmentId", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.delete("/departments/:departmentId", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const id = req.params.departmentId;
   const dept = await prisma.department.findUnique({ where: { id } });
   if (!dept) {
@@ -385,9 +386,9 @@ adminRouter.delete("/departments/:departmentId", authenticateToken, requireRole(
     throw err;
   }
   res.status(204).send();
-});
+}));
 
-adminRouter.post("/departments/merge", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.post("/departments/merge", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const parsed = mergeDepartmentsBody.safeParse(req.body);
   if (!parsed.success) {
     throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
@@ -413,6 +414,46 @@ adminRouter.post("/departments/merge", authenticateToken, requireRole(RoleName.A
       if (childCount > 0) {
         throw Object.assign(new Error("Has children"), { status: 409 });
       }
+
+      const sourceAccess = await tx.userDepartmentAccess.findMany({
+        where: { departmentId: sourceDepartmentId },
+      });
+
+      if (sourceAccess.length > 0) {
+        const targetAccess = await tx.userDepartmentAccess.findMany({
+          where: { departmentId: targetDepartmentId },
+        });
+        const targetMap = new Map(targetAccess.map((a) => [a.userId, a]));
+
+        const levelRank: Record<string, number> = { VIEWER: 0, MEMBER: 1, MANAGER: 2 };
+
+        for (const sa of sourceAccess) {
+          const existing = targetMap.get(sa.userId);
+          if (existing) {
+            if ((levelRank[sa.accessLevel] ?? 0) > (levelRank[existing.accessLevel] ?? 0)) {
+              await tx.userDepartmentAccess.update({
+                where: { id: existing.id },
+                data: { accessLevel: sa.accessLevel },
+              });
+            }
+            await tx.userDepartmentAccess.delete({ where: { id: sa.id } });
+          } else {
+            await tx.userDepartmentAccess.update({
+              where: { id: sa.id },
+              data: { departmentId: targetDepartmentId },
+            });
+          }
+        }
+
+        const affectedUserIds = sourceAccess.map((a) => a.userId);
+        for (const uid of affectedUserIds) {
+          await tx.user.update({
+            where: { id: uid },
+            data: { authVersion: { increment: 1 } },
+          });
+        }
+      }
+
       await tx.user.updateMany({
         where: { departmentId: sourceDepartmentId },
         data: { departmentId: targetDepartmentId },
@@ -432,9 +473,9 @@ adminRouter.post("/departments/merge", authenticateToken, requireRole(RoleName.A
   }
 
   res.json({ ok: true, mergedInto: { id: tgt.id, name: tgt.name } });
-});
+}));
 
-adminRouter.get("/users", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.get("/users", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const page = Math.max(1, Number.parseInt(String(req.query.page ?? "1"), 10) || 1);
   const pageSize = Math.min(100, Math.max(1, Number.parseInt(String(req.query.pageSize ?? "25"), 10) || 25));
   const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
@@ -522,9 +563,9 @@ adminRouter.get("/users", authenticateToken, requireRole(RoleName.ADMIN), async 
     page,
     pageSize,
   });
-});
+}));
 
-adminRouter.post("/users", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.post("/users", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const parsed = createUserBody.safeParse(req.body);
   if (!parsed.success) {
     throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
@@ -598,9 +639,9 @@ adminRouter.post("/users", authenticateToken, requireRole(RoleName.ADMIN), async
     }
     throw e;
   }
-});
+}));
 
-adminRouter.patch("/users/:userId", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.patch("/users/:userId", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const parsed = patchUserBody.safeParse(req.body);
   if (!parsed.success) {
     throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
@@ -749,6 +790,10 @@ adminRouter.patch("/users/:userId", authenticateToken, requireRole(RoleName.ADMI
     ((parsed.data.role !== undefined && parsed.data.role !== RoleName.ADMIN) ||
      (parsed.data.isActive !== undefined && parsed.data.isActive === false));
 
+  const oldDepartmentId = existing.departmentId;
+  const newDepartmentId = parsed.data.departmentId !== undefined ? departmentId : null;
+  const departmentChanged = newDepartmentId !== null && newDepartmentId !== oldDepartmentId;
+
   try {
     const user = await prisma.$transaction(async (tx) => {
       if (isRemovingAdmin) {
@@ -759,6 +804,38 @@ adminRouter.patch("/users/:userId", authenticateToken, requireRole(RoleName.ADMI
           throw Object.assign(new Error("Cannot remove or deactivate the last active administrator."), { status: 400 });
         }
       }
+
+      if (departmentChanged) {
+        const effectiveRole = nextRoleName;
+        const newAccessLevel = effectiveRole === RoleName.MANAGER
+          ? DepartmentAccessLevel.MANAGER
+          : DepartmentAccessLevel.MEMBER;
+
+        const oldAccess = await tx.userDepartmentAccess.findUnique({
+          where: { userId_departmentId: { userId: targetId, departmentId: oldDepartmentId } },
+        });
+        if (oldAccess) {
+          await tx.userDepartmentAccess.delete({ where: { id: oldAccess.id } });
+        }
+
+        const existingNewAccess = await tx.userDepartmentAccess.findUnique({
+          where: { userId_departmentId: { userId: targetId, departmentId: newDepartmentId } },
+        });
+        const levelRank: Record<string, number> = { VIEWER: 0, MEMBER: 1, MANAGER: 2 };
+        if (existingNewAccess) {
+          if ((levelRank[newAccessLevel] ?? 0) > (levelRank[existingNewAccess.accessLevel] ?? 0)) {
+            await tx.userDepartmentAccess.update({
+              where: { id: existingNewAccess.id },
+              data: { accessLevel: newAccessLevel },
+            });
+          }
+        } else {
+          await tx.userDepartmentAccess.create({
+            data: { userId: targetId, departmentId: newDepartmentId, accessLevel: newAccessLevel },
+          });
+        }
+      }
+
       return tx.user.update({
         where: { id: targetId },
         data,
@@ -790,7 +867,7 @@ adminRouter.patch("/users/:userId", authenticateToken, requireRole(RoleName.ADMI
     }
     throw e;
   }
-});
+}));
 
 adminRouter.post(
   "/users/:userId/avatar",
@@ -806,7 +883,7 @@ adminRouter.post(
       next();
     });
   },
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const targetId = req.params.userId;
     if (!targetId) {
       res.status(400).json({ error: "Missing user id" });
@@ -837,10 +914,10 @@ adminRouter.post(
       }
       throw e;
     }
-  },
+  }),
 );
 
-adminRouter.delete("/users/:userId/avatar", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.delete("/users/:userId/avatar", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const targetId = req.params.userId;
   if (!targetId) {
     res.status(400).json({ error: "Missing user id" });
@@ -866,9 +943,9 @@ adminRouter.delete("/users/:userId/avatar", authenticateToken, requireRole(RoleN
     }
     throw e;
   }
-});
+}));
 
-adminRouter.post("/users/bulk-restrictions", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.post("/users/bulk-restrictions", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const parsed = bulkRestrictionsBody.safeParse(req.body);
   if (!parsed.success) {
     throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
@@ -915,16 +992,25 @@ adminRouter.post("/users/bulk-restrictions", authenticateToken, requireRole(Role
   }
 
   res.json({ ok: true, updatedCount });
-});
+}));
 
-adminRouter.post("/users/import", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.post("/users/import", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const parsed = importUsersBody.safeParse(req.body);
   if (!parsed.success) {
     throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
   }
 
   const errors: { email: string; error: string }[] = [];
-  const created: ReturnType<typeof mapUserResponse>[] = [];
+
+  interface ValidatedRow {
+    row: (typeof parsed.data.users)[number];
+    passwordHash: string;
+    roleId: string;
+    departmentId: string;
+    badge: string | undefined;
+    accessLevel: DepartmentAccessLevel;
+  }
+  const validRows: ValidatedRow[] = [];
 
   for (const row of parsed.data.users) {
     const normalizedBadge = row.employeeBadgeNumber?.trim();
@@ -947,45 +1033,49 @@ adminRouter.post("/users/import", authenticateToken, requireRole(RoleName.ADMIN)
       errors.push({ email: row.email, error: "Email already in use" });
       continue;
     }
-    try {
-      const passwordHash = await hashPassword(row.password);
-      const user = await prisma.$transaction(async (tx) => {
+    const passwordHash = await hashPassword(row.password);
+    const accessLevel = row.role === RoleName.MANAGER
+      ? DepartmentAccessLevel.MANAGER
+      : DepartmentAccessLevel.MEMBER;
+    validRows.push({ row, passwordHash, roleId: roleRecord.id, departmentId: department.id, badge: normalizedBadge, accessLevel });
+  }
+
+  const created: ReturnType<typeof mapUserResponse>[] = [];
+  if (validRows.length > 0) {
+    const mapped = await prisma.$transaction(async (tx) => {
+      const results: ReturnType<typeof mapUserResponse>[] = [];
+      for (const v of validRows) {
         const u = await tx.user.create({
           data: {
-            email: row.email,
-            name: row.name,
-            passwordHash,
-            roleId: roleRecord.id,
-            departmentId: department.id,
-            employeeBadgeNumber: normalizedBadge || undefined,
-            phoneNumber: row.phoneNumber ?? undefined,
-            position: row.position ?? undefined,
+            email: v.row.email,
+            name: v.row.name,
+            passwordHash: v.passwordHash,
+            roleId: v.roleId,
+            departmentId: v.departmentId,
+            employeeBadgeNumber: v.badge || undefined,
+            phoneNumber: v.row.phoneNumber ?? undefined,
+            position: v.row.position ?? undefined,
           },
           include: { role: true, department: true },
         });
-        const accessLevel = row.role === RoleName.MANAGER
-          ? DepartmentAccessLevel.MANAGER
-          : DepartmentAccessLevel.MEMBER;
         await tx.userDepartmentAccess.create({
-          data: { userId: u.id, departmentId: department.id, accessLevel },
+          data: { userId: u.id, departmentId: v.departmentId, accessLevel: v.accessLevel },
         });
-        return u;
-      });
-      created.push(mapUserResponse(user));
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Create failed";
-      errors.push({ email: row.email, error: msg });
-    }
+        results.push(mapUserResponse(u));
+      }
+      return results;
+    });
+    created.push(...mapped);
   }
 
   res.status(201).json({ created: created.length, users: created, errors });
-});
+}));
 
 adminRouter.post(
   "/users/:userId/reset-restrictions",
   authenticateToken,
   requireRole(RoleName.ADMIN),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const targetId = req.params.userId;
     const existing = await prisma.user.findUnique({
       where: { id: targetId },
@@ -1011,10 +1101,10 @@ adminRouter.post(
     await syncRefreshSessionsAuthVersion(targetId, user.authVersion);
 
     res.json({ user: mapUserAdmin(user) });
-  },
+  }),
 );
 
-adminRouter.post("/users/:userId/revoke-sessions", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.post("/users/:userId/revoke-sessions", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const targetId = req.params.userId;
   const u = await prisma.user.findUnique({ where: { id: targetId } });
   if (!u) {
@@ -1034,9 +1124,9 @@ adminRouter.post("/users/:userId/revoke-sessions", authenticateToken, requireRol
   });
 
   res.status(204).send();
-});
+}));
 
-adminRouter.post("/users/:userId/set-password", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.post("/users/:userId/set-password", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const parsed = setPasswordBody.safeParse(req.body);
   if (!parsed.success) {
     throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());
@@ -1061,12 +1151,12 @@ adminRouter.post("/users/:userId/set-password", authenticateToken, requireRole(R
   await syncRefreshSessionsAuthVersion(targetId, updated.authVersion);
 
   res.status(204).send();
-});
+}));
 
 /** Admin-initiated sign-in lock (same gate as failed-login lock in auth). */
 const ADMIN_MANUAL_LOCK_MS = 7 * 24 * 60 * 60 * 1000;
 
-adminRouter.post("/users/:userId/lock", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.post("/users/:userId/lock", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const actingUserId = req.authUser!.id;
   const targetId = req.params.userId;
 
@@ -1090,9 +1180,9 @@ adminRouter.post("/users/:userId/lock", authenticateToken, requireRole(RoleName.
   });
 
   res.status(204).send();
-});
+}));
 
-adminRouter.post("/users/:userId/unlock", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.post("/users/:userId/unlock", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const targetId = req.params.userId;
   const u = await prisma.user.findUnique({ where: { id: targetId } });
   if (!u) {
@@ -1109,9 +1199,9 @@ adminRouter.post("/users/:userId/unlock", authenticateToken, requireRole(RoleNam
   });
 
   res.status(204).send();
-});
+}));
 
-adminRouter.post("/users/:userId/restore", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.post("/users/:userId/restore", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const targetId = req.params.userId;
   const u = await prisma.user.findUnique({ where: { id: targetId }, include: { role: true, department: true } });
   if (!u) {
@@ -1129,9 +1219,9 @@ adminRouter.post("/users/:userId/restore", authenticateToken, requireRole(RoleNa
     include: { role: true, department: true },
   });
   res.json({ user: mapUserAdmin(user) });
-});
+}));
 
-adminRouter.delete("/users/:userId", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.delete("/users/:userId", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const actingUserId = req.authUser!.id;
   const targetId = req.params.userId;
   const hard = req.query.hard === "true" || req.query.hard === "1";
@@ -1215,9 +1305,9 @@ adminRouter.delete("/users/:userId", authenticateToken, requireRole(RoleName.ADM
   }
 
   res.status(204).send();
-});
+}));
 
-adminRouter.get("/stats", authenticateToken, requireRole(RoleName.ADMIN), async (_req, res) => {
+adminRouter.get("/stats", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (_req, res) => {
   const [
     userCount,
     activeUserCount,
@@ -1240,7 +1330,7 @@ adminRouter.get("/stats", authenticateToken, requireRole(RoleName.ADMIN), async 
     departments: departmentCount,
     documentVersionsFailed: failedVersionCount,
   });
-});
+}));
 
 const kpiPeriodSchema = z.enum(["daily", "weekly", "monthly", "yearly"]);
 
@@ -1347,7 +1437,7 @@ function last12CalendarMonthBuckets(): { start: Date; end: Date; label: string }
   return buckets;
 }
 
-adminRouter.get("/stats/kpis/:kpiId/timeseries", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.get("/stats/kpis/:kpiId/timeseries", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const kpiId = typeof req.params.kpiId === "string" ? req.params.kpiId.trim() : "";
   if (!KPI_TIMESERIES_IDS.has(kpiId)) {
     res.status(400).json({ error: "Unknown KPI id" });
@@ -1460,9 +1550,9 @@ adminRouter.get("/stats/kpis/:kpiId/timeseries", authenticateToken, requireRole(
     labels: buckets.map((b) => b.label),
     values,
   });
-});
+}));
 
-adminRouter.get("/stats/kpis", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.get("/stats/kpis", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const parsed = kpiPeriodSchema.safeParse(typeof req.query.period === "string" ? req.query.period : "weekly");
   const period = parsed.success ? parsed.data : "weekly";
   const { current, previous, periodLabel } = kpiRollingWindows(period);
@@ -1626,7 +1716,7 @@ adminRouter.get("/stats/kpis", authenticateToken, requireRole(RoleName.ADMIN), a
   const kpis = modules.flatMap((m) => m.kpis);
 
   res.json({ period, periodLabel, modules, kpis });
-});
+}));
 
 function buildDocumentAuditWhere(query: Record<string, unknown>): {
   where: Prisma.DocumentAuditLogWhereInput;
@@ -1695,7 +1785,7 @@ function buildDocumentAuditWhere(query: Record<string, unknown>): {
   return { where, orderBy };
 }
 
-adminRouter.get("/document-audit/export", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.get("/document-audit/export", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const { where, orderBy } = buildDocumentAuditWhere(req.query as Record<string, unknown>);
   const rows = await prisma.documentAuditLog.findMany({
     where,
@@ -1732,9 +1822,9 @@ adminRouter.get("/document-audit/export", authenticateToken, requireRole(RoleNam
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", 'attachment; filename="document-audit-export.csv"');
   res.send(lines.join("\n"));
-});
+}));
 
-adminRouter.get("/document-audit", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.get("/document-audit", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const page = Math.max(1, Number.parseInt(String(req.query.page ?? "1"), 10) || 1);
   const pageSize = Math.min(100, Math.max(1, Number.parseInt(String(req.query.pageSize ?? "40"), 10) || 40));
   const { where, orderBy } = buildDocumentAuditWhere(req.query as Record<string, unknown>);
@@ -1774,7 +1864,7 @@ adminRouter.get("/document-audit", authenticateToken, requireRole(RoleName.ADMIN
         : null,
     })),
   });
-});
+}));
 
 function buildAuthActivityWhere(query: Record<string, unknown>): {
   where: Prisma.AuthEventWhereInput;
@@ -1844,7 +1934,7 @@ function buildAuthActivityWhere(query: Record<string, unknown>): {
   return { where, orderBy };
 }
 
-adminRouter.get("/activity/export", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.get("/activity/export", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const { where, orderBy } = buildAuthActivityWhere(req.query as Record<string, unknown>);
   const rows = await prisma.authEvent.findMany({
     where,
@@ -1880,9 +1970,9 @@ adminRouter.get("/activity/export", authenticateToken, requireRole(RoleName.ADMI
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", 'attachment; filename="auth-activity-export.csv"');
   res.send(lines.join("\n"));
-});
+}));
 
-adminRouter.get("/activity", authenticateToken, requireRole(RoleName.ADMIN), async (req, res) => {
+adminRouter.get("/activity", authenticateToken, requireRole(RoleName.ADMIN), asyncHandler(async (req, res) => {
   const page = Math.max(1, Number.parseInt(String(req.query.page ?? "1"), 10) || 1);
   const pageSize = Math.min(100, Math.max(1, Number.parseInt(String(req.query.pageSize ?? "40"), 10) || 40));
   const { where, orderBy } = buildAuthActivityWhere(req.query as Record<string, unknown>);
@@ -1914,7 +2004,7 @@ adminRouter.get("/activity", authenticateToken, requireRole(RoleName.ADMIN), asy
       user: e.user ? { id: e.user.id, email: e.user.email, name: e.user.name } : null,
     })),
   });
-});
+}));
 
 /* ================================================================
    Department Access Management
@@ -1933,7 +2023,7 @@ adminRouter.get(
   "/users/:userId/department-access",
   authenticateToken,
   requireRole(RoleName.ADMIN),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const userId = req.params.userId;
     const rows = await prisma.userDepartmentAccess.findMany({
       where: { userId },
@@ -1950,7 +2040,7 @@ adminRouter.get(
         createdAt: r.createdAt.toISOString(),
       })),
     );
-  },
+  }),
 );
 
 const deptAccessBody = z.object({
@@ -1962,7 +2052,7 @@ adminRouter.post(
   "/users/:userId/department-access",
   authenticateToken,
   requireRole(RoleName.ADMIN),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const userId = req.params.userId;
     const parsed = deptAccessBody.safeParse(req.body);
     if (!parsed.success) {
@@ -2000,14 +2090,14 @@ adminRouter.post(
       accessLevel: row.accessLevel,
       createdAt: row.createdAt.toISOString(),
     });
-  },
+  }),
 );
 
 adminRouter.delete(
   "/users/:userId/department-access/:departmentId",
   authenticateToken,
   requireRole(RoleName.ADMIN),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const { userId, departmentId } = req.params;
 
     const record = await prisma.userDepartmentAccess.findUnique({
@@ -2043,7 +2133,7 @@ adminRouter.delete(
     }
 
     res.json({ ok: true });
-  },
+  }),
 );
 
 const bulkDeptAccessBody = z.object({
@@ -2059,7 +2149,7 @@ adminRouter.put(
   "/users/:userId/department-access",
   authenticateToken,
   requireRole(RoleName.ADMIN),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const userId = req.params.userId;
     const parsed = bulkDeptAccessBody.safeParse(req.body);
     if (!parsed.success) {
@@ -2067,6 +2157,12 @@ adminRouter.put(
     }
     const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
     if (!userExists) { res.status(404).json({ error: "User not found" }); return; }
+
+    const oldAccess = await prisma.userDepartmentAccess.findMany({
+      where: { userId },
+      select: { departmentId: true, accessLevel: true },
+    });
+    const oldMap = new Map(oldAccess.map((a) => [a.departmentId, a.accessLevel]));
 
     await prisma.$transaction(async (tx) => {
       await tx.userDepartmentAccess.deleteMany({ where: { userId } });
@@ -2092,6 +2188,8 @@ adminRouter.put(
 
     const actorId = req.authUser!.id;
     for (const r of rows) {
+      const prev = oldMap.get(r.departmentId);
+      if (prev === r.accessLevel) continue;
       const fn = r.accessLevel === DepartmentAccessLevel.MANAGER
         ? notifyManagerAssigned
         : notifyMemberAdded;
@@ -2109,14 +2207,14 @@ adminRouter.put(
         createdAt: r.createdAt.toISOString(),
       })),
     );
-  },
+  }),
 );
 
 adminRouter.get(
   "/departments/:departmentId/access",
   authenticateToken,
   requireRole(RoleName.ADMIN),
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const departmentId = req.params.departmentId;
     const rows = await prisma.userDepartmentAccess.findMany({
       where: { departmentId },
@@ -2142,5 +2240,5 @@ adminRouter.get(
         createdAt: r.createdAt.toISOString(),
       })),
     );
-  },
+  }),
 );

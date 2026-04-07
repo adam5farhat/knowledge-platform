@@ -39,7 +39,7 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/knowledge_platform
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: change-me-in-production
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your .env file}
       NODE_ENV: production
     depends_on:
       postgres:
