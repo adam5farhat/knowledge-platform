@@ -69,7 +69,11 @@ The codebase reflects a **mature single product** rather than a minimal demo. Th
 - **Embeddings**: **768-dimensional** vectors (see migration `switch_embedding_768`); HNSW-style vector index migration for performance.
 - **Async ingest**: **BullMQ** worker embedded in the API process: extract → chunk → embed → persist chunks. Failed jobs are retained with a 7-day TTL and 500-count cap for debugging.
 - **Notification system**: Automatic notifications on document lifecycle events (create, update, delete), role changes (manager assigned/removed), and member additions — all department-scoped. Admins and managers can also send **manual announcements** with optional **file attachments** (downloadable by recipients). The frontend features a **bell icon with live unread badge** (10-second polling + visibility-change detection), a **slide-in panel** with infinite scroll, detail modals, and an in-panel **send notification form** with attachment support.
-- **Hardening**: Comprehensive security audit and fixes applied (see [Security](#security-access-control-and-departments) below), including rate limiting on all sensitive endpoints, **TTL cache** and **retry with backoff** for Gemini rate limits (`cache.ts`), coordinated **refresh token** handling in the web client to avoid double-refresh races, CSP headers, CSV injection protection, and timing-attack mitigations.
+- **Hardening**: Comprehensive security audit and fixes applied (see [Security](#security-access-control-and-departments) below), including rate limiting on all sensitive endpoints, **TTL cache** and **retry with backoff** for Gemini rate limits (`cache.ts`), coordinated **refresh token** handling in the web client to avoid double-refresh races, **refresh token family revocation** (replay detection invalidates the entire session chain), CSP headers (including `frame-src 'self' blob:` for document previews), CSV injection protection, and timing-attack mitigations.
+- **Frontend animation polish**: Reusable CSS `@keyframes` library (`kp-fadeUp`, `kp-fadeIn`, `kp-cardIn`, `kp-modalBackdropIn`, `kp-modalContentIn`, `kp-slideInRight`) with shared timing variables and a global `prefers-reduced-motion` override. Entrance animations on pages, staggered card reveals on dashboards, smooth hover/focus transitions on buttons, inputs, and menus across every major view.
+- **Inline document preview**: PDF and image files open in a modal overlay directly from the documents list — PDFs via `<iframe src={blobUrl}>`, images as `<img>`. A **backdrop-close shield** prevents the opening click from accidentally closing the modal (flicker protection). Keyboard dismiss (Escape) and proper blob URL cleanup are built in.
+- **Client-side navigation**: All authenticated navigation links use Next.js `<Link>` for client-side routing, preserving the in-memory access token across page transitions (prevents accidental logouts caused by full-page reloads).
+- **Adaptive dashboard layout**: The dashboard card grid automatically switches between a 2-column and 3-column layout depending on how many cards are visible for the user's role, eliminating empty grid cells.
 
 ---
 
@@ -132,12 +136,12 @@ flowchart LR
 | **Database** | PostgreSQL 16 + **pgvector** (Prisma ORM) |
 | **Cache / queue** | Redis 7, BullMQ |
 | **Auth** | JWT access tokens (HS256, 15-minute default TTL) in-memory; refresh tokens in **HttpOnly cookies**; `authVersion` invalidation on password/role/email changes; **session cap** (10 per user) |
-| **Security** | Helmet (CSP), frontend CSP via Next.js headers, CORS origin validation, rate limiting, bcrypt-12, password complexity rules (10+ chars, mixed case, digit, special), timing-attack mitigations, CSV injection protection |
+| **Security** | Helmet (CSP), frontend CSP via Next.js headers (including `frame-src` for blob previews), CORS origin validation, rate limiting (login, refresh, forgot/reset password, change password, ask), bcrypt-12, password complexity rules (10–72 chars, mixed case, digit, special), refresh token family revocation, timing-attack mitigations, CSV injection protection |
 | **AI** | **Google Gemini** (`@google/generative-ai`): embeddings (768-dim), query optimization, chunk reranking, streaming answers |
 | **Files** | Multer uploads, configurable `STORAGE_PATH`, text extraction (PDF, Office, spreadsheets, etc. — see `extractText.ts`) |
 | **Email** | Nodemailer with TLS enforcement (optional SMTP; dev logs reset links if SMTP unset) |
 | **DevOps** | Multi-stage **Dockerfiles** (API + Web), full-stack **docker-compose**, **GitHub Actions CI** (lint, typecheck, test), structured **JSON logger** in production |
-| **UX** | Toast notifications, confirm dialogs, shared spinner, accessible search with responsive CSS, **real-time notification system** with polling, downloadable attachments |
+| **UX** | Toast notifications, confirm dialogs, shared spinner, accessible search with responsive CSS, **real-time notification system** with polling, downloadable attachments, **CSS animation system** (`@keyframes` library with `prefers-reduced-motion` support), inline document previews (PDF + image) |
 
 > **Note:** The API `package.json` lists an `openai` dependency for tooling compatibility, but **runtime RAG and embeddings use Gemini**. Configure **`GEMINI_API_KEY`** for ingest and ask flows.
 
@@ -183,6 +187,8 @@ finalproject/
 - **Profile** updates (badge, profile picture restricted to platform-hosted URLs, etc.).
 - **Account restriction** flags (`loginAllowed`, document/dashboard/AI feature toggles).
 - **Timing-attack mitigations**: dummy bcrypt on invalid-email login, normalized response time on forgot-password.
+- **Refresh suppression**: The web client detects when no valid refresh token exists (e.g. after logout or 401) and suppresses further `/auth/refresh` calls until the next successful login — eliminates console noise and wasted network requests.
+- **Change-password rate limiting**: Dedicated rate limiter on `/auth/change-password` to prevent brute-force password guessing by authenticated users.
 
 ### Document library
 
@@ -190,6 +196,7 @@ finalproject/
 - **Visibility**: `ALL`, `DEPARTMENT`, `PRIVATE` enforced server-side via `documentAccess.ts`, `documentQuery.ts`, and JWT-enriched **readable department IDs**.
 - **Tags**, **favorites**, **recents**, **archive**, **delete** (permission-checked).
 - **Audit log** of document events (admin UI + CSV export with formula-injection protection).
+- **Inline preview**: PDF and image files can be opened in a modal overlay directly from the document list. PDFs render via `<iframe src={blobUrl}>`, images via `<img>`. A **backdrop-close shield** prevents flicker (the opening click finishing on the new backdrop). Escape key dismisses the preview; blob URLs are revoked on close.
 
 ### Search and AI
 
@@ -246,7 +253,7 @@ Admins and managers can send manual notifications with:
 
 #### Real-time bell icon and notification panel
 
-- **Bell icon** (`NotificationBell`): Appears in the navigation bar of every page. Displays an **unread count badge** that updates via polling (every 10 seconds) and on tab focus (`visibilitychange` event).
+- **Bell icon** (`NotificationBell`): Appears in the navigation bar of every page. Displays an **unread count badge** that updates via polling (every 10 seconds) and on tab focus (`visibilitychange` event). Notification API calls are **automatically skipped on public auth pages** (login, register, forgot-password, reset-password) to avoid unnecessary `/auth/refresh` traffic when the user isn't signed in.
 - **Slide-in panel** (`NotificationPanel`): Lists all notifications with infinite scroll pagination, mark-as-read on click, "Mark all read" bulk action, and per-item delete.
 - **Detail modal**: Opens on click with full notification body, sender info, timestamp, human-readable type label (e.g. "Announcement" instead of "MANUAL"), and a **download button** for attachments (uses authenticated `fetchWithAuth` + blob download).
 - **Send modal** (`SendNotificationModal`): In-panel form for admins/managers to compose and send notifications with file attachments. Escape key handling and outside-click isolation prevent accidental panel closure.
@@ -254,13 +261,29 @@ Admins and managers can send manual notifications with:
 ### Web UX
 
 - Role-aware **home routing** (`homePathForUser` in `lib/restrictions.ts`).
-- **Dashboard** with a 2×2 card grid (Documents, Ask, Department overview, Administration — shown based on role/permissions).
-- **Documents** browser, **search** (with responsive CSS and full accessibility), **Ask** (RAG UI with markdown rendering, link sanitization via `rel="noopener noreferrer nofollow"`), **profile**, **restricted** explanation page.
+- **Dashboard** with an **adaptive card grid** — automatically switches between 2-column (even card count) and 3-column (odd card count) layout based on the user's visible cards (Documents, Ask, Department overview, Administration), eliminating empty grid cells.
+- **Documents** browser, **search** (with responsive CSS and full accessibility), **Ask** (RAG UI with markdown rendering, link sanitization via `rel="noopener noreferrer nofollow"`), **profile**, **restricted** explanation page. Inline **PDF/image preview** modals with flicker protection.
 - **Admin** hub (users, departments, documents, activity, audit, system) and **manager** dashboard with shared chrome.
+- **Client-side navigation**: All authenticated links (logo, nav items) use Next.js `<Link>` for client-side routing, preserving the in-memory access token across page transitions and preventing accidental logouts from full-page reloads.
 - **Toast notifications**: context-based system replacing all native `alert()` calls — supports info, success, error, and warning types with slide-in/out animations and auto-dismiss.
 - **Confirm dialogs**: promise-based component replacing all native `confirm()` calls — with keyboard support (Escape), focus management, danger mode styling, and `aria-modal` accessibility.
 - **Shared Spinner**: SVG-animated loading indicator with `role="status"` and configurable size.
 - **Error boundaries** (`error.tsx`, `global-error.tsx`) with Home link pointing to `/dashboard`.
+
+#### Animation system
+
+A reusable **CSS animation library** in `globals.css` provides consistent motion across the platform:
+
+| Keyframe | Effect |
+|----------|--------|
+| `kp-fadeUp` | Fade in + translate upward (page/section entrances) |
+| `kp-fadeIn` | Simple opacity fade |
+| `kp-cardIn` | Scale up + fade (dashboard/hub cards with staggered `animation-delay`) |
+| `kp-modalBackdropIn` | Backdrop fade for modals and overlays |
+| `kp-modalContentIn` | Scale + fade for modal dialogs |
+| `kp-slideInRight` | Slide-in from the right (detail panels) |
+
+Shared CSS custom properties (`--ease-out`, `--ease-spring`, `--dur-fast`, `--dur-normal`, `--dur-modal`) ensure consistent timing. All animations respect **`prefers-reduced-motion: reduce`** — motion is suppressed to instant transitions for users who prefer reduced motion.
 
 ---
 
@@ -273,13 +296,14 @@ Admins and managers can send manual notifications with:
 | **JWT signing** | HS256 algorithm pinned explicitly; secret minimum **32 characters** enforced at startup |
 | **Access token TTL** | Default **15 minutes** (configurable via `JWT_EXPIRES_IN`); short-lived to limit stolen-token exposure |
 | **Access token storage** | Held **in-memory only** (never persisted to localStorage or cookies) |
-| **Refresh tokens** | **HttpOnly, Secure, SameSite=Lax cookies** (`kp_rt`, path `/auth`); 30-day TTL, atomic rotation (old token revoked in same transaction), replay detection |
+| **Refresh tokens** | **HttpOnly, Secure, SameSite=Lax cookies** (`kp_rt`, path `/auth`); 30-day TTL, atomic rotation (old token revoked in same transaction), **family revocation** on replay detection (reuse of a rotated token invalidates the entire session chain) |
 | **Session cap** | Maximum **10** concurrent sessions per user; oldest session auto-revoked on overflow |
-| **Password policy** | Minimum 10 characters; must include uppercase, lowercase, digit, and special character (shared `passwordPolicy.ts`) |
+| **Password policy** | 10–72 characters; must include uppercase, lowercase, digit, and special character (shared `passwordPolicy.ts`); 72-char max prevents bcrypt silent truncation |
 | **`authVersion`** | Incremented on password change, email change, role change, restriction change — instantly invalidates all existing tokens |
 | **Password hashing** | bcrypt with 12 rounds, automatic salt |
 | **Timing attacks** | Dummy bcrypt on invalid-email login; minimum 500ms + random jitter on forgot-password regardless of email existence |
 | **Same-password block** | `/change-password` rejects `newPassword === currentPassword` |
+| **Refresh suppression** | Web client detects logged-out state (401/403 from refresh) and suppresses further `/auth/refresh` calls until the next successful login — eliminates console noise and wasted requests |
 
 ### Rate limiting
 
@@ -289,12 +313,13 @@ Admins and managers can send manual notifications with:
 | `/auth/refresh` | 30 / 15 min / IP |
 | `/auth/forgot-password` | 8 / hour / IP |
 | `/auth/reset-password` | 10 / 15 min / IP |
+| `/auth/change-password` | 10 / 15 min / IP (applied after authentication) |
 | `/search/ask` | 12 / min / IP (applied after authentication) |
 
 ### Transport and headers
 
 - **API Helmet** with restrictive **Content-Security-Policy** (`default-src 'none'`, `frame-ancestors 'none'`, `connect-src 'self'`).
-- **Frontend CSP** via `next.config.ts` headers: `script-src 'self' 'unsafe-inline'`, `img-src 'self' data: blob: https: <api>`, `connect-src 'self' <api>`, `frame-ancestors 'none'`, plus `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy`.
+- **Frontend CSP** via `next.config.ts` headers: `script-src 'self' 'unsafe-inline'`, `img-src 'self' data: blob: https: <api>`, `frame-src 'self' blob:` (for PDF/image blob previews), `connect-src 'self' <api>`, `frame-ancestors 'none'`, plus `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy`.
 - **CORS**: strict origin validation from `WEB_APP_URL`; production denies all origins if `WEB_APP_URL` is unset.
 - **SMTP TLS**: `requireTLS: true` enforced on the nodemailer transporter when not using implicit TLS.
 
