@@ -117,6 +117,18 @@ export default function DocumentsClient() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkErr, setBulkErr] = useState<string | null>(null);
   const statusNotifyRef = useRef<Map<string, string>>(new Map());
+  /**
+   * The click that opens the preview can finish with mouseup on the new fixed backdrop,
+   * which immediately closes the modal (open/close flicker). Ignore backdrop closes until
+   * this timestamp (performance.now()).
+   */
+  const previewBackdropIgnoreCloseUntilRef = useRef(0);
+  function armPreviewBackdropIgnoreClose(ms: number) {
+    const until = performance.now() + ms;
+    if (until > previewBackdropIgnoreCloseUntilRef.current) {
+      previewBackdropIgnoreCloseUntilRef.current = until;
+    }
+  }
 
   const isAdmin = useMemo(() => me?.role === RoleNameApi.ADMIN, [me?.role]);
 
@@ -315,6 +327,7 @@ export default function DocumentsClient() {
       return;
     }
     if (isImage) {
+      armPreviewBackdropIgnoreClose(600);
       setPdfPreview((prev) => {
         if (prev?.url) URL.revokeObjectURL(prev.url);
         return null;
@@ -333,6 +346,7 @@ export default function DocumentsClient() {
         }
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
+        armPreviewBackdropIgnoreClose(400);
         setImagePreview({ url, title: doc.title });
         void recordDocumentView(doc.id);
       } catch {
@@ -344,6 +358,7 @@ export default function DocumentsClient() {
       if (prev?.url) URL.revokeObjectURL(prev.url);
       return null;
     });
+    armPreviewBackdropIgnoreClose(600);
     setPdfPreview((prev) => {
       if (prev?.url) URL.revokeObjectURL(prev.url);
       return null;
@@ -359,6 +374,7 @@ export default function DocumentsClient() {
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
+      armPreviewBackdropIgnoreClose(400);
       setPdfPreview({ url, title: doc.title, documentId: doc.id });
       void recordDocumentView(doc.id);
     } catch {
@@ -1332,6 +1348,7 @@ export default function DocumentsClient() {
                       type="button"
                       className={styles.actionItem}
                       disabled={pdfPreviewLoading}
+                      onPointerDownCapture={() => armPreviewBackdropIgnoreClose(700)}
                       onClick={() => void openDocumentFromPanel(selectedDoc)}
                     >
                       <span className={styles.actionIcon} aria-hidden>
@@ -1450,7 +1467,9 @@ export default function DocumentsClient() {
         <div
           className={styles.pdfPreviewBackdrop}
           role="presentation"
-          onClick={() => {
+          onClick={(e) => {
+            if (e.target !== e.currentTarget) return;
+            if (performance.now() < previewBackdropIgnoreCloseUntilRef.current) return;
             if (!pdfPreviewLoading) closePdfPreview();
           }}
         >
@@ -1488,7 +1507,9 @@ export default function DocumentsClient() {
         <div
           className={styles.pdfPreviewBackdrop}
           role="presentation"
-          onClick={() => {
+          onClick={(e) => {
+            if (e.target !== e.currentTarget) return;
+            if (performance.now() < previewBackdropIgnoreCloseUntilRef.current) return;
             URL.revokeObjectURL(imagePreview.url);
             setImagePreview(null);
           }}

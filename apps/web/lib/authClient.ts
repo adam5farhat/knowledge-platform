@@ -22,8 +22,18 @@ type RefreshResponse = {
  */
 let accessToken: string | null = null;
 
+/**
+ * After `POST /auth/refresh` returns 401 (no or invalid refresh cookie), avoid hammering
+ * the endpoint on every poll tick — DevTools fills with noise and it wastes work.
+ * Cleared when we get a new access token (login) or a successful refresh.
+ */
+let suppressRefreshWhileLoggedOut = false;
+
 export function setAccessToken(token: string | null): void {
   accessToken = token;
+  if (token) {
+    suppressRefreshWhileLoggedOut = false;
+  }
 }
 
 export function clearStoredSession(): void {
@@ -105,6 +115,9 @@ export async function refreshAccessToken(): Promise<string | null> {
       }
       const data = (await res.json().catch(() => ({}))) as RefreshResponse;
       if (!res.ok || !data.token) {
+        if (res.status === 401 || (res.status === 403 && data.code === "ACCOUNT_RESTRICTED")) {
+          suppressRefreshWhileLoggedOut = true;
+        }
         if (res.status === 403 && data.code === "ACCOUNT_RESTRICTED") {
           clearStoredSession();
           return null;
@@ -112,6 +125,7 @@ export async function refreshAccessToken(): Promise<string | null> {
         clearStoredSession();
         return null;
       }
+      suppressRefreshWhileLoggedOut = false;
       accessToken = data.token;
       if (data.user != null && typeof window !== "undefined") {
         try {
@@ -146,6 +160,9 @@ function isTokenExpiringSoon(token: string, bufferMs = 60_000): boolean {
 export async function getValidAccessToken(): Promise<string | null> {
   if (typeof window === "undefined") return null;
   if (accessToken && !isTokenExpiringSoon(accessToken)) return accessToken;
+  if (!accessToken && suppressRefreshWhileLoggedOut) {
+    return null;
+  }
   return refreshAccessToken();
 }
 
@@ -157,6 +174,7 @@ export async function signOut(): Promise<void> {
     /* best-effort */
   }
   clearStoredSession();
+  suppressRefreshWhileLoggedOut = true;
 }
 
 export async function fetchWithAuth(input: string, init: RequestInit = {}): Promise<Response> {

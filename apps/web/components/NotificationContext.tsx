@@ -9,8 +9,21 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import { fetchWithAuth, KP_AUTH_SESSION_REFRESHED } from "@/lib/authClient";
 import { API_BASE as API } from "@/lib/apiBase";
+
+/** Avoid `/auth/refresh` + notification API spam on pages where users are never signed in. */
+function skipNotificationBootstrap(pathname: string | null): boolean {
+  if (!pathname) return false;
+  const base = pathname.split("?")[0] ?? pathname;
+  return (
+    base === "/login" ||
+    base === "/register" ||
+    base === "/forgot-password" ||
+    base === "/reset-password"
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -90,6 +103,7 @@ const POLL_INTERVAL_MS = 10_000;
 const PAGE_SIZE = 20;
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [items, setItems] = useState<UserNotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [total, setTotal] = useState(0);
@@ -166,6 +180,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
+    if (skipNotificationBootstrap(pathname)) {
+      return;
+    }
+
     mountedRef.current = true;
     void refresh();
     void fetchUserMeta();
@@ -188,7 +206,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener(KP_AUTH_SESSION_REFRESHED, onSessionRefreshed);
     };
-  }, [refresh, pollUnread, fetchUserMeta]);
+  }, [pathname, refresh, pollUnread, fetchUserMeta]);
 
   const markAsRead = useCallback(async (id: string) => {
     const res = await fetchWithAuth(`${API}/notifications/${id}/read`, { method: "PATCH" });

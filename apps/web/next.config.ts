@@ -15,6 +15,8 @@ const cspDirectives = [
   `script-src 'self' 'unsafe-inline'${isProd ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${apiUrl} https:`,
+  /** PDF/image previews use `<iframe src={blobUrl}>` — default-src alone blocks blob frames. */
+  "frame-src 'self' blob:",
   "font-src 'self'",
   `connect-src 'self' ${apiUrl}`,
   "frame-ancestors 'none'",
