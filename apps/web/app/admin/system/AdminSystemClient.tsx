@@ -120,7 +120,7 @@ function KpiLineChart({
   const innerH = h - padT - padB;
   const maxV = Math.max(...values, 1);
   const n = values.length;
-  const stroke = accent === "red" ? "#dc2626" : "#2563eb";
+  const stroke = accent === "red" ? "var(--trend-negative)" : "var(--chart-stroke)";
 
   const points = values.map((v, i) => {
     const x = n <= 1 ? padL + innerW / 2 : padL + (i / (n - 1)) * innerW;
@@ -562,7 +562,7 @@ export default function AdminSystemClient() {
     return (
       <main style={{ maxWidth: 520 }}>
         <h1>System</h1>
-        <p style={{ color: "#52525b" }}>Sign in to continue.</p>
+        <p style={{ color: "var(--muted)" }}>Sign in to continue.</p>
         <Link href="/login">Sign in</Link>
       </main>
     );

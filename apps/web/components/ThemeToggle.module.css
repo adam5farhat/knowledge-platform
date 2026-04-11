@@ -1,0 +1,101 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.25rem;
+}
+
+.label {
+  width: 100%;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.15rem;
+}
+
+.btn {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.btnActive {
+  border-color: var(--interactive);
+  background: var(--interactive-faint);
+  color: var(--interactive);
+}
+
+/* Standalone (login corner) */
+.cornerWrap {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 50;
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px var(--shadow-color);
+}
+
+.cornerBtn {
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.cornerBtn:hover {
+  background: var(--surface-hover);
+}
+
+.cornerBtn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.cornerBtnActive {
+  border-color: var(--interactive);
+  color: var(--interactive);
+  background: var(--interactive-faint);
+}
+
+.placeholder {
+  min-height: 2.5rem;
+}

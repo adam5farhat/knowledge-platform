@@ -5,6 +5,7 @@ import Link from "next/link";
 import { fetchPublicApi } from "@/lib/authClient";
 import styles from "./page.module.css";
 import { API_BASE as API } from "@/lib/apiBase";
+import { ThemeToggleCorner } from "@/components/ThemeToggle";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { NotificationBell } from "@/components/NotificationBell";
+import { ThemeToggleMenu } from "@/components/ThemeToggle";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
 import {
   clearStoredSession,
@@ -465,7 +466,7 @@ export default function AskClient() {
             </button>
             <Link prefetch={false} className={styles.brand} href="/dashboard">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img className={styles.brandMark} src="/logo-swapped.svg" alt="Platform" />
+              <img className={`${styles.brandMark} kp-platform-logo`} src="/logo-swapped.svg" alt="Platform" />
             </Link>
           </nav>
 
@@ -513,6 +514,7 @@ export default function AskClient() {
                     <Link prefetch={false} className={styles.menuItem} href="/admin/system" role="menuitem" onClick={() => setMenuOpen(false)}>System stats</Link>
                   </>
                 )}
+                <ThemeToggleMenu />
                 <button type="button" className={styles.menuItem} onClick={() => { setMenuOpen(false); void handleSignOut(); }} role="menuitem">
                   Logout
                 </button>

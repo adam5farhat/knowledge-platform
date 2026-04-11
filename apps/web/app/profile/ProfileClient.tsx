@@ -7,6 +7,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { ProfileAvatarImage } from "@/components/ProfileAvatarImage";
 import { ProfilePhotoModal } from "@/components/ProfilePhotoModal";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
+import { ThemeToggleMenu } from "@/components/ThemeToggle";
 import { profilePictureDisplayUrl, userInitialsFromName } from "@/lib/profilePicture";
 import {
   clearStoredSession,
@@ -251,11 +252,12 @@ export default function ProfileClient() {
             email={user.email}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
+            aria-label="Account menu"
             onClick={() => setMenuOpen((v) => !v)}
             title={`${user.name} (${user.role})`}
           />
           {menuOpen ? (
-            <div className={dash.menu} role="menu">
+            <div className={dash.menu} role="menu" aria-label="Account">
               <div className={dash.menuHeader}>
                 <div>{user.name}</div>
                 <div>{user.email}</div>
@@ -289,6 +291,7 @@ export default function ProfileClient() {
                   </Link>
                 </>
               ) : null}
+              <ThemeToggleMenu />
               <button
                 type="button"
                 className={dash.menuItem}
@@ -451,12 +454,12 @@ export default function ProfileClient() {
                     />
                   </div>
                   <div className={p.field}>
-                    <span className={p.label}>Role</span>
-                    <input className={`${p.input} ${p.inputReadonly}`} readOnly value={user.role} aria-readonly />
+                    <label className={p.label} htmlFor="profile-role">Role</label>
+                    <input id="profile-role" className={`${p.input} ${p.inputReadonly}`} readOnly value={user.role} aria-readonly="true" />
                   </div>
                   <div className={p.field}>
-                    <span className={p.label}>Department</span>
-                    <input className={`${p.input} ${p.inputReadonly}`} readOnly value={user.department.name} aria-readonly />
+                    <label className={p.label} htmlFor="profile-department">Department</label>
+                    <input id="profile-department" className={`${p.input} ${p.inputReadonly}`} readOnly value={user.department.name} aria-readonly="true" />
                   </div>
                   <div className={p.field}>
                     <label className={p.label} htmlFor="profile-badge">

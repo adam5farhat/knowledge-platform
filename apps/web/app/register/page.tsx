@@ -18,7 +18,7 @@ export default function RegisterInfoPage() {
         </>
       }
     >
-      <p style={{ color: "#52525b", lineHeight: 1.5, margin: 0 }}>
+      <p className="kp-text-muted" style={{ lineHeight: 1.5, margin: 0 }}>
         If you need access, contact your administrator and ask them to create your account from the admin panel.
       </p>
     </AuthCard>

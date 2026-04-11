@@ -1120,7 +1120,7 @@ export default function AdminDocumentsClient() {
     return (
       <main style={{ maxWidth: 560 }}>
         <h1>Document administration</h1>
-        <p style={{ color: "#52525b" }}>Sign in to continue.</p>
+        <p style={{ color: "var(--muted)" }}>Sign in to continue.</p>
         <Link href="/login">Sign in</Link>
       </main>
     );
@@ -1680,9 +1680,9 @@ export default function AdminDocumentsClient() {
                   <div
                     className={docStyles.uploadStepperTrack}
           style={{
-                      background: `linear-gradient(to right, #3b6cff 0%, #3b6cff ${
+                      background: `linear-gradient(to right, var(--interactive) 0%, var(--interactive) ${
                         uploadStep === 1 ? 0 : uploadStep === 2 ? 50 : 100
-                      }%, #e2e8f0 ${uploadStep === 1 ? 0 : uploadStep === 2 ? 50 : 100}%, #e2e8f0 100%)`,
+                      }%, var(--nav-border) ${uploadStep === 1 ? 0 : uploadStep === 2 ? 50 : 100}%, var(--nav-border) 100%)`,
                     }}
                     aria-hidden
                   />

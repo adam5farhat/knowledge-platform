@@ -75,7 +75,7 @@ export default function AdminHubClient() {
     return (
       <main style={{ maxWidth: 520 }}>
         <h1>Administration</h1>
-        <p style={{ color: "#52525b" }}>Sign in to continue.</p>
+        <p style={{ color: "var(--muted)" }}>Sign in to continue.</p>
         <p style={{ marginTop: "1rem" }}>
           <Link href="/login">Sign in</Link>
           {" · "}

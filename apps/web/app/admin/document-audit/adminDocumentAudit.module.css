@@ -31,7 +31,7 @@
   box-sizing: border-box;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fafafa;
+  background: var(--input-bg);
   color: var(--text);
   min-width: 10.5rem;
   max-width: 15rem;
@@ -67,19 +67,19 @@
 .eventOk {
   background: color-mix(in srgb, var(--success) 12%, var(--card-bg));
   border-color: color-mix(in srgb, var(--success) 35%, var(--border));
-  color: color-mix(in srgb, #166534 88%, var(--text));
+  color: color-mix(in srgb, var(--trend-positive) 88%, var(--text));
 }
 
 .eventErr {
   background: color-mix(in srgb, var(--error) 10%, var(--card-bg));
   border-color: color-mix(in srgb, var(--error) 35%, var(--border));
-  color: color-mix(in srgb, #991b1b 90%, var(--text));
+  color: color-mix(in srgb, var(--trend-negative) 90%, var(--text));
 }
 
 .eventWarn {
-  background: color-mix(in srgb, #f59e0b 14%, var(--card-bg));
-  border-color: color-mix(in srgb, #d97706 35%, var(--border));
-  color: #92400e;
+  background: color-mix(in srgb, var(--warning) 18%, var(--card-bg));
+  border-color: color-mix(in srgb, var(--warning) 35%, var(--border));
+  color: color-mix(in srgb, var(--warning) 42%, var(--text));
 }
 
 .userAgentCell {
@@ -149,7 +149,7 @@
 }
 
 .toolbarBtn:hover:not(:disabled) {
-  background: #f4f4f6;
+  background: var(--surface-muted);
   border-color: color-mix(in srgb, var(--interactive) 35%, var(--border));
 }
 
@@ -164,7 +164,7 @@
 }
 
 .clickRow:hover td {
-  background: #fafafa;
+  background: var(--input-bg);
 }
 
 .userLink {
@@ -185,7 +185,7 @@
   margin: 0;
   padding: 0;
   border: none;
-  background: color-mix(in srgb, #0f172a 42%, transparent);
+  background: var(--backdrop-scrim);
   cursor: pointer;
   backdrop-filter: blur(2px);
 }
@@ -203,7 +203,7 @@
   flex-direction: column;
   background: var(--card-bg);
   border: 1px solid var(--border);
-  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.22);
+  box-shadow: 0 24px 64px var(--shadow-color);
   border-radius: 14px;
   overflow: hidden;
 }

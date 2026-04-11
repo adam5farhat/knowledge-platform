@@ -375,7 +375,7 @@ export default function AdminActivityClient() {
     return (
       <main style={{ maxWidth: 560 }}>
         <h1>Activity</h1>
-        <p style={{ color: "#52525b" }}>Sign in to continue.</p>
+        <p style={{ color: "var(--muted)" }}>Sign in to continue.</p>
         <Link href="/login">Sign in</Link>
       </main>
     );

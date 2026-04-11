@@ -6,6 +6,45 @@ import { prisma } from "../lib/prisma.js";
 import { getReadableDepartmentIds, getManageableDepartmentIds } from "../lib/departmentAccess.js";
 import { isGlobalManagerRole, isPlatformAdmin } from "../lib/platformRoles.js";
 
+const USER_SELECT = {
+  email: true,
+  authVersion: true,
+  departmentId: true,
+  isActive: true,
+  deletedAt: true,
+  loginAllowed: true,
+  accessDocumentsAllowed: true,
+  manageDocumentsAllowed: true,
+  accessDashboardAllowed: true,
+  useAiQueriesAllowed: true,
+  role: { select: { name: true } },
+} as const;
+
+type CachedUser = NonNullable<Awaited<ReturnType<typeof prisma.user.findUnique<{ where: { id: string }; select: typeof USER_SELECT }>>>>;
+
+const AUTH_USER_CACHE_TTL_MS = 5_000;
+const authUserCache = new Map<string, { user: CachedUser; expiresAt: number }>();
+
+function getCachedUser(userId: string): CachedUser | undefined {
+  const entry = authUserCache.get(userId);
+  if (!entry) return undefined;
+  if (Date.now() > entry.expiresAt) {
+    authUserCache.delete(userId);
+    return undefined;
+  }
+  return entry.user;
+}
+
+function setCachedUser(userId: string, user: CachedUser): void {
+  if (authUserCache.size > 2000) {
+    const now = Date.now();
+    for (const [k, v] of authUserCache) {
+      if (now > v.expiresAt) authUserCache.delete(k);
+    }
+  }
+  authUserCache.set(userId, { user, expiresAt: Date.now() + AUTH_USER_CACHE_TTL_MS });
+}
+
 /**
  * Bearer auth: `sub` + `authVersion` identify the session; **role, email, and primary department**
  * are always taken from the database. JWT claims for those fields must match the DB or the token
@@ -20,22 +59,14 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
   }
   try {
     const payload = verifyAccessToken(token);
-    const user = await prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: {
-        email: true,
-        authVersion: true,
-        departmentId: true,
-        isActive: true,
-        deletedAt: true,
-        loginAllowed: true,
-        accessDocumentsAllowed: true,
-        manageDocumentsAllowed: true,
-        accessDashboardAllowed: true,
-        useAiQueriesAllowed: true,
-        role: { select: { name: true } },
-      },
-    });
+    const user = getCachedUser(payload.sub) ?? await (async () => {
+      const u = await prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: USER_SELECT,
+      });
+      if (u) setCachedUser(payload.sub, u);
+      return u;
+    })();
     if (!user || !user.isActive || user.deletedAt) {
       res.status(401).json({ error: "Invalid or expired token", code: AuthErrorCode.INVALID_SESSION });
       return;

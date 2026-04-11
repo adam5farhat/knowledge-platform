@@ -1,0 +1,54 @@
+.wrap {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--page-chrome-bg);
+  box-sizing: border-box;
+}
+
+.card {
+  width: 100%;
+  max-width: 440px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 2rem 1.75rem;
+  background: var(--surface);
+  box-shadow: 0 1px 4px var(--shadow-color);
+}
+
+.logoRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0.4rem 0 0;
+}
+
+.body {
+  margin-top: 1.25rem;
+}
+
+.footer {
+  margin-top: 1.25rem;
+  margin-bottom: 0;
+  font-size: 0.875rem;
+  color: var(--text);
+}

@@ -141,7 +141,7 @@ flowchart LR
 | **Files** | Multer uploads, configurable `STORAGE_PATH`, text extraction (PDF, Office, spreadsheets, etc. — see `extractText.ts`) |
 | **Email** | Nodemailer with TLS enforcement (optional SMTP; dev logs reset links if SMTP unset) |
 | **DevOps** | Multi-stage **Dockerfiles** (API + Web), full-stack **docker-compose**, **GitHub Actions CI** (lint, typecheck, test), structured **JSON logger** in production |
-| **UX** | Toast notifications, confirm dialogs, shared spinner, accessible search with responsive CSS, **real-time notification system** with polling, downloadable attachments, **CSS animation system** (`@keyframes` library with `prefers-reduced-motion` support), inline document previews (PDF + image) |
+| **UX** | Toast notifications, confirm dialogs, shared spinner, accessible search with responsive CSS, **real-time notification system** with polling, downloadable attachments, **CSS animation system** (`@keyframes` library with `prefers-reduced-motion` support), inline document previews (PDF + image), **light/dark/system theming** via `next-themes` and CSS variables (details under **Web UX → Theming** below) |
 
 > **Note:** The API `package.json` lists an `openai` dependency for tooling compatibility, but **runtime RAG and embeddings use Gemini**. Configure **`GEMINI_API_KEY`** for ingest and ask flows.
 
@@ -284,6 +284,12 @@ A reusable **CSS animation library** in `globals.css` provides consistent motion
 | `kp-slideInRight` | Slide-in from the right (detail panels) |
 
 Shared CSS custom properties (`--ease-out`, `--ease-spring`, `--dur-fast`, `--dur-normal`, `--dur-modal`) ensure consistent timing. All animations respect **`prefers-reduced-motion: reduce`** — motion is suppressed to instant transitions for users who prefer reduced motion.
+
+#### Theming (light / dark mode)
+
+- **Runtime**: [`next-themes`](https://github.com/pacocoursey/next-themes) wraps the app in [`apps/web/components/Providers.tsx`](apps/web/components/Providers.tsx) (`ThemeProvider` with `attribute="class"`, `defaultTheme="system"`, `enableSystem`, `storageKey="kp-theme"`). The active theme is stored in **localStorage** under `kp-theme` and synced to a **`dark` class on `<html>`** (no flash of wrong theme when configured as in the Next.js App Router pattern).
+- **Tokens**: Semantic colors live in [`apps/web/app/globals.css`](apps/web/app/globals.css) under `:root` (light) and `html.dark` (dark): surfaces (`--surface`, `--surface-subtle`, …), text (`--text`, `--muted`), borders, interactive colors, overlays, toasts, chart/search accents, banners, and slab/tint variables used across CSS modules.
+- **UI**: **Theme** control appears in profile dropdowns (`ThemeToggleMenu` — Light / Dark / System) on dashboard, documents, ask, profile, and admin/manager chrome; auth pages use compact icon toggles (`ThemeToggleCorner`). New screens should prefer **`var(--token)`** over raw hex so both themes stay correct.
 
 ---
 
@@ -668,13 +674,14 @@ Vitest runs both **unit tests** (`*.test.ts`) and **integration tests** (`*.inte
 
 ### CI pipeline
 
-GitHub Actions (`.github/workflows/ci.yml`) runs **three parallel jobs** on every push/PR to `main`:
+GitHub Actions (`.github/workflows/ci.yml`) runs **four parallel jobs** on every push/PR to `main`:
 
 | Job | What it does |
 |-----|-------------|
-| **Lint** | `next lint` on the web package |
-| **Typecheck & Build** | `tsc` (API) + `next build` (Web) |
-| **Test** | Spins up Postgres + Redis service containers, runs migrations, executes all API tests |
+| **Lint** | `next lint` on the web package, `tsc --noEmit` on the API |
+| **Audit** | `npm audit --omit=dev --audit-level=high` for dependency vulnerabilities |
+| **Typecheck & Build** | `prisma generate`, `tsc` (API) + `next build` (Web) |
+| **Test** | Spins up Postgres + Redis service containers, runs migrations, executes all API tests with coverage |
 
 ---
 

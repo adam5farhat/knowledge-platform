@@ -25,9 +25,9 @@
   font-weight: 600;
   padding: 0.45rem 0.95rem;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, #b91c1c 45%, var(--border));
-  background: #fef2f2;
-  color: #991b1b;
+  border: 1px solid color-mix(in srgb, var(--error) 45%, var(--border));
+  background: var(--tint-danger);
+  color: color-mix(in srgb, var(--error) 78%, var(--text));
   cursor: pointer;
   white-space: nowrap;
   transition:
@@ -37,8 +37,8 @@
 }
 
 .toolbarDeleteBtn:hover:not(:disabled) {
-  background: #fee2e2;
-  border-color: #b91c1c;
+  background: var(--tint-danger-strong);
+  border-color: color-mix(in srgb, var(--error) 55%, var(--border));
 }
 
 .toolbarDeleteBtn:disabled {
@@ -65,7 +65,7 @@
 
 .bulkSelectionWarn {
   font-weight: 600;
-  color: #b45309;
+  color: var(--warning);
 }
 
 .tableFeedbackErr {
@@ -198,7 +198,7 @@
   object-fit: cover;
   flex-shrink: 0;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--interactive) 10%, #fff);
+  background: color-mix(in srgb, var(--interactive) 10%, var(--surface));
 }
 
 .ownerFallback {
@@ -212,8 +212,8 @@
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: color-mix(in srgb, var(--interactive) 88%, #0f172a);
-  background: color-mix(in srgb, var(--interactive) 14%, #fff);
+  color: color-mix(in srgb, var(--interactive) 88%, var(--text));
+  background: color-mix(in srgb, var(--interactive) 14%, var(--surface));
   border: 1px solid var(--border);
 }
 
@@ -240,33 +240,33 @@
 }
 
 .statusReady {
-  color: #14532d;
-  background: color-mix(in srgb, #bbf7d0 40%, #fff);
-  border-color: color-mix(in srgb, #15803d 22%, transparent);
+  color: var(--status-ok-text);
+  background: color-mix(in srgb, var(--status-ok-border) 42%, var(--surface));
+  border-color: color-mix(in srgb, var(--trend-positive) 25%, transparent);
 }
 
 .statusProcessing {
-  color: #1e3a8a;
-  background: color-mix(in srgb, #bfdbfe 40%, #fff);
-  border-color: color-mix(in srgb, #2563eb 20%, transparent);
+  color: var(--accent-blue-strong);
+  background: color-mix(in srgb, var(--tint-info) 55%, var(--surface));
+  border-color: color-mix(in srgb, var(--chart-stroke) 22%, transparent);
 }
 
 .statusPending {
-  color: #92400e;
-  background: color-mix(in srgb, #fde68a 38%, #fff);
-  border-color: color-mix(in srgb, #d97706 22%, transparent);
+  color: var(--banner-warning-text);
+  background: color-mix(in srgb, var(--banner-warning-border) 32%, var(--surface));
+  border-color: color-mix(in srgb, var(--warning) 28%, transparent);
 }
 
 .statusFailed {
-  color: #991b1b;
-  background: color-mix(in srgb, #fecaca 38%, #fff);
-  border-color: color-mix(in srgb, #dc2626 22%, transparent);
+  color: var(--trend-negative);
+  background: color-mix(in srgb, var(--tint-danger-strong) 45%, var(--surface));
+  border-color: color-mix(in srgb, var(--error) 25%, transparent);
 }
 
 .statusArchived {
-  color: #581c87;
-  background: color-mix(in srgb, #e9d5ff 38%, #fff);
-  border-color: color-mix(in srgb, #9333ea 20%, transparent);
+  color: var(--accent-purple-fg);
+  background: color-mix(in srgb, var(--tint-purple) 42%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent-purple-strong) 22%, transparent);
 }
 
 .actionsCell {
@@ -350,11 +350,11 @@
 }
 
 .menuItemDanger {
-  color: #b91c1c;
+  color: var(--trend-negative);
 }
 
 .menuItemDanger:hover {
-  background: color-mix(in srgb, #fecaca 35%, transparent);
+  background: color-mix(in srgb, var(--tint-danger-strong) 38%, transparent);
 }
 
 /* ---- Slide-in detail panel (document explorer pattern) ---- */
@@ -366,7 +366,7 @@
   border: none;
   padding: 0;
   margin: 0;
-  background: color-mix(in srgb, #0f172a 38%, transparent);
+  background: color-mix(in srgb, var(--scrim-tint) 38%, transparent);
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
@@ -451,10 +451,10 @@
   border-radius: 50%;
   background: linear-gradient(
     145deg,
-    color-mix(in srgb, var(--interactive) 92%, #fff) 0%,
+    color-mix(in srgb, var(--interactive) 92%, var(--surface)) 0%,
     var(--interactive) 100%
   );
-  color: #fff;
+  color: var(--on-interactive);
   cursor: pointer;
   box-shadow:
     0 2px 14px color-mix(in srgb, var(--interactive) 42%, transparent),
@@ -511,7 +511,7 @@
 
 .panelError {
   color: var(--error);
-  background: color-mix(in srgb, #fef2f2 55%, transparent);
+  background: color-mix(in srgb, var(--tint-danger) 55%, transparent);
   border: 1px solid color-mix(in srgb, var(--error) 25%, var(--border));
   margin-top: 0.75rem;
 }
@@ -529,7 +529,7 @@
   justify-content: center;
   padding: 1.5rem 1rem 1.65rem;
   margin: 0 -1.25rem;
-  background: radial-gradient(ellipse 90% 75% at 50% 35%, color-mix(in srgb, var(--interactive) 11%, #fff) 0%, transparent 68%);
+  background: radial-gradient(ellipse 90% 75% at 50% 35%, color-mix(in srgb, var(--interactive) 11%, var(--surface)) 0%, transparent 68%);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, var(--interactive) 12%);
 }
 
@@ -538,7 +538,7 @@
   place-items: center;
   padding: 1.35rem 1.5rem;
   border: 1px solid color-mix(in srgb, var(--border) 85%, var(--interactive) 15%);
-  background: color-mix(in srgb, var(--card-bg) 70%, #fff 30%);
+  background: color-mix(in srgb, var(--card-bg) 70%, var(--surface) 30%);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.95) inset,
     0 12px 36px -16px color-mix(in srgb, var(--interactive) 25%, transparent);
@@ -652,12 +652,12 @@
   font-size: 0.8125rem;
   font-weight: 400;
   line-height: 1.5;
-  color: #52525b;
+  color: var(--muted);
   word-break: break-word;
 }
 
 .panelDescMuted {
-  color: #94a3b8;
+  color: var(--muted);
   font-weight: 400;
 }
 
@@ -728,9 +728,9 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   vertical-align: middle;
-  border: 1px solid color-mix(in srgb, #9333ea 35%, var(--border));
-  color: #581c87;
-  background: color-mix(in srgb, #e9d5ff 28%, var(--card-bg));
+  border: 1px solid color-mix(in srgb, var(--accent-purple-strong) 35%, var(--border));
+  color: var(--accent-purple-fg);
+  background: color-mix(in srgb, var(--tint-purple) 28%, var(--card-bg));
 }
 
 .panelIdCode {
@@ -811,7 +811,7 @@
   justify-content: space-between;
   gap: 1rem 1.25rem;
   padding: 0.7rem 0;
-  border-bottom: 1px solid #f4f4f5;
+  border-bottom: 1px solid var(--surface-muted);
   font-size: 0.8125rem;
 }
 
@@ -917,7 +917,7 @@
 
 .panelActionItem:hover:not(:disabled) .panelActionIcon {
   background: var(--interactive);
-  color: #fff;
+  color: var(--on-interactive);
   transform: scale(1.08);
   box-shadow:
     0 8px 32px color-mix(in srgb, var(--interactive) 42%, transparent),
@@ -926,7 +926,7 @@
 
 .panelActionItemDanger:hover:not(:disabled) .panelActionIcon {
   background: var(--error);
-  color: #fff;
+  color: var(--on-interactive);
   transform: scale(1.08);
   box-shadow:
     0 8px 32px color-mix(in srgb, var(--error) 38%, transparent),
@@ -978,10 +978,10 @@
   border-radius: 999px;
   background: linear-gradient(
     155deg,
-    color-mix(in srgb, var(--interactive) 95%, #fff) 0%,
+    color-mix(in srgb, var(--interactive) 95%, var(--surface)) 0%,
     var(--interactive) 100%
   );
-  color: #fff;
+  color: var(--on-interactive);
   box-shadow:
     0 4px 18px color-mix(in srgb, var(--interactive) 42%, transparent),
     0 2px 8px rgba(15, 23, 42, 0.12);
@@ -1049,7 +1049,7 @@
   margin: 0;
   padding: 0;
   border: none;
-  background: color-mix(in srgb, #0f172a 42%, transparent);
+  background: color-mix(in srgb, var(--scrim-tint) 42%, transparent);
   cursor: pointer;
   backdrop-filter: blur(2px);
   animation: kp-modalBackdropIn var(--dur-modal) var(--ease-out) both;
@@ -1122,8 +1122,8 @@
 
 .archivesDialogClose:hover {
   color: var(--text);
-  background: #f4f4f5;
-  border-color: #d4d4d8;
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
 }
 
 .archivesDialogClose:active {
@@ -1153,7 +1153,7 @@
   font-size: 0.8125rem;
   line-height: 1.45;
   color: var(--error);
-  background: color-mix(in srgb, #fef2f2 90%, var(--card-bg));
+  background: color-mix(in srgb, var(--tint-danger) 90%, var(--card-bg));
   border: 1px solid color-mix(in srgb, var(--error) 30%, var(--border));
   border-left: 3px solid var(--error);
   border-radius: 8px;
@@ -1181,22 +1181,22 @@
   padding: 0.65rem 0.75rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #3f3f46;
-  background: #fafafa;
+  color: var(--form-label-fg);
+  background: var(--slab-bg-elevated);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
 .archivesTr:hover td {
-  background: #fafafa;
+  background: var(--slab-bg-elevated);
 }
 
 .archivesTrLatest td {
-  background: color-mix(in srgb, var(--interactive) 6%, #fff);
+  background: color-mix(in srgb, var(--interactive) 6%, var(--surface));
 }
 
 .archivesTrLatest:hover td {
-  background: color-mix(in srgb, var(--interactive) 9%, #fff);
+  background: color-mix(in srgb, var(--interactive) 9%, var(--surface));
 }
 
 .archivesTd {
@@ -1204,7 +1204,7 @@
   vertical-align: middle;
   color: var(--text);
   line-height: 1.45;
-  border-bottom: 1px solid #f4f4f5;
+  border-bottom: 1px solid var(--surface-muted);
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 
@@ -1228,7 +1228,7 @@
   color: var(--interactive);
   border: 1px solid color-mix(in srgb, var(--interactive) 45%, var(--border));
   border-radius: 999px;
-  background: color-mix(in srgb, var(--interactive) 8%, #fff);
+  background: color-mix(in srgb, var(--interactive) 8%, var(--surface));
 }
 
 .archivesTime {
@@ -1265,7 +1265,7 @@
 }
 
 .archivesIconBtn:hover:not(:disabled) {
-  background: #f4f4f6;
+  background: var(--slab-bg);
   border-color: color-mix(in srgb, var(--interactive) 40%, var(--border));
   color: var(--interactive);
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
@@ -1361,9 +1361,9 @@
   font-weight: 600;
   padding: 0.5rem 1.15rem;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--interactive) 88%, #0a4d66);
+  border: 1px solid color-mix(in srgb, var(--interactive) 72%, var(--text));
   background: var(--interactive);
-  color: #fff;
+  color: var(--on-interactive);
   cursor: pointer;
   box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 10%, transparent);
   transition:
@@ -1374,8 +1374,8 @@
 }
 
 .archivesUploadBtn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--interactive) 88%, #000);
-  border-color: color-mix(in srgb, var(--interactive) 75%, #000);
+  background: color-mix(in srgb, var(--interactive) 88%, black);
+  border-color: color-mix(in srgb, var(--interactive) 75%, black);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive) 35%, transparent);
 }
 
@@ -1419,8 +1419,8 @@
   padding: 0.55rem 1.25rem;
   border-radius: 8px;
   border: none;
-  background: #18181b;
-  color: #fafafa;
+  background: var(--primary-cta-bg);
+  color: var(--primary-cta-fg);
   cursor: pointer;
   transition: filter 0.15s ease, transform 0.12s ease;
 }
@@ -1559,8 +1559,8 @@
   overflow: auto;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  border: 1px solid var(--nav-border);
   border-radius: 14px;
   box-shadow: 0 20px 48px rgba(15, 23, 42, 0.14);
   animation: kp-modalContentIn var(--dur-modal) var(--ease-out) both;
@@ -1572,7 +1572,7 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.9rem 1.1rem;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--surface-hover);
 }
 
 .uploadModalTitle {
@@ -1586,7 +1586,7 @@
   margin: 0.3rem 0 0;
   font-size: 0.84rem;
   line-height: 1.4;
-  color: #94a3b8;
+  color: var(--muted);
 }
 
 .uploadModalClose {
@@ -1601,13 +1601,13 @@
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: #94a3b8;
+  color: var(--muted);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
 .uploadModalClose:hover {
-  background: #f1f5f9;
+  background: var(--surface-hover);
   color: var(--text);
 }
 
@@ -1624,8 +1624,8 @@
   font-size: 0.8125rem;
   border-radius: 8px;
   color: var(--error);
-  background: color-mix(in srgb, var(--error) 8%, #fff);
-  border: 1px solid color-mix(in srgb, var(--error) 28%, #e2e8f0);
+  background: color-mix(in srgb, var(--error) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--error) 28%, var(--nav-border));
 }
 
 .uploadModalField {
@@ -1639,7 +1639,7 @@
   font-weight: 600;
   letter-spacing: 0;
   text-transform: uppercase;
-  color: #475569;
+  color: var(--form-label-fg);
 }
 
 .uploadModalInput,
@@ -1647,9 +1647,9 @@
   font: inherit;
   font-size: 0.9rem;
   padding: 0.6rem 0.75rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--nav-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -1678,18 +1678,18 @@
   font-size: 0.8125rem;
   font-weight: 600;
   padding: 0.45rem 0.85rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--nav-border);
   border-radius: 8px;
-  background: #f8fafc;
-  color: #475569;
+  background: var(--table-header-bg);
+  color: var(--form-label-fg);
   cursor: pointer;
   margin-right: 0.65rem;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .uploadModalFile::file-selector-button:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: var(--surface-hover);
+  border-color: var(--input-placeholder);
 }
 
 .uploadModalActions {
@@ -1698,7 +1698,7 @@
   gap: 0.65rem;
   margin-top: 0.5rem;
   padding-top: 0.75rem;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--surface-hover);
 }
 
 @media (max-width: 720px) {

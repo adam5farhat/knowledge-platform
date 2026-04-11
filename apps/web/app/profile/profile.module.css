@@ -4,7 +4,7 @@
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: #f8f9fb;
+  background: var(--page-chrome-bg);
 }
 
 .headerSpacer {
@@ -39,9 +39,9 @@
 .banner {
   margin: 0 0 1.5rem;
   padding: 0.75rem 1.1rem;
-  background: #fffbeb;
-  border: 1px solid #fcd34d;
-  color: #92400e;
+  background: var(--banner-warning-bg);
+  border: 1px solid var(--banner-warning-border);
+  color: var(--banner-warning-text);
   font-size: 0.875rem;
   line-height: 1.45;
   border-radius: 10px;
@@ -66,8 +66,8 @@
 /* ── Left column: account management ── */
 
 .leftCol {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  border: 1px solid var(--nav-border);
   border-radius: 12px;
   padding: 1.5rem 1.35rem 1.75rem;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
@@ -82,7 +82,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: var(--muted);
 }
 
 .photoPreview {
@@ -90,10 +90,10 @@
   width: 160px;
   height: 160px;
   margin: 0 auto 1rem;
-  border: 3px solid #e2e8f0;
+  border: 3px solid var(--nav-border);
   border-radius: 50%;
   overflow: hidden;
-  background: #f1f5f9;
+  background: var(--surface-hover);
 }
 
 .photoPreviewImg {
@@ -115,8 +115,8 @@
   font-size: 2.25rem;
   font-weight: 700;
   letter-spacing: -0.04em;
-  color: #94a3b8;
-  background: linear-gradient(160deg, #f8fafc 0%, #e2e8f0 100%);
+  color: var(--muted);
+  background: linear-gradient(160deg, var(--table-header-bg) 0%, var(--nav-border) 100%);
   border-radius: 50%;
 }
 
@@ -128,8 +128,8 @@
   margin: 0 auto;
   padding: 0.5rem 1.25rem;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
+  border: 1px solid var(--nav-border);
+  background: var(--surface);
   color: var(--interactive);
   cursor: pointer;
   transition: all 0.15s ease;
@@ -137,21 +137,21 @@
 
 .photoModalTrigger:hover {
   border-color: var(--interactive);
-  background: color-mix(in srgb, var(--interactive) 6%, #fff);
+  background: color-mix(in srgb, var(--interactive) 6%, var(--surface));
 }
 
 .photoHint {
   margin: 0.45rem 0 0;
   font-size: 0.75rem;
   line-height: 1.4;
-  color: #b0b8c9;
+  color: var(--muted);
   text-align: center;
 }
 
 .divider {
   margin: 1.25rem 0;
   border: none;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--nav-border);
 }
 
 .sideSectionTitle {
@@ -160,7 +160,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #94a3b8;
+  color: var(--muted);
 }
 
 .leftCol .formSection {
@@ -175,8 +175,8 @@
 /* ── Right column: profile info + contact ── */
 
 .rightCol {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  border: 1px solid var(--nav-border);
   border-radius: 12px;
   padding: 1.75rem 1.75rem 1.75rem;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
@@ -187,7 +187,7 @@
 .formSection {
   margin-bottom: 1.5rem;
   padding-bottom: 1.5rem;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--nav-border);
 }
 
 .formSection:last-of-type {
@@ -230,22 +230,22 @@
 .label {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #475569;
+  color: var(--form-label-fg);
 }
 
 .optional {
   font-weight: 450;
-  color: #94a3b8;
+  color: var(--muted);
 }
 
 .input {
   padding: 0.6rem 0.75rem;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--nav-border);
   font: inherit;
   font-size: 0.9rem;
   color: var(--text);
-  background: #fff;
+  background: var(--surface);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -259,8 +259,8 @@
 .inputReadonly {
   opacity: 0.8;
   cursor: not-allowed;
-  background: #f8fafc;
-  color: #64748b;
+  background: var(--table-header-bg);
+  color: var(--muted);
 }
 
 .hint {
@@ -279,7 +279,7 @@
   border-radius: 8px;
   border: none;
   background: var(--interactive);
-  color: #fff;
+  color: var(--on-interactive);
   cursor: pointer;
   transition: filter 0.15s ease, transform 0.1s ease;
 }
@@ -298,7 +298,8 @@
 }
 
 .leftCol .btnPrimary {
-  background: #1e293b;
+  background: var(--primary-cta-bg);
+  color: var(--primary-cta-fg);
   transition:
     filter 0.15s ease,
     transform 0.1s ease,
@@ -306,7 +307,7 @@
 }
 
 .leftCol .btnPrimary:hover:not(:disabled) {
-  background: #334155;
+  background: var(--primary-cta-hover);
 }
 
 .messages {

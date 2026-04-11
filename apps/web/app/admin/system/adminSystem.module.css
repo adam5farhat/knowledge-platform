@@ -23,7 +23,7 @@
 }
 
 .refreshBtn:hover {
-  background: #f4f4f6;
+  background: var(--surface-muted);
   border-color: color-mix(in srgb, var(--interactive) 35%, var(--border));
 }
 
@@ -150,7 +150,7 @@
   box-shadow:
     0 4px 6px -1px color-mix(in srgb, var(--text) 8%, transparent),
     0 14px 28px -8px color-mix(in srgb, var(--text) 14%, transparent);
-  background: color-mix(in srgb, var(--card-bg) 92%, #fff);
+  background: color-mix(in srgb, var(--card-bg) 88%, var(--surface));
 }
 
 .kpiIconWrap {
@@ -161,7 +161,8 @@
   height: 44px;
   border-radius: 12px;
   margin-bottom: 0.85rem;
-  color: #fff;
+  /* Icons sit on saturated gradients — keep readable on gradients in both themes */
+  color: var(--icon-on-gradient);
   transition:
     transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 0.22s ease;
@@ -223,11 +224,11 @@
 }
 
 .trendGood {
-  color: #16a34a;
+  color: var(--trend-positive);
 }
 
 .trendBad {
-  color: #dc2626;
+  color: var(--trend-negative);
 }
 
 .trendFlat {
@@ -350,8 +351,8 @@
 }
 
 .viewToggleBtnActive {
-  background: #2563eb;
-  color: #fff;
+  background: var(--chart-stroke);
+  color: var(--on-interactive);
 }
 
 .modalClose {
@@ -388,7 +389,7 @@
 
 .chartLine {
   fill: none;
-  stroke: #2563eb;
+  stroke: var(--chart-stroke);
   stroke-width: 2.25;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -405,7 +406,7 @@
 }
 
 .chartDot {
-  fill: #2563eb;
+  fill: var(--chart-stroke);
   stroke: var(--card-bg);
   stroke-width: 2;
 }

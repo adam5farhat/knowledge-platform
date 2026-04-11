@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   /* System stacks — no remote font fetch (see app/layout.tsx). */
   --font-inter: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --font-gelasio: Georgia, "Times New Roman", Times, serif;
@@ -13,12 +14,231 @@
   --border: #e4e4e7;
   --muted: #52525b;
 
+  /* Extended surfaces (light) — use in CSS modules for theme-aware panels */
+  --surface: #ffffff;
+  --surface-subtle: #fafbfc;
+  --surface-muted: #f4f4f5;
+  --surface-hover: #f1f5f9;
+  --border-strong: #d4d4d8;
+  --nav-border: #e2e8f0;
+  --input-bg: #ffffff;
+  --input-border: #e4e4e7;
+  --focus-ring: color-mix(in srgb, var(--interactive) 40%, transparent);
+  --interactive-hover: #005a8c;
+  --interactive-faint: color-mix(in srgb, var(--interactive) 10%, var(--surface));
+  --overlay-backdrop: rgba(15, 23, 42, 0.45);
+  --modal-bg: #ffffff;
+  --shadow-color: rgba(15, 23, 42, 0.12);
+  --table-header-bg: #f8fafc;
+  --row-hover: rgba(0, 107, 166, 0.07);
+  --warning: #b45309;
+  --on-interactive: #ffffff;
+
+  /* Semantic accents (charts, trends, search CTA) */
+  --trend-positive: #16a34a;
+  --trend-negative: #dc2626;
+  --chart-stroke: #2563eb;
+  --search-btn-bg: #18181b;
+  --search-btn-fg: #fafafa;
+  --search-btn-hover: #27272a;
+  --backdrop-scrim: color-mix(in srgb, #0f172a 42%, transparent);
+
+  /* Page sections, banners, CTAs (use in CSS modules instead of raw hex) */
+  --page-chrome-bg: #f8f9fb;
+  --banner-warning-bg: #fffbeb;
+  --banner-warning-border: #fcd34d;
+  --banner-warning-text: #92400e;
+  --status-ok-bg: #f0fdf4;
+  --status-ok-border: #bbf7d0;
+  --status-ok-text: #16a34a;
+  --form-label-fg: #475569;
+  --input-placeholder: #cbd5e1;
+  --primary-cta-bg: #1e293b;
+  --primary-cta-hover: #334155;
+  --primary-cta-fg: #ffffff;
+  --slab-bg: #f4f4f6;
+  --slab-bg-elevated: #fafafa;
+  --neutral-pressable: #e4e4e7;
+  --tint-info: #eff6ff;
+  --tint-success: #f0fdf4;
+  --tint-danger: #fef2f2;
+  --tint-danger-strong: #fee2e2;
+  --accent-blue-strong: #1d4ed8;
+  --accent-ice: #f8fbff;
+  --icon-on-gradient: #ffffff;
+  /* Solid dark CTA (admin modals, pills) — inverts in dark theme */
+  --solid-cta-bg: #18181b;
+  --solid-cta-fg: #fafafa;
+  /* Login / forgot-password left rail (dark gradient) */
+  --auth-aside-muted: #94a3b8;
+
+  /* Markdown code blocks (Ask, etc.) */
+  --code-block-bg: #1e1e2e;
+  --code-block-fg: #e5e5e5;
+
+  /* Dense scrims / overlays (mix toward this instead of raw slate hex) */
+  --scrim-tint: #0f172a;
+
+  /* Admin document status: archived / purple accent */
+  --accent-purple-fg: #581c87;
+  --accent-purple-strong: #9333ea;
+  --tint-purple: #e9d5ff;
+
   /* Animation tokens */
   --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --dur-fast: 150ms;
   --dur-normal: 250ms;
   --dur-modal: 200ms;
+}
+
+/* next-themes: attribute="class" adds .dark on <html> */
+html.dark {
+  color-scheme: dark;
+  --bg: #0c0f14;
+  --text: #f1f5f9;
+  /* Muted sky (less neon than pure cyan) for chrome + CTAs */
+  --interactive: #5eb0d8;
+  --error: #fb7185;
+  --success: #4ade80;
+
+  --card-bg: #151b24;
+  --border: #2a3341;
+  --muted: #94a3b8;
+
+  --surface: #151b24;
+  --surface-subtle: #1a222d;
+  --surface-muted: #1e2733;
+  --surface-hover: #243041;
+  --border-strong: #3d4a5c;
+  --nav-border: #2a3341;
+  --input-bg: #1a222d;
+  --input-border: #3d4a5c;
+  --focus-ring: color-mix(in srgb, var(--interactive) 50%, transparent);
+  --interactive-hover: #7ec4e6;
+  --interactive-faint: color-mix(in srgb, var(--interactive) 18%, var(--surface));
+  --overlay-backdrop: rgba(0, 0, 0, 0.65);
+  --modal-bg: #1a222d;
+  --shadow-color: rgba(0, 0, 0, 0.45);
+  --table-header-bg: #1e2733;
+  --row-hover: color-mix(in srgb, var(--interactive) 12%, transparent);
+  --warning: #fbbf24;
+  --on-interactive: #0c0f14;
+
+  --trend-positive: #4ade80;
+  --trend-negative: #fb7185;
+  --chart-stroke: #5eb0d8;
+  --search-btn-bg: color-mix(in srgb, var(--interactive) 82%, #000);
+  --search-btn-fg: #0c0f14;
+  --search-btn-hover: var(--interactive-hover);
+  --backdrop-scrim: color-mix(in srgb, #000 55%, transparent);
+
+  --page-chrome-bg: var(--bg);
+  --banner-warning-bg: color-mix(in srgb, var(--warning) 16%, var(--surface));
+  --banner-warning-border: color-mix(in srgb, var(--warning) 40%, var(--border));
+  --banner-warning-text: var(--warning);
+  --status-ok-bg: color-mix(in srgb, var(--success) 14%, var(--surface));
+  --status-ok-border: color-mix(in srgb, var(--success) 32%, var(--border));
+  --status-ok-text: var(--success);
+  --form-label-fg: var(--muted);
+  --input-placeholder: var(--muted);
+  --primary-cta-bg: var(--interactive);
+  --primary-cta-hover: var(--interactive-hover);
+  --primary-cta-fg: var(--on-interactive);
+  --slab-bg: var(--surface-muted);
+  --slab-bg-elevated: var(--surface-hover);
+  --neutral-pressable: var(--border-strong);
+  --tint-info: color-mix(in srgb, var(--interactive) 14%, var(--surface));
+  --tint-success: color-mix(in srgb, var(--success) 12%, var(--surface));
+  --tint-danger: color-mix(in srgb, var(--error) 14%, var(--surface));
+  --tint-danger-strong: color-mix(in srgb, var(--error) 22%, var(--surface));
+  --accent-blue-strong: #3b82f6;
+  --accent-ice: var(--surface-subtle);
+  --icon-on-gradient: #ffffff;
+  --solid-cta-bg: #e2e8f0;
+  --solid-cta-fg: #0c0f14;
+  --auth-aside-muted: #94a3b8;
+
+  --code-block-bg: #0d1117;
+  --code-block-fg: #e2e8f0;
+
+  --scrim-tint: #020617;
+
+  --accent-purple-fg: #e9d5ff;
+  --accent-purple-strong: #a78bfa;
+  --tint-purple: color-mix(in srgb, var(--accent-purple-strong) 22%, var(--surface));
+}
+
+/*
+ * Native selects/options follow the OS unless color-scheme + explicit colors are set.
+ * Global rules ensure dark theme even when CSS-module :global(html.dark) .select scoping fails.
+ */
+html.dark select {
+  color-scheme: dark;
+  background-color: var(--input-bg);
+  color: var(--text);
+}
+
+html.dark select option,
+html.dark select optgroup {
+  background-color: var(--surface);
+  color: var(--text);
+}
+
+/**
+ * Manager /department overview: Windows often ignores module-scoped `html.dark .select` rules
+ * for native controls. Scope by global class on `.main` (see ManagerDashboardClient).
+ */
+/**
+ * Windows/Edge often keep light native select chrome unless these win over UA + backgrounds.
+ * !important is scoped only to the manager dashboard container.
+ */
+html.dark .kp-manager-page select {
+  color-scheme: dark !important;
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: var(--input-bg) !important;
+  color: var(--text) !important;
+  border-color: var(--border-strong) !important;
+}
+
+html.dark .kp-manager-filter-bar {
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
+}
+
+html.dark .kp-manager-member-well {
+  background: var(--surface-subtle);
+  border-color: var(--border-strong);
+}
+
+html.dark .kp-manager-filter-chip {
+  background: color-mix(in srgb, var(--interactive) 16%, var(--surface-muted));
+  border-color: color-mix(in srgb, var(--interactive) 42%, var(--border-strong));
+  color: var(--interactive);
+}
+
+html.dark .kp-manager-filter-chip:hover {
+  background: color-mix(in srgb, var(--interactive) 22%, var(--surface-muted));
+}
+
+html.dark .kp-manager-cta-library {
+  background: color-mix(in srgb, var(--interactive) 16%, var(--surface-muted));
+  border-color: color-mix(in srgb, var(--interactive) 42%, var(--border-strong));
+  color: var(--interactive);
+}
+
+html.dark .kp-manager-cta-library:hover {
+  background: color-mix(in srgb, var(--interactive) 22%, var(--surface-muted));
+}
+
+/**
+ * Dark navbars: platform marks use #0f172a in SVG — invert to a light logo.
+ * (shellNav `.brandMark` also sets this; keep for imgs that only use `kp-platform-logo`.)
+ */
+html.dark img.kp-platform-logo {
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
 }
 
 html,
@@ -141,6 +361,59 @@ a:hover {
   }
 }
 
+/* Minimal route utilities (error boundaries, auth forms without a CSS module) */
+.kp-text-muted {
+  color: var(--muted);
+}
+
+.kp-narrow-page {
+  max-width: 520px;
+}
+
+.kp-stack-top {
+  margin-top: 1rem;
+}
+
+.kp-error-shell {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  margin: 2rem;
+  max-width: 480px;
+}
+
+.kp-error-btn {
+  padding: 0.5rem 0.75rem;
+  margin-right: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.kp-auth-label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--form-label-fg);
+}
+
+.kp-auth-input {
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--input-border);
+  font-size: 0.9rem;
+  font: inherit;
+  background: var(--input-bg);
+  color: var(--text);
+}
+
+.kp-auth-form {
+  display: grid;
+  gap: 1rem;
+}
+
 /* Screen-reader only utility */
 .sr-only {
   position: absolute;
@@ -184,6 +457,33 @@ a:hover {
 @keyframes kp-slideInRight {
   from { opacity: 0; transform: translateX(16px); }
   to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Skip-to-content link — visible only on keyboard focus */
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  z-index: 10000;
+  padding: 0.75rem 1.5rem;
+  background: var(--interactive);
+  color: var(--on-interactive);
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-radius: 0 0 8px 0;
+  text-decoration: none;
+}
+
+.skip-to-content:focus {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: auto;
+  height: auto;
+  outline: 2px solid var(--focus-ring);
 }
 
 /* Reduced motion: keep opacity fades but strip movement */

@@ -312,7 +312,7 @@ export default function AdminDocumentAuditClient() {
     return (
       <main style={{ maxWidth: 560 }}>
         <h1>Document audit</h1>
-        <p style={{ color: "#52525b" }}>Sign in to continue.</p>
+        <p style={{ color: "var(--muted)" }}>Sign in to continue.</p>
         <Link href="/login">Sign in</Link>
       </main>
     );

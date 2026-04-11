@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
 import { NotificationBell } from "@/components/NotificationBell";
+import { ThemeToggleMenu } from "@/components/ThemeToggle";
 import { clearStoredSession, fetchWithAuth, signOut } from "../../lib/authClient";
 import {
   DEFAULT_USER_RESTRICTIONS,
@@ -118,10 +119,10 @@ export default function DashboardClient() {
 
   if (loadState === "need-login") {
     return (
-      <main style={{ maxWidth: 520 }}>
+      <main className={styles.needLoginMain}>
         <h1>Dashboard</h1>
-        <p style={{ color: "#52525b" }}>You need to sign in to view this page.</p>
-        <p style={{ marginTop: "1rem" }}>
+        <p className={styles.needLoginMuted}>You need to sign in to view this page.</p>
+        <p className={styles.needLoginActions}>
           <Link href="/login">Sign in</Link>
           {" · "}
           <Link prefetch={false} href="/documents">Home</Link>
@@ -163,7 +164,7 @@ export default function DashboardClient() {
         <nav className={styles.navLeft} aria-label="Primary">
           <Link prefetch={false} className={styles.brand} href="/dashboard">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className={styles.brandMark} src="/logo-swapped.svg" alt="Platform" />
+            <img className={`${styles.brandMark} kp-platform-logo`} src="/logo-swapped.svg" alt="Platform" />
           </Link>
         </nav>
 
@@ -178,11 +179,12 @@ export default function DashboardClient() {
             email={user.email}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
+            aria-label="Account menu"
             onClick={() => setMenuOpen((v) => !v)}
             title={`${user.name} (${user.role})`}
           />
           {menuOpen ? (
-            <div className={styles.menu} role="menu">
+            <div className={styles.menu} role="menu" aria-label="Account">
               <div className={styles.menuHeader}>
                 <div>{user.name}</div>
                 <div>{user.email}</div>
@@ -249,6 +251,7 @@ export default function DashboardClient() {
                   </Link>
                 </>
               ) : null}
+              <ThemeToggleMenu />
               <button
                 type="button"
                 className={styles.menuItem}

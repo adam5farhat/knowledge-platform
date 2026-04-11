@@ -31,7 +31,7 @@
   gap: 0.1rem;
   padding: 0.65rem 0.35rem;
   border-right: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
   overflow-x: hidden;
   overflow-y: auto;
   position: relative;
@@ -60,7 +60,7 @@
 }
 
 .sidebarLink:hover {
-  background: #f4f4f6;
+  background: var(--slab-bg);
 }
 
 .sidebarLink:focus-visible {
@@ -70,7 +70,7 @@
 
 .sidebarLinkActive {
   border-left-color: var(--interactive);
-  background: color-mix(in srgb, var(--interactive) 10%, #fff);
+  background: color-mix(in srgb, var(--interactive) 10%, var(--surface));
   color: var(--interactive);
   font-weight: 600;
 }
@@ -146,7 +146,7 @@
   border: none;
   border-radius: 8px;
   background: var(--success);
-  color: #fff;
+  color: var(--on-interactive);
   font-size: 0.92rem;
   font-weight: 600;
   cursor: pointer;
@@ -215,7 +215,7 @@
   padding: 0.4rem 0.65rem;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: #fafafa;
+  background: var(--slab-bg-elevated);
   min-width: 200px;
   transition:
     border-color 0.2s ease,
@@ -262,7 +262,7 @@
 }
 
 .iconButton:hover {
-  background: #f4f4f5;
+  background: var(--surface-muted);
 }
 
 .iconButton:active {
@@ -302,7 +302,7 @@
 }
 
 .filterToggle:hover {
-  background: #f4f4f5;
+  background: var(--surface-muted);
 }
 
 .filterToggle:active {
@@ -427,15 +427,15 @@ div.filterPopoverFullRow {
   text-align: left;
   padding: 0.65rem 0.75rem;
   font-weight: 600;
-  color: #3f3f46;
+  color: var(--text);
   border-bottom: 1px solid var(--border);
-  background: #fafafa;
+  background: var(--slab-bg-elevated);
   white-space: nowrap;
 }
 
 .dataTable tbody td {
   padding: 0.6rem 0.75rem;
-  border-bottom: 1px solid #f4f4f5;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
   color: var(--text);
 }
@@ -445,7 +445,7 @@ div.filterPopoverFullRow {
 }
 
 .dataTable tbody tr:hover td {
-  background: #fafafa;
+  background: var(--slab-bg-elevated);
 }
 
 .cellMuted {
@@ -467,7 +467,7 @@ div.filterPopoverFullRow {
   object-fit: cover;
   flex-shrink: 0;
   border: 1px solid var(--border);
-  background: #f4f4f5;
+  background: var(--surface-muted);
 }
 
 .avatarFallback {
@@ -478,7 +478,7 @@ div.filterPopoverFullRow {
   height: 36px;
   border-radius: 999px;
   flex-shrink: 0;
-  background: color-mix(in srgb, var(--interactive) 18%, #fff);
+  background: color-mix(in srgb, var(--interactive) 18%, var(--surface));
   color: var(--interactive);
   font-size: 0.75rem;
   font-weight: 700;
@@ -507,7 +507,7 @@ div.filterPopoverFullRow {
 }
 
 .rowMenuBtn:hover {
-  background: #f4f4f5;
+  background: var(--surface-muted);
   color: var(--text);
 }
 
@@ -541,15 +541,15 @@ div.filterPopoverFullRow {
 }
 
 .rowMenuFixed button:hover {
-  background: #f4f4f5;
+  background: var(--surface-muted);
 }
 
 .rowMenuDanger {
-  color: #b91c1c;
+  color: var(--trend-negative);
 }
 
 .rowMenuDanger:hover {
-  background: #fef2f2;
+  background: var(--tint-danger);
 }
 
 .paginationBar {
@@ -559,7 +559,7 @@ div.filterPopoverFullRow {
   gap: 0.75rem;
   padding: 0.85rem 1.1rem;
   border-top: 1px solid var(--border);
-  background: #fafafa;
+  background: var(--slab-bg-elevated);
   font-size: 0.88rem;
   color: var(--muted);
 }
@@ -578,8 +578,8 @@ div.filterPopoverFullRow {
 }
 
 .paginationBar button:not(:disabled):hover {
-  background: #f4f4f6;
-  border-color: #d4d4d8;
+  background: var(--slab-bg);
+  border-color: var(--border-strong);
 }
 
 .paginationBar button:disabled {
@@ -665,8 +665,8 @@ div.filterPopoverFullRow {
   padding: 0.55rem 1rem;
   border-radius: 8px;
   border: none;
-  background: #18181b;
-  color: #fafafa;
+  background: var(--primary-cta-bg);
+  color: var(--primary-cta-fg);
   font: inherit;
   font-size: 0.9rem;
   cursor: pointer;
@@ -703,7 +703,7 @@ div.filterPopoverFullRow {
 }
 
 .btnGhost:hover {
-  background: #f4f4f6;
+  background: var(--slab-bg);
 }
 
 .btnGhost:active {
@@ -785,9 +785,9 @@ div.filterPopoverFullRow {
 .btnDanger {
   padding: 0.45rem 0.9rem;
   border-radius: 8px;
-  border: 1px solid #dc2626;
-  background: #fef2f2;
-  color: #991b1b;
+  border: 1px solid var(--trend-negative);
+  background: var(--tint-danger);
+  color: var(--trend-negative);
   font: inherit;
   font-size: 0.88rem;
   font-weight: 600;
@@ -798,7 +798,7 @@ div.filterPopoverFullRow {
 }
 
 .btnDanger:hover:not(:disabled) {
-  background: #fee2e2;
+  background: var(--tint-danger-strong);
 }
 
 .btnDanger:disabled {
@@ -812,7 +812,7 @@ div.filterPopoverFullRow {
 }
 
 .clickableRow:hover td {
-  background: #f4f4f6;
+  background: var(--slab-bg);
 }
 
 .rowArchived {
@@ -838,11 +838,11 @@ div.filterPopoverFullRow {
 }
 
 .rowSelected td {
-  background: color-mix(in srgb, var(--interactive) 8%, #fff);
+  background: color-mix(in srgb, var(--interactive) 8%, var(--surface));
 }
 
 .rowSelected:hover td {
-  background: color-mix(in srgb, var(--interactive) 12%, #fff);
+  background: color-mix(in srgb, var(--interactive) 12%, var(--surface));
 }
 
 .detailBackdrop {
@@ -860,8 +860,8 @@ div.filterPopoverFullRow {
   bottom: 0;
   width: min(400px, 100vw);
   z-index: 4600;
-  background: #ffffff;
-  border-left: 1px solid #e4e4e7;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
   box-shadow: -12px 0 40px rgba(15, 23, 42, 0.12);
   display: flex;
   flex-direction: column;
@@ -885,7 +885,7 @@ div.filterPopoverFullRow {
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.65rem 0.5rem 0.65rem 0.35rem;
-  border-bottom: 1px solid #f4f4f5;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
@@ -897,14 +897,14 @@ div.filterPopoverFullRow {
   height: 40px;
   border: none;
   border-radius: 999px;
-  background: #f4f4f5;
-  color: #3f3f46;
+  background: var(--surface-muted);
+  color: var(--text);
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 
 .profileBackBtn:hover {
-  background: #e4e4e7;
+  background: var(--neutral-pressable);
 }
 
 .profileTopTitle {
@@ -913,7 +913,7 @@ div.filterPopoverFullRow {
   text-align: center;
   font-size: 1.02rem;
   font-weight: 600;
-  color: #18181b;
+  color: var(--text);
   letter-spacing: -0.02em;
 }
 
@@ -951,7 +951,7 @@ div.filterPopoverFullRow {
   width: 88px;
   height: 88px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--interactive) 14%, #fff);
+  background: color-mix(in srgb, var(--interactive) 14%, var(--surface));
   color: var(--interactive);
   font-size: 1.35rem;
   font-weight: 700;
@@ -961,7 +961,7 @@ div.filterPopoverFullRow {
   margin: 0 0 0.2rem;
   font-size: 1.35rem;
   font-weight: 700;
-  color: #18181b;
+  color: var(--text);
   letter-spacing: -0.02em;
   line-height: 1.2;
 }
@@ -969,14 +969,14 @@ div.filterPopoverFullRow {
 .profileEmail {
   margin: 0 0 0.35rem;
   font-size: 0.875rem;
-  color: #71717a;
+  color: var(--muted);
   word-break: break-word;
 }
 
 .profileJoined {
   margin: 0 0 1rem;
   font-size: 0.8rem;
-  color: #a1a1aa;
+  color: var(--muted);
 }
 
 .profileEditCta {
@@ -988,7 +988,7 @@ div.filterPopoverFullRow {
   border: none;
   border-radius: 999px;
   background: var(--interactive);
-  color: #fff;
+  color: var(--on-interactive);
   font: inherit;
   font-size: 0.95rem;
   font-weight: 600;
@@ -1013,8 +1013,8 @@ div.filterPopoverFullRow {
   border-radius: 999px;
   background: linear-gradient(
     180deg,
-    #ffffff 0%,
-    color-mix(in srgb, var(--interactive) 5%, #fff) 100%
+    var(--surface) 0%,
+    color-mix(in srgb, var(--interactive) 5%, var(--surface)) 100%
   );
   color: var(--interactive);
   font: inherit;
@@ -1040,8 +1040,8 @@ div.filterPopoverFullRow {
   color: var(--interactive);
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--interactive) 8%, #fff) 0%,
-    color-mix(in srgb, var(--interactive) 14%, #fff) 100%
+    color-mix(in srgb, var(--interactive) 8%, var(--surface)) 0%,
+    color-mix(in srgb, var(--interactive) 14%, var(--surface)) 100%
   );
   box-shadow:
     0 2px 6px rgba(15, 23, 42, 0.07),
@@ -1075,7 +1075,7 @@ div.filterPopoverFullRow {
   padding: 0.85rem 0.75rem;
   display: grid;
   gap: 0.7rem;
-  background: #f4f4f5;
+  background: var(--surface-muted);
   border-radius: 16px;
 }
 
@@ -1087,18 +1087,18 @@ div.filterPopoverFullRow {
 .profileFieldLabel {
   font-size: 0.72rem;
   font-weight: 600;
-  color: #71717a;
+  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .profileFieldBox {
-  background: #fff;
+  background: var(--surface);
   border-radius: 12px;
   padding: 0.55rem 0.75rem;
   font-size: 0.9rem;
-  color: #3f3f46;
-  border: 1px solid #e4e4e7;
+  color: var(--text);
+  border: 1px solid var(--border);
   line-height: 1.35;
   word-break: break-word;
 }
@@ -1120,13 +1120,13 @@ div.filterPopoverFullRow {
   gap: 0.65rem;
   padding: 0.85rem 1rem;
   border: none;
-  border-bottom: 1px solid #f4f4f5;
+  border-bottom: 1px solid var(--border);
   background: transparent;
   cursor: pointer;
   font: inherit;
   font-size: 0.94rem;
   font-weight: 500;
-  color: #18181b;
+  color: var(--text);
   text-align: left;
   transition: background-color 0.15s ease;
 }
@@ -1136,7 +1136,7 @@ div.filterPopoverFullRow {
 }
 
 .profileMenuItem:hover {
-  background: #fafafa;
+  background: var(--slab-bg-elevated);
 }
 
 .profileMenuIcon {
@@ -1146,7 +1146,7 @@ div.filterPopoverFullRow {
 
 .profileMenuIconDanger {
   flex-shrink: 0;
-  color: #dc2626;
+  color: var(--trend-negative);
 }
 
 .profileMenuLabel {
@@ -1156,12 +1156,12 @@ div.filterPopoverFullRow {
 
 .profileMenuChevron {
   flex-shrink: 0;
-  color: #a1a1aa;
+  color: var(--muted);
 }
 
 .profileMenuItemDanger .profileMenuLabel,
 .profileMenuItemDanger .profileMenuChevron {
-  color: #dc2626;
+  color: var(--trend-negative);
 }
 
 .profileMenuItemDanger .profileMenuChevron {
@@ -1183,7 +1183,7 @@ div.filterPopoverFullRow {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #71717a;
+  color: var(--muted);
 }
 
 .restrictionPills {
@@ -1213,7 +1213,7 @@ div.filterPopoverFullRow {
 }
 
 .restrictionPill:focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--interactive);
   outline-offset: 2px;
 }
 
@@ -1223,21 +1223,25 @@ div.filterPopoverFullRow {
 }
 
 .restrictionPillAllowed {
-  background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%);
-  color: #1e40af;
-  box-shadow: 0 1px 3px rgba(30, 64, 175, 0.12);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--interactive) 22%, var(--surface)) 0%,
+    color-mix(in srgb, var(--interactive) 32%, var(--surface)) 100%
+  );
+  color: var(--interactive);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--interactive) 18%, transparent);
 }
 
 .restrictionPillRestricted {
-  background: linear-gradient(180deg, #f4f4f5 0%, #e4e4e7 100%);
-  color: #71717a;
-  border: 1px solid #d4d4d8;
+  background: linear-gradient(180deg, var(--surface-muted) 0%, var(--neutral-pressable) 100%);
+  color: var(--muted);
+  border: 1px solid var(--border-strong);
 }
 
 .restrictionPillRestrictedWarn {
-  background: linear-gradient(180deg, #fee2e2 0%, #fecaca 100%);
-  color: #991b1b;
-  border: 1px solid #fca5a5;
+  background: linear-gradient(180deg, var(--tint-danger-strong) 0%, var(--tint-danger) 100%);
+  color: var(--trend-negative);
+  border: 1px solid color-mix(in srgb, var(--error) 45%, var(--border));
 }
 
 .restrictionResetBtn {
@@ -1250,7 +1254,7 @@ div.filterPopoverFullRow {
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--card-bg);
-  color: #52525b;
+  color: var(--muted);
   cursor: pointer;
   transition: background 0.15s ease;
 }
@@ -1267,7 +1271,7 @@ div.filterPopoverFullRow {
 .restrictionToast {
   margin-top: 0.5rem;
   font-size: 0.75rem;
-  color: #16a34a;
+  color: var(--trend-positive);
   min-height: 1.1em;
 }
 
@@ -1276,7 +1280,7 @@ div.filterPopoverFullRow {
     width: 100%;
     max-width: none;
     border-left: none;
-    border-top: 1px solid #e4e4e7;
+    border-top: 1px solid var(--border);
     top: auto;
     bottom: 0;
     left: 0;

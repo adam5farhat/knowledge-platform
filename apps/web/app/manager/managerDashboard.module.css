@@ -11,7 +11,7 @@
   margin: 0 auto;
   padding: 0.85rem clamp(1rem, 2.5vw, 1.75rem) 1.5rem;
   align-self: stretch;
-  background: color-mix(in srgb, var(--bg) 88%, #e2e8f0 12%);
+  background: var(--bg);
   animation: kp-fadeUp var(--dur-normal) var(--ease-out) both;
 }
 
@@ -20,8 +20,8 @@
   padding: 0.85rem 1rem 0.95rem;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--border) 88%, var(--text) 12%);
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 28px -12px rgba(15, 23, 42, 0.1);
+  background: var(--surface);
+  box-shadow: 0 1px 2px var(--shadow-color), 0 8px 28px -12px var(--shadow-color);
 }
 
 .titleRow {
@@ -52,19 +52,18 @@
   min-height: 2.0625rem;
   padding: 0.3rem 1.65rem 0.3rem 0.65rem;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--border) 85%, #94a3b8 15%);
-  background:
-    linear-gradient(180deg, #fff 0%, color-mix(in srgb, var(--card-bg) 96%, #f1f5f9 4%) 100%);
+  border: 1px solid var(--border-strong);
+  background-color: var(--input-bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
   font: inherit;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.65rem center;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--border) 45%, transparent);
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
@@ -78,6 +77,11 @@
   outline: none;
   border-color: color-mix(in srgb, var(--interactive) 50%, var(--border));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive) 18%, transparent);
+}
+
+.deptSelect option {
+  background: var(--card-bg);
+  color: var(--text);
 }
 
 .metaRow {
@@ -156,10 +160,10 @@
 .section {
   margin-bottom: 0;
   border: 1px solid color-mix(in srgb, var(--border) 88%, var(--text) 12%);
-  background: #fff;
+  background: var(--surface);
   border-radius: 12px;
   padding: 0.95rem 1.05rem 1.05rem;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 28px -14px rgba(15, 23, 42, 0.1);
+  box-shadow: 0 1px 2px var(--shadow-color), 0 8px 28px -14px var(--shadow-color);
 }
 
 .sectionCard {
@@ -252,8 +256,8 @@
 .filtersBar {
   margin: 0 0 0.75rem;
   padding: 0.65rem 0.75rem;
-  background: color-mix(in srgb, #f8fafc 75%, var(--card-bg) 25%);
-  border: 1px solid color-mix(in srgb, var(--border) 85%, #d8e3ef);
+  background: color-mix(in srgb, var(--surface-muted) 92%, var(--interactive) 8%);
+  border: 1px solid var(--border);
   border-radius: 10px;
   min-width: 0;
 }
@@ -386,8 +390,8 @@
   padding: 0.28rem 0.6rem;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--interactive) 32%, var(--border));
-  background: color-mix(in srgb, var(--interactive) 7%, #fff);
-  color: color-mix(in srgb, var(--interactive) 85%, var(--text));
+  background: color-mix(in srgb, var(--interactive) 12%, var(--surface));
+  color: var(--interactive);
   font: inherit;
   font-size: 0.8125rem;
   font-weight: 600;
@@ -399,7 +403,7 @@
 }
 
 .filterBtn:hover {
-  background: color-mix(in srgb, var(--interactive) 12%, #fff);
+  background: color-mix(in srgb, var(--interactive) 18%, var(--surface));
 }
 
 .filterBtnIcon {
@@ -410,9 +414,9 @@
 
 .filtersDropdown {
   margin-top: 0.75rem;
-  border: 1px solid color-mix(in srgb, var(--border) 82%, #d8e3ef);
+  border: 1px solid var(--border);
   padding: 0.85rem 0.9rem;
-  background: #fff;
+  background: var(--surface);
   border-radius: 10px;
 }
 
@@ -475,7 +479,7 @@
   padding: 0.32rem 0.55rem;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--input-bg);
   font: inherit;
   font-size: 0.8125rem;
   color: var(--text);
@@ -496,8 +500,9 @@
   min-height: 2.0625rem;
   padding: 0.32rem 1.55rem 0.32rem 0.55rem;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--border) 85%, #94a3b8 15%);
-  background-color: #fff;
+  border: 1px solid var(--border-strong);
+  background-color: var(--input-bg);
+  /* Chevron uses muted stroke so it stays visible in light and dark */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.55rem center;
@@ -506,6 +511,7 @@
   color: var(--text);
   width: 100%;
   box-sizing: border-box;
+  -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
   transition:
@@ -519,6 +525,11 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive) 15%, transparent);
 }
 
+.select option {
+  background: var(--card-bg);
+  color: var(--text);
+}
+
 .filtersActions {
   display: flex;
   justify-content: flex-end;
@@ -529,7 +540,7 @@
   padding: 0.28rem 0.65rem;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-size: 0.8125rem;
@@ -542,7 +553,7 @@
 }
 
 .clearBtn:hover {
-  background: #f8fbff;
+  background: var(--surface-hover);
   border-color: color-mix(in srgb, var(--interactive) 30%, var(--border));
   transform: translateY(-1px);
 }
@@ -558,8 +569,8 @@
   padding: 0.65rem 0.7rem 0.75rem;
   min-width: 0;
   border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--border) 82%, #d8e3ef);
-  background: color-mix(in srgb, #f8fafc 78%, var(--card-bg) 22%);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-muted) 94%, var(--interactive) 6%);
 }
 
 .memberGrid {
@@ -574,8 +585,7 @@
   border: 1px solid var(--border);
   background: var(--card-bg);
   padding: 0.55rem 0.65rem;
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 1px 2px var(--shadow-color);
   transition:
     transform 0.18s ease,
     border-color 0.18s ease,
@@ -585,8 +595,7 @@
 .memberCard:hover {
   transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--interactive) 22%, var(--border));
-  box-shadow:
-    0 6px 22px -14px color-mix(in srgb, var(--interactive) 22%, rgba(15, 23, 42, 0.18));
+  box-shadow: 0 6px 22px -14px var(--shadow-color);
 }
 
 .memberTop {
@@ -618,7 +627,7 @@
 
 .memberRole {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--muted);
   margin-top: 0.1rem;
   white-space: nowrap;
   overflow: hidden;
@@ -712,7 +721,7 @@
 .cellDate {
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
-  color: #64748b;
+  color: var(--muted);
   white-space: nowrap;
 }
 
@@ -721,7 +730,7 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #64748b;
+  color: var(--muted);
   background: linear-gradient(180deg, color-mix(in srgb, var(--border) 14%, var(--card-bg)) 0%, var(--card-bg) 100%);
   white-space: nowrap;
 }
@@ -753,7 +762,7 @@
   overflow: hidden;
   flex-shrink: 0;
   border: 1px solid color-mix(in srgb, var(--border) 80%, var(--text) 20%);
-  background: #f4f4f6;
+  background: var(--slab-bg);
   display: grid;
   place-items: center;
   font-size: 0.72rem;
@@ -776,7 +785,7 @@
   overflow: hidden;
   flex-shrink: 0;
   border: 1px solid color-mix(in srgb, var(--border) 80%, var(--text) 20%);
-  background: #f4f4f6;
+  background: var(--slab-bg);
   display: grid;
   place-items: center;
   font-size: 0.75rem;
@@ -828,7 +837,7 @@
 }
 
 .docLink:hover {
-  color: color-mix(in srgb, var(--interactive) 75%, #0f172a);
+  color: var(--interactive-hover);
   text-decoration: underline;
 }
 
@@ -877,7 +886,7 @@
 }
 
 .muted {
-  color: #64748b;
+  color: var(--muted);
 }
 
 .badgeActive {
@@ -889,9 +898,9 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--success, #139a43) 35%, var(--border));
-  background: color-mix(in srgb, var(--success, #139a43) 10%, var(--card-bg));
-  color: color-mix(in srgb, var(--success, #139a43) 95%, #0f172a);
+  border: 1px solid color-mix(in srgb, var(--success) 35%, var(--border));
+  background: color-mix(in srgb, var(--success) 12%, var(--card-bg));
+  color: var(--success);
 }
 
 .badgeInactive {
@@ -903,9 +912,9 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, #f59e0b 40%, var(--border));
-  background: color-mix(in srgb, #fef3c7 40%, var(--card-bg));
-  color: #92400e;
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, var(--border));
+  background: color-mix(in srgb, var(--warning) 14%, var(--card-bg));
+  color: var(--warning);
 }
 
 .statusPill {
@@ -921,25 +930,25 @@
 }
 
 .statusReady {
-  border-color: color-mix(in srgb, #22c55e 45%, var(--border));
-  background: color-mix(in srgb, #22c55e 12%, var(--card-bg));
-  color: #166534;
+  border-color: color-mix(in srgb, var(--success) 45%, var(--border));
+  background: color-mix(in srgb, var(--success) 12%, var(--card-bg));
+  color: var(--success);
 }
 
 .statusFailed {
-  border-color: color-mix(in srgb, #ef4444 40%, var(--border));
-  background: color-mix(in srgb, #ef4444 10%, var(--card-bg));
-  color: #991b1b;
+  border-color: color-mix(in srgb, var(--error) 40%, var(--border));
+  background: color-mix(in srgb, var(--error) 10%, var(--card-bg));
+  color: var(--error);
 }
 
 .statusPending {
-  border-color: color-mix(in srgb, #f59e0b 45%, var(--border));
-  background: color-mix(in srgb, #f59e0b 12%, var(--card-bg));
-  color: #92400e;
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+  background: color-mix(in srgb, var(--warning) 12%, var(--card-bg));
+  color: var(--warning);
 }
 
 .statusOther {
-  color: #64748b;
+  color: var(--muted);
   background: color-mix(in srgb, var(--border) 12%, var(--card-bg));
 }
 
@@ -960,11 +969,11 @@
   padding: 0.6rem 1.2rem;
   font-size: 0.94rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--on-interactive);
   text-decoration: none;
   border-radius: 10px;
   background: var(--interactive);
-  border: 1px solid color-mix(in srgb, var(--interactive) 80%, #0f172a);
+  border: 1px solid color-mix(in srgb, var(--interactive) 75%, var(--text));
   box-shadow: 0 2px 8px color-mix(in srgb, var(--interactive) 35%, transparent);
   transition:
     filter 0.15s ease,
@@ -976,7 +985,7 @@
   filter: brightness(1.06);
   text-decoration: none;
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--interactive) 28%, rgba(15, 23, 42, 0.2));
+  box-shadow: 0 6px 18px var(--shadow-color);
 }
 
 .ctaPrimary:focus-visible {
@@ -996,11 +1005,11 @@
   line-height: 1.2;
   font-size: 0.75rem;
   font-weight: 600;
-  color: color-mix(in srgb, var(--interactive) 92%, #0f172a);
+  color: var(--interactive);
   text-decoration: none;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--interactive) 32%, var(--border));
-  background: color-mix(in srgb, var(--interactive) 6%, #fff);
+  background: color-mix(in srgb, var(--interactive) 12%, var(--surface));
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
@@ -1008,7 +1017,7 @@
 }
 
 .ctaLibrary:hover {
-  background: color-mix(in srgb, var(--interactive) 11%, #fff);
+  background: color-mix(in srgb, var(--interactive) 18%, var(--surface));
   border-color: color-mix(in srgb, var(--interactive) 48%, var(--border));
   text-decoration: none;
   transform: translateY(-1px);
@@ -1045,7 +1054,7 @@
 }
 
 .ctaGhost:hover {
-  background: #fafafa;
+  background: var(--slab-bg-elevated);
   border-color: color-mix(in srgb, var(--interactive) 30%, var(--border));
   text-decoration: none;
   transform: translateY(-1px);
@@ -1063,7 +1072,7 @@
 
 .empty {
   padding: 1.35rem 1.35rem;
-  color: #64748b;
+  color: var(--muted);
   font-size: 1rem;
   border-radius: 14px;
   border: 1px dashed color-mix(in srgb, var(--border) 70%, var(--interactive) 30%);
@@ -1096,7 +1105,7 @@
 .emptyHint {
   margin: 0 0 1.15rem;
   font-size: 0.95rem;
-  color: #64748b;
+  color: var(--muted);
   line-height: 1.45;
   max-width: 22rem;
   margin-left: auto;
@@ -1108,7 +1117,7 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.95rem;
-  color: #64748b;
+  color: var(--muted);
   padding: 0.65rem 0;
 }
 
@@ -1181,8 +1190,8 @@
   padding: 1rem 1.1rem 1.15rem;
   border: 1px solid color-mix(in srgb, var(--border) 88%, var(--text) 10%);
   border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  background: var(--surface);
+  box-shadow: 0 1px 2px var(--shadow-color);
 }
 
 .mgrPanelCard:last-child {
@@ -1229,7 +1238,7 @@
   vertical-align: top;
   padding: 0.5rem 0;
   line-height: 1.45;
-  color: #52525b;
+  color: var(--muted);
   word-break: break-word;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
 }
@@ -1283,3 +1292,73 @@
   color: var(--text);
 }
 
+.needLoginMain {
+  max-width: 520px;
+}
+
+.needLoginMuted {
+  color: var(--muted);
+}
+
+.needLoginActions {
+  margin-top: 1rem;
+}
+
+/* Dark: reinforce panels + native selects after base rules (Edge/Win often needs !important on select). */
+:global(html.dark) .main .filtersBar {
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
+}
+
+:global(html.dark) .main .memberListWell {
+  background: var(--surface-subtle);
+  border-color: var(--border-strong);
+}
+
+:global(html.dark) .main .filterBtn {
+  background: color-mix(in srgb, var(--interactive) 16%, var(--surface-muted));
+  border-color: color-mix(in srgb, var(--interactive) 42%, var(--border-strong));
+  color: var(--interactive);
+}
+
+:global(html.dark) .main .filterBtn:hover {
+  background: color-mix(in srgb, var(--interactive) 22%, var(--surface-muted));
+}
+
+:global(html.dark) .main .ctaLibrary {
+  background: color-mix(in srgb, var(--interactive) 16%, var(--surface-muted));
+  border-color: color-mix(in srgb, var(--interactive) 42%, var(--border-strong));
+  color: var(--interactive);
+}
+
+:global(html.dark) .main .ctaLibrary:hover {
+  background: color-mix(in srgb, var(--interactive) 22%, var(--surface-muted));
+}
+
+:global(html.dark) .main select.select,
+:global(html.dark) .main select.deptSelect {
+  color-scheme: dark;
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: var(--input-bg) !important;
+  color: var(--text) !important;
+  border-color: var(--border-strong) !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+}
+
+:global(html.dark) .main select.select {
+  background-position: right 0.55rem center !important;
+}
+
+:global(html.dark) .main select.deptSelect {
+  background-position: right 0.65rem center !important;
+}
+
+:global(html.dark) .main select.select option,
+:global(html.dark) .main select.deptSelect option,
+:global(html.dark) .main select.select optgroup,
+:global(html.dark) .main select.deptSelect optgroup {
+  background-color: var(--surface);
+  color: var(--text);
+}

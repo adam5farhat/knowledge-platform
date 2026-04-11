@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { FileTypeIcon } from "../../components/FileTypeIcon";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
 import { NotificationBell } from "@/components/NotificationBell";
+import { ThemeToggleMenu } from "@/components/ThemeToggle";
+import { ClientLocaleDate, ClientLocaleTime } from "@/components/ClientLocaleDate";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ConfirmDialog";
 import {
@@ -27,9 +29,7 @@ import styles from "./page.module.css";
 import type { Dept, DocRow, LibraryScope } from "./documentsTypes";
 import { MAX_UPLOAD_TAGS, TABLE_TAGS_VISIBLE } from "./documentsTypes";
 import {
-  formatModifiedTable,
   formatSize,
-  formatUploadedOnLine,
   initialsFromPerson,
   normalizeUploadTag,
 } from "./documentsFormat";
@@ -72,10 +72,7 @@ export default function DocumentsClient() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadOk, setUploadOk] = useState<string | null>(null);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>(() => {
-    if (typeof window === "undefined") return "__all";
-    return new URLSearchParams(window.location.search).get("dept") ?? "__all";
-  });
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("__all");
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [q, setQ] = useState("");
@@ -99,14 +96,7 @@ export default function DocumentsClient() {
   /** Stable id while modal is open so closing the side panel does not break the dialog. */
   const [versionArchiveDocId, setVersionArchiveDocId] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<{ url: string; title: string } | null>(null);
-  const [libraryScope, setLibraryScope] = useState<LibraryScope>(() => {
-    if (typeof window === "undefined") return "ALL";
-    const sc = new URLSearchParams(window.location.search).get("scope")?.toLowerCase() ?? "";
-    if (sc === "recent") return "RECENT";
-    if (sc === "favorites") return "FAVORITES";
-    if (sc === "archived") return "ARCHIVED";
-    return "ALL";
-  });
+  const [libraryScope, setLibraryScope] = useState<LibraryScope>("ALL");
   const [listPage, setListPage] = useState(1);
   const [listTotal, setListTotal] = useState(0);
   const [listHasMore, setListHasMore] = useState(false);
@@ -129,6 +119,17 @@ export default function DocumentsClient() {
       previewBackdropIgnoreCloseUntilRef.current = until;
     }
   }
+
+  /** Do not read `window` in useState — SSR and client first paint must match (React #418). */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const dept = params.get("dept");
+    if (dept) setSelectedDepartment(dept);
+    const sc = params.get("scope")?.toLowerCase() ?? "";
+    if (sc === "recent") setLibraryScope("RECENT");
+    else if (sc === "favorites") setLibraryScope("FAVORITES");
+    else if (sc === "archived") setLibraryScope("ARCHIVED");
+  }, []);
 
   const isAdmin = useMemo(() => me?.role === RoleNameApi.ADMIN, [me?.role]);
 
@@ -718,6 +719,7 @@ export default function DocumentsClient() {
                       Department overview
                     </Link>
                   ) : null}
+                  <ThemeToggleMenu />
                   <button
                     type="button"
                     className={styles.profileMenuItem}
@@ -958,35 +960,15 @@ export default function DocumentsClient() {
               </div>
               {loadError ? <p style={{ color: "var(--error)" }}>{loadError}</p> : null}
               {canBulkAdmin && bulkSelected.size > 0 ? (
-                <div
-                  role="region"
-                  aria-label="Bulk actions"
-                  style={{
-                    marginTop: "0.75rem",
-                    padding: "0.65rem 0.75rem",
-                    border: "1px solid #e4e4e7",
-                    borderRadius: 8,
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "0.65rem",
-                    alignItems: "center",
-                    background: "#fafafa",
-                  }}
-                >
-                  <span style={{ fontSize: "0.9rem" }}>
+                <div role="region" aria-label="Bulk actions" className={styles.bulkBar}>
+                  <span className={styles.bulkBarCount}>
                     {bulkSelected.size} selected (admins only; max 50 per delete)
                   </span>
                   <button
                     type="button"
                     disabled={bulkBusy}
                     onClick={() => setBulkSelected(new Set())}
-                    style={{
-                      padding: "0.35rem 0.65rem",
-                      borderRadius: 6,
-                      border: "1px solid #d4d4d8",
-                      background: "#fff",
-                      cursor: bulkBusy ? "wait" : "pointer",
-                    }}
+                    className={styles.bulkBarBtnClear}
                   >
                     Clear selection
                   </button>
@@ -994,18 +976,11 @@ export default function DocumentsClient() {
                     type="button"
                     disabled={bulkBusy}
                     onClick={() => void bulkDeleteSelected()}
-                    style={{
-                      padding: "0.35rem 0.65rem",
-                      borderRadius: 6,
-                      border: "none",
-                      background: "#b91c1c",
-                      color: "#fff",
-                      cursor: bulkBusy ? "wait" : "pointer",
-                    }}
+                    className={styles.bulkBarBtnDanger}
                   >
                     {bulkBusy ? "Deleting…" : "Delete permanently"}
                   </button>
-                  <Link prefetch={false} href="/admin/documents" style={{ fontSize: "0.88rem", color: "#2563eb" }}>
+                  <Link prefetch={false} href="/admin/documents" className={styles.bulkBarAdminLink}>
                     Advanced tools (CSV export…)
                   </Link>
                   {bulkErr ? (
@@ -1058,7 +1033,12 @@ export default function DocumentsClient() {
                         </div>
                         <h3 className={styles.fileCardTitle}>{d.title}</h3>
                         <p className={styles.fileCardMeta}>
-                          {formatSize(d.latestVersion?.sizeBytes)} · {new Date(d.createdAt).toLocaleDateString()}
+                          {formatSize(d.latestVersion?.sizeBytes)} ·{" "}
+                          <ClientLocaleDate
+                            iso={d.createdAt}
+                            mode="date"
+                            options={{ month: "short", day: "numeric", year: "numeric" }}
+                          />
                         </p>
                         {d.latestVersion && (d.latestVersion.processingStatus === "PROCESSING" || d.latestVersion.processingStatus === "PENDING") ? (
                           <div className={styles.fileCardProgress}>
@@ -1155,7 +1135,14 @@ export default function DocumentsClient() {
                                   </div>
                                   <div className={styles.tableNameTexts}>
                                     <div className={styles.tableNameTitle}>{d.title}</div>
-                                    <div className={styles.tableNameSub}>{formatUploadedOnLine(d.createdAt)}</div>
+                                    <div className={styles.tableNameSub}>
+                                      Uploaded on{" "}
+                                      <ClientLocaleDate
+                                        iso={d.createdAt}
+                                        mode="date"
+                                        options={{ month: "short", day: "numeric" }}
+                                      />
+                                    </div>
                                   </div>
                                 </div>
                               </td>
@@ -1201,7 +1188,13 @@ export default function DocumentsClient() {
                                   ) : null}
                                 </div>
                               </td>
-                              <td className={styles.tableTdModified}>{formatModifiedTable(d.updatedAt, d.createdAt)}</td>
+                              <td className={styles.tableTdModified}>
+                                <ClientLocaleDate
+                                  iso={d.updatedAt ?? d.createdAt}
+                                  mode="date"
+                                  options={{ year: "numeric", month: "short", day: "numeric" }}
+                                />
+                              </td>
                               <td className={styles.tableTdFav} onClick={(e) => e.stopPropagation()}>
                                 <button
                                   type="button"
@@ -1316,9 +1309,7 @@ export default function DocumentsClient() {
                           <div className={styles.detailsDescRow}>
                             <dt className={styles.detailsDescRowLabel}>Version uploaded</dt>
                             <dd className={styles.detailsDescRowValue}>
-                              <time dateTime={selectedDoc.latestVersion.createdAt}>
-                                {new Date(selectedDoc.latestVersion.createdAt).toLocaleString()}
-                              </time>
+                              <ClientLocaleTime iso={selectedDoc.latestVersion.createdAt} mode="datetime" />
                             </dd>
                           </div>
                         </>
@@ -1334,7 +1325,7 @@ export default function DocumentsClient() {
                         <dd className={styles.detailsDescRowValue}>
                           {selectedDoc.createdBy.name}
                           <span className={styles.detailsDescSep}> · </span>
-                          <time dateTime={selectedDoc.createdAt}>{new Date(selectedDoc.createdAt).toLocaleDateString()}</time>
+                          <ClientLocaleTime iso={selectedDoc.createdAt} mode="date" />
                         </dd>
                       </div>
                     </dl>
@@ -1588,9 +1579,9 @@ export default function DocumentsClient() {
                 <div
                   className={styles.uploadStepperTrack}
                   style={{
-                    background: `linear-gradient(to right, #3b6cff 0%, #3b6cff ${
+                    background: `linear-gradient(to right, var(--interactive) 0%, var(--interactive) ${
                       uploadStep === 1 ? 0 : uploadStep === 2 ? 50 : 100
-                    }%, #e2e8f0 ${uploadStep === 1 ? 0 : uploadStep === 2 ? 50 : 100}%, #e2e8f0 100%)`,
+                    }%, var(--nav-border) ${uploadStep === 1 ? 0 : uploadStep === 2 ? 50 : 100}%, var(--nav-border) 100%)`,
                   }}
                   aria-hidden
                 />

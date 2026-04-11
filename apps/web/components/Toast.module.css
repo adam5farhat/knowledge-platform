@@ -19,8 +19,8 @@
   border-radius: 8px;
   font-size: 0.875rem;
   line-height: 1.4;
-  color: #fff;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  color: #ffffff;
+  box-shadow: 0 4px 16px var(--shadow-color);
   will-change: transform, opacity;
 }
 
@@ -37,7 +37,20 @@
 }
 
 .warning {
-  background: #d97706;
+  background: var(--warning, #d97706);
+}
+
+:global(html.dark) .info {
+  background: #0c4a6e;
+}
+:global(html.dark) .success {
+  background: #14532d;
+}
+:global(html.dark) .error {
+  background: #9f1239;
+}
+:global(html.dark) .warning {
+  background: #92400e;
 }
 
 .message {

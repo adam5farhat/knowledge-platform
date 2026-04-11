@@ -188,15 +188,16 @@ async function departmentChainContains(
   forbiddenId: string,
   maxHops = 64,
 ): Promise<boolean> {
+  const depts = await prisma.department.findMany({
+    select: { id: true, parentDepartmentId: true },
+  });
+  const parentMap = new Map(depts.map((d) => [d.id, d.parentDepartmentId]));
+
   let current: string | null = startParentId;
   let hops = 0;
   while (current && hops < maxHops) {
     if (current === forbiddenId) return true;
-    const p = await prisma.department.findUnique({
-      where: { id: current },
-      select: { parentDepartmentId: true },
-    });
-    current = p?.parentDepartmentId ?? null;
+    current = parentMap.get(current) ?? null;
     hops += 1;
   }
   return false;

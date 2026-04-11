@@ -1229,7 +1229,7 @@ export default function AdminUsersClient() {
     return (
       <main style={{ maxWidth: 480 }}>
         <h1>Users</h1>
-        <p style={{ color: "#52525b" }}>You need to sign in to access this page.</p>
+        <p style={{ color: "var(--muted)" }}>You need to sign in to access this page.</p>
         <p style={{ marginTop: "1rem" }}>
           <Link href="/login">Sign in</Link>
           {" · "}
@@ -1685,7 +1685,7 @@ export default function AdminUsersClient() {
                         <td className={styles.cellMuted}>{u.mustChangePassword ? "Yes" : "—"}</td>
                         <td className={styles.cellMuted}>
                           {u.loginLockedUntil || u.failedLoginAttempts > 0 ? (
-                            <span style={{ color: "#b45309" }} title={u.loginLockedUntil ?? undefined}>
+                            <span style={{ color: "var(--warning)" }} title={u.loginLockedUntil ?? undefined}>
                               {u.failedLoginAttempts > 0 ? `${u.failedLoginAttempts} fails` : "Locked"}
                             </span>
                           ) : (
@@ -1961,7 +1961,7 @@ export default function AdminUsersClient() {
 
               <div className={styles.restrictionSection}>
                 <h4 className={styles.restrictionSectionTitle}>Access controls</h4>
-                <p style={{ margin: "0 0 0.75rem", fontSize: "0.8rem", lineHeight: 1.45, color: "#71717a" }}>
+                <p style={{ margin: "0 0 0.75rem", fontSize: "0.8rem", lineHeight: 1.45, color: "var(--muted)" }}>
                   Toggle permissions for this user. Allowed is highlighted; restricted is muted or red. Role still
                   applies—e.g. employees cannot manage documents unless they are a manager.
                 </p>
@@ -2015,7 +2015,7 @@ export default function AdminUsersClient() {
 
               <div className={styles.restrictionSection}>
                 <h4 className={styles.restrictionSectionTitle}>Department access</h4>
-                <p style={{ margin: "0 0 0.75rem", fontSize: "0.8rem", lineHeight: 1.45, color: "#71717a" }}>
+                <p style={{ margin: "0 0 0.75rem", fontSize: "0.8rem", lineHeight: 1.45, color: "var(--muted)" }}>
                   Assign which departments this user can access or manage. Inherited access from parent departments is automatic.
                 </p>
                 {panelDeptAccess.length > 0 ? (
@@ -2025,7 +2025,7 @@ export default function AdminUsersClient() {
                         key={da.departmentId}
                         style={{
                           display: "flex", alignItems: "center", gap: "0.5rem",
-                          padding: "0.45rem 0.7rem", background: "#f9fafb", borderRadius: 8,
+                          padding: "0.45rem 0.7rem", background: "var(--surface-subtle)", borderRadius: 8,
                           fontSize: "0.85rem",
                         }}
                       >
@@ -2037,8 +2037,8 @@ export default function AdminUsersClient() {
                             void changeDeptAccessLevel(da.departmentId, e.target.value as DepartmentAccessLevelApiValue)
                           }
                           style={{
-                            padding: "0.2rem 0.4rem", borderRadius: 6, border: "1px solid #e4e4e7",
-                            fontSize: "0.8rem", background: "#fff", cursor: "pointer",
+                            padding: "0.2rem 0.4rem", borderRadius: 6, border: "1px solid var(--border)",
+                            fontSize: "0.8rem", background: "var(--input-bg)", color: "var(--text)", cursor: "pointer",
                           }}
                         >
                           <option value={DepartmentAccessLevelApi.MEMBER}>Member</option>
@@ -2050,7 +2050,7 @@ export default function AdminUsersClient() {
                           disabled={deptAccessBusy}
                           onClick={() => void removeDeptAccess(da.departmentId)}
                           style={{
-                            background: "none", border: "none", color: "#ef4444", cursor: "pointer",
+                            background: "none", border: "none", color: "var(--error)", cursor: "pointer",
                             fontSize: "0.8rem", fontWeight: 600, padding: "0.15rem 0.3rem", borderRadius: 4,
                           }}
                           title="Remove access"
@@ -2061,7 +2061,7 @@ export default function AdminUsersClient() {
                     ))}
                   </div>
                 ) : (
-                  <p style={{ margin: "0 0 0.75rem", fontSize: "0.84rem", color: "#a1a1aa" }}>
+                  <p style={{ margin: "0 0 0.75rem", fontSize: "0.84rem", color: "var(--muted)" }}>
                     No department access assigned yet.
                   </p>
                 )}
@@ -2072,7 +2072,7 @@ export default function AdminUsersClient() {
                     disabled={deptAccessBusy}
                     style={{
                       flex: "1 1 120px", padding: "0.35rem 0.5rem", borderRadius: 8,
-                      border: "1px solid #e4e4e7", fontSize: "0.84rem", minWidth: 0,
+                      border: "1px solid var(--border)", fontSize: "0.84rem", minWidth: 0,
                     }}
                   >
                     <option value="">Add department…</option>

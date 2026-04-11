@@ -23,6 +23,29 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
+/** SSR + first client paint must match; timeAgo uses Date.now() so only run after mount. */
+function RowRelativeTime({ iso, className }: { iso: string; className: string }) {
+  const [label, setLabel] = useState("");
+  useEffect(() => {
+    function tick() {
+      setLabel(timeAgo(iso));
+    }
+    tick();
+    const id = setInterval(tick, 30_000);
+    return () => clearInterval(id);
+  }, [iso]);
+  return <span className={className}>{label || "\u00a0"}</span>;
+}
+
+/** toLocaleString() can differ server vs client; render after mount. */
+function DetailLocalDateTime({ iso }: { iso: string }) {
+  const [text, setText] = useState("");
+  useEffect(() => {
+    setText(new Date(iso).toLocaleString());
+  }, [iso]);
+  return <span>{text}</span>;
+}
+
 function typeIcon(type: string): string {
   switch (type) {
     case "DOCUMENT_CREATED":
@@ -85,6 +108,7 @@ function NotificationRow({
       className={`${styles.row} ${item.read ? styles.rowRead : styles.rowUnread}`}
       role="button"
       tabIndex={0}
+      aria-label={`Open notification: ${item.notification.title}`}
       onClick={() => {
         if (!item.read) onRead(item.id);
         onSelect(item);
@@ -97,14 +121,14 @@ function NotificationRow({
         }
       }}
     >
-      <span className={styles.rowIcon}>{typeIcon(item.notification.type)}</span>
+      <span className={styles.rowIcon} aria-hidden="true">{typeIcon(item.notification.type)}</span>
       <div className={styles.rowBody}>
         <div className={styles.rowTitle}>{item.notification.title}</div>
         <div className={styles.rowMeta}>
           {item.notification.actor && (
             <span className={styles.rowActor}>{item.notification.actor.name}</span>
           )}
-          <span className={styles.rowTime}>{timeAgo(item.createdAt)}</span>
+          <RowRelativeTime iso={item.createdAt} className={styles.rowTime} />
         </div>
       </div>
       <button
@@ -171,7 +195,7 @@ function NotificationDetail({
         {n.body && <p className={styles.detailBody}>{n.body}</p>}
         <div className={styles.detailMeta}>
           {n.actor && <span>From: {n.actor.name} ({n.actor.email})</span>}
-          <span>{new Date(n.createdAt).toLocaleString()}</span>
+          <DetailLocalDateTime iso={n.createdAt} />
           <span className={styles.detailType}>{typeLabel(n.type)}</span>
         </div>
         {n.attachmentName && (
@@ -266,8 +290,8 @@ export function NotificationPanel() {
 
   return (
     <>
-      <div className={styles.backdrop} />
-      <div className={styles.panel} ref={panelRef} role="dialog" aria-label="Notifications">
+      <div className={styles.backdrop} aria-hidden="true" />
+      <div className={styles.panel} ref={panelRef} role="dialog" aria-modal="true" aria-label="Notifications">
         <header className={styles.panelHeader}>
           <h2 className={styles.panelTitle}>Notifications</h2>
           {canSend && (

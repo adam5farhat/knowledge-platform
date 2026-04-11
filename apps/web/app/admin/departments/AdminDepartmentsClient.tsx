@@ -952,7 +952,7 @@ export default function AdminDepartmentsClient() {
     return (
       <main style={{ maxWidth: 520 }}>
         <h1>Departments</h1>
-        <p style={{ color: "#52525b" }}>You need to sign in to access this page.</p>
+        <p style={{ color: "var(--muted)" }}>You need to sign in to access this page.</p>
         <p style={{ marginTop: "1rem" }}>
           <Link href="/login">Sign in</Link>
           {" · "}
@@ -1110,7 +1110,7 @@ export default function AdminDepartmentsClient() {
                 </div>
                 {mergeErr ? <p className={styles.toastErr}>{mergeErr}</p> : null}
                 {mergeMsg ? (
-                  <p role="status" style={{ margin: "0.75rem 0 0", color: "#15803d", fontSize: "0.88rem" }}>
+                  <p role="status" style={{ margin: "0.75rem 0 0", color: "var(--success)", fontSize: "0.88rem" }}>
                     {mergeMsg}
                   </p>
                 ) : null}
@@ -1182,7 +1182,7 @@ export default function AdminDepartmentsClient() {
                     <div className={styles.avatarRow}>
                       <div className={styles.avatarStack}>
                         {d.memberPreview.length === 0 ? (
-                          <span style={{ fontSize: "0.82rem", color: "#a1a1aa" }}>No members yet</span>
+                          <span style={{ fontSize: "0.82rem", color: "var(--muted)" }}>No members yet</span>
                         ) : (
                           d.memberPreview.map((m) => {
                             const src = profilePictureDisplayUrl(m.profilePictureUrl);
@@ -1741,7 +1741,7 @@ export default function AdminDepartmentsClient() {
               </div>
               <div className={hubStyles.restrictionSection}>
                 <h4 className={hubStyles.restrictionSectionTitle}>Access controls</h4>
-                <p style={{ margin: "0 0 0.75rem", fontSize: "0.8rem", lineHeight: 1.45, color: "#71717a" }}>
+                <p style={{ margin: "0 0 0.75rem", fontSize: "0.8rem", lineHeight: 1.45, color: "var(--muted)" }}>
                   Same controls as the Users page. Changes apply immediately.
                 </p>
                 <div className={hubStyles.restrictionPills} role="group">

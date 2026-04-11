@@ -15,7 +15,7 @@
   border: none;
   border-radius: 0;
   overflow: hidden;
-  background: #fff;
+  background: var(--surface);
   box-shadow: none;
 }
 
@@ -73,7 +73,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  background: #fff;
+  background: var(--surface);
 }
 
 .card {
@@ -93,17 +93,17 @@
 
 .subtitle {
   margin: 0.4rem 0 0;
-  color: #94a3b8;
+  color: var(--auth-aside-muted);
   font-size: 0.875rem;
   line-height: 1.5;
 }
 
 .status {
   margin: 1rem 0 0;
-  color: #16a34a;
+  color: var(--status-ok-text);
   font-size: 0.875rem;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: var(--status-ok-bg);
+  border: 1px solid var(--status-ok-border);
   padding: 0.6rem 0.85rem;
   border-radius: 8px;
   line-height: 1.4;
@@ -120,14 +120,14 @@
   gap: 0.3rem;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #475569;
+  color: var(--form-label-fg);
 }
 
 .input {
   padding: 0.6rem 0.75rem;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
+  border: 1px solid var(--nav-border);
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-size: 0.9rem;
@@ -141,7 +141,7 @@
 }
 
 .input::placeholder {
-  color: #cbd5e1;
+  color: var(--input-placeholder);
 }
 
 .error {
@@ -155,8 +155,8 @@
   padding: 0.65rem 1rem;
   border-radius: 8px;
   border: none;
-  background: #1e293b;
-  color: #fff;
+  background: var(--primary-cta-bg);
+  color: var(--primary-cta-fg);
   font: inherit;
   font-size: 0.9rem;
   font-weight: 600;
@@ -169,7 +169,7 @@
 }
 
 .primary:hover:not(:disabled) {
-  background: #334155;
+  background: var(--primary-cta-hover);
 }
 
 .primary:disabled {

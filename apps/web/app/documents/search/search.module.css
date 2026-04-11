@@ -49,8 +49,8 @@
   padding: 0.5rem 1.2rem;
   border-radius: 6px;
   border: none;
-  background: #18181b;
-  color: #fafafa;
+  background: var(--search-btn-bg);
+  color: var(--search-btn-fg);
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
@@ -61,7 +61,7 @@
 }
 
 .searchBtn:hover:not(:disabled) {
-  background: #27272a;
+  background: var(--search-btn-hover);
 }
 
 .searchBtn:disabled {
@@ -103,7 +103,7 @@
 }
 
 .resultItem:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px var(--shadow-color);
 }
 
 .resultMeta {

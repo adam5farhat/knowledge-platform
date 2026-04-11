@@ -66,8 +66,8 @@ export default function ResetClient() {
       subtitle="Use at least 10 characters with uppercase, lowercase, a digit, and a special character."
       footer={<Link href="/login">Sign in</Link>}
     >
-      <form onSubmit={(e) => void onSubmit(e)} style={{ display: "grid", gap: "1rem" }}>
-        <label style={{ display: "grid", gap: "0.3rem", fontSize: "0.8125rem", fontWeight: 600, color: "#475569" }}>
+      <form onSubmit={(e) => void onSubmit(e)} className="kp-auth-form">
+        <label className="kp-auth-label">
           <span>New password (min 10 characters)</span>
           <input
             type="password"
@@ -76,10 +76,10 @@ export default function ResetClient() {
             required
             minLength={10}
             autoComplete="new-password"
-            style={{ padding: "0.6rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.9rem", font: "inherit" }}
+            className="kp-auth-input"
           />
         </label>
-        <label style={{ display: "grid", gap: "0.3rem", fontSize: "0.8125rem", fontWeight: 600, color: "#475569" }}>
+        <label className="kp-auth-label">
           <span>Confirm password</span>
           <input
             type="password"
@@ -88,7 +88,7 @@ export default function ResetClient() {
             required
             minLength={10}
             autoComplete="new-password"
-            style={{ padding: "0.6rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.9rem", font: "inherit" }}
+            className="kp-auth-input"
           />
         </label>
         {error ? (

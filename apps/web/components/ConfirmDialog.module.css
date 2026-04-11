@@ -5,7 +5,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--overlay-backdrop);
   animation: fadeIn 0.15s ease-out;
 }
 
@@ -14,7 +14,7 @@
   border-radius: 12px;
   padding: 1.5rem;
   width: min(420px, calc(100vw - 2rem));
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 32px var(--shadow-color);
   animation: scaleIn 0.2s ease-out;
 }
 
@@ -60,7 +60,7 @@
 
 .confirm {
   background: var(--interactive, #006ba6);
-  color: #fff;
+  color: var(--on-interactive);
 }
 
 .confirm:hover {
@@ -69,6 +69,7 @@
 
 .danger {
   background: var(--error, #ff0035);
+  color: var(--on-interactive);
 }
 
 .danger:hover {

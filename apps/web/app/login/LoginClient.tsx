@@ -7,6 +7,7 @@ import { fetchPublicApi, fetchWithAuth, getValidAccessToken, setAccessToken } fr
 import { homePathForUser, type MeUserDto } from "@/lib/restrictions";
 import styles from "./page.module.css";
 import { API_BASE as API } from "@/lib/apiBase";
+import { ThemeToggleCorner } from "@/components/ThemeToggle";
 
 export default function LoginClient() {
   const router = useRouter();
@@ -101,6 +102,7 @@ export default function LoginClient() {
 
   return (
     <main className={styles.shell} data-auth-fullscreen="true" suppressHydrationWarning>
+      <ThemeToggleCorner />
       <section className={styles.frame}>
         <aside className={styles.left}>
           <a className={styles.brand} href="/dashboard">

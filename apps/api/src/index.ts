@@ -28,8 +28,8 @@ const server = app.listen(config.port, () => {
 });
 
 if (!config.isProd) {
-  if (!config.jwtSecret || config.jwtSecret.length < 16) {
-    logger.warn("JWT_SECRET must be set (min 16 characters) for login and admin routes");
+  if (!config.jwtSecret || config.jwtSecret.length < 32) {
+    logger.warn("JWT_SECRET must be set (min 32 characters) for login and admin routes");
   }
 }
 

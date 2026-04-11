@@ -9,9 +9,9 @@
 }
 
 .navbar {
-  background: #fff;
+  background: var(--surface);
   border: none;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--nav-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -45,6 +45,12 @@
   width: auto;
 }
 
+/* Dark chrome: logo asset reads as dark-on-light; invert for a light mark on the bar */
+:global(html.dark) .brandMark {
+  filter: brightness(0) invert(1);
+  opacity: 0.92;
+}
+
 .brandText {
   font-family: var(--font-gelasio), Georgia, serif;
   font-size: 1.02rem;
@@ -60,7 +66,7 @@
   border-radius: 999px;
   border: none;
   background: var(--interactive);
-  color: #fff;
+  color: var(--on-interactive);
   cursor: pointer;
   font-weight: 600;
   display: inline-flex;
@@ -92,10 +98,10 @@
   right: 0;
   top: calc(100% + 8px);
   width: 220px;
-  background: #fff;
+  background: var(--surface);
   border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+  border: 1px solid var(--nav-border);
+  box-shadow: 0 12px 28px var(--shadow-color);
   z-index: 20;
   overflow: hidden;
   animation: kp-cardIn var(--dur-modal) var(--ease-out) both;
@@ -123,9 +129,9 @@
 }
 
 .menuItem:hover {
-  background: #eef4f8;
+  background: var(--surface-hover);
 }
 
 .menuItem:active {
-  background: #dde8f0;
+  background: var(--surface-muted);
 }

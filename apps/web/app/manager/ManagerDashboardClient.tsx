@@ -475,10 +475,10 @@ export default function ManagerDashboardClient() {
 
   if (phase === "need-login") {
     return (
-      <main style={{ maxWidth: 520 }}>
+      <main className={styles.needLoginMain}>
         <h1>Manager</h1>
-        <p style={{ color: "#52525b" }}>Sign in to continue.</p>
-        <p style={{ marginTop: "1rem" }}>
+        <p className={styles.needLoginMuted}>Sign in to continue.</p>
+        <p className={styles.needLoginActions}>
           <Link href="/login">Sign in</Link>
           {" · "}
           <Link prefetch={false} href="/documents">Documents</Link>
@@ -527,7 +527,7 @@ export default function ManagerDashboardClient() {
           navVariant="manager"
           className={`${dash.navbar} ${styles.navbarRow}`}
         />
-        <div className={styles.main} data-kp-page="manager-dashboard-empty">
+        <div className={`${styles.main} kp-manager-page`} data-kp-page="manager-dashboard-empty">
           <div className={styles.pageHead}>
             <h1 className={styles.title}>Department overview</h1>
             <p className={styles.subtitle} style={{ maxWidth: "36rem" }}>
@@ -560,7 +560,7 @@ export default function ManagerDashboardClient() {
         className={`${dash.navbar} ${styles.navbarRow}`}
       />
 
-      <div className={styles.main} data-kp-page="manager-dashboard">
+      <div className={`${styles.main} kp-manager-page`} data-kp-page="manager-dashboard">
         <div className={styles.pageHead}>
           <div className={styles.titleRow}>
             <h1 className={styles.title}>Department overview</h1>
@@ -652,7 +652,7 @@ export default function ManagerDashboardClient() {
                   </button>
                 </div>
 
-                <div className={styles.filtersBar} aria-label="Team directory filters">
+                <div className={`${styles.filtersBar} kp-manager-filter-bar`} aria-label="Team directory filters">
                   <div className={styles.teamFiltersRow}>
                     <div className={styles.filterGroup}>
                       <label className={styles.filterLabel} htmlFor="mgr-member-status">
@@ -720,7 +720,7 @@ export default function ManagerDashboardClient() {
                 ) : filteredMembers.length === 0 ? (
                   <div className={styles.empty}>No members match your filters.</div>
                 ) : membersView === "cards" ? (
-                  <div className={styles.memberListWell}>
+                  <div className={`${styles.memberListWell} kp-manager-member-well`}>
                   <div className={styles.memberGrid}>
                     {filteredMembers.map((m) => {
                       const pic = profilePictureDisplayUrl(m.profilePictureUrl);
@@ -820,7 +820,7 @@ export default function ManagerDashboardClient() {
                   permissions allow.
                 </p>
 
-                <div className={styles.filtersBar} aria-label="Department documents filters">
+                <div className={`${styles.filtersBar} kp-manager-filter-bar`} aria-label="Department documents filters">
                   <div className={styles.docsFilterRow}>
                     <div className={`${styles.filterGroup} ${styles.docsFilterActions}`}>
                       <span className={styles.filterLabel} id="mgr-doc-filters-label">
@@ -829,7 +829,7 @@ export default function ManagerDashboardClient() {
                       <div className={styles.docsFilterLeft} role="group" aria-labelledby="mgr-doc-filters-label">
                       <button
                         type="button"
-                        className={styles.filterBtn}
+                        className={`${styles.filterBtn} kp-manager-filter-chip`}
                         onClick={() => setDocFiltersOpen((v) => !v)}
                         aria-expanded={docFiltersOpen}
                         aria-controls="mgr-doc-filters-panel"
@@ -878,7 +878,7 @@ export default function ManagerDashboardClient() {
                     </div>
                     <div className={`${styles.filterGroup} ${styles.docsLibrarySlot}`}>
                       <span className={styles.filterLabel}>Browse</span>
-                      <Link className={styles.ctaLibrary} href={libraryHref} prefetch={false}>
+                      <Link className={`${styles.ctaLibrary} kp-manager-cta-library`} href={libraryHref} prefetch={false}>
                         <svg className={styles.ctaLibraryIcon} viewBox="0 0 24 24" fill="none" aria-hidden>
                           <path
                             d="M4 4.5h7l3 3V19.5H4z"
@@ -1116,7 +1116,7 @@ export default function ManagerDashboardClient() {
         ) : null}
       </div>
 
-      <aside className={`${docStyles.detailsWrap} ${panelDoc ? docStyles.detailsOpen : ""}`}>
+      <aside className={`${docStyles.detailsWrap} ${panelDoc ? docStyles.detailsOpen : ""}`} aria-label="Document details">
         <div className={docStyles.detailsCard}>
           {panelDoc ? (
             <>

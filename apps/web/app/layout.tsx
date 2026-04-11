@@ -24,7 +24,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <Providers>{children}</Providers>
+        <a href="#main-content" className="skip-to-content">
+          Skip to main content
+        </a>
+        <Providers>
+          <main id="main-content">{children}</main>
+        </Providers>
       </body>
     </html>
   );

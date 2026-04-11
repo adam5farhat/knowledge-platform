@@ -8,7 +8,8 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
   const { host, port, secure, user, pass, from } = config.smtp;
   if (!host) {
     if (!config.isProd) {
-      logger.info("SMTP not configured — password reset link logged", { to, resetUrl });
+      const maskedUrl = resetUrl.replace(/token=[^&]+/, "token=***REDACTED***");
+      logger.debug("SMTP not configured — password reset requested", { to, resetUrl: maskedUrl });
     } else {
       logger.warn("SMTP_HOST not set — password reset email was not sent");
     }

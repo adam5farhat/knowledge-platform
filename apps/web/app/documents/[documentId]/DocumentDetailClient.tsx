@@ -7,6 +7,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
 import { clearStoredSession, fetchWithAuth, getValidAccessToken, signOut } from "../../../lib/authClient";
 import { restrictedHref, userCanOpenManagerDashboard, type MeUserDto } from "../../../lib/restrictions";
+import { ClientLocaleTime } from "@/components/ClientLocaleDate";
 import { formatSize } from "../documentsFormat";
 import shellStyles from "../page.module.css";
 import styles from "./documentDetail.module.css";
@@ -464,7 +465,7 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
                     {" · "}
                     Uploaded by {doc.createdBy.name}
                     {" · "}
-                    {new Date(doc.createdAt).toLocaleString()}
+                    <ClientLocaleTime iso={doc.createdAt} mode="datetime" />
                     {doc.isArchived ? (
                       <>
                         {" "}
@@ -662,12 +663,11 @@ export default function DocumentDetailClient({ documentId }: { documentId: strin
                             </td>
                             <td className={styles.activityUsersCell}>{e.user ? e.user.name ?? e.user.email : "—"}</td>
                             <td className={styles.activityTimeCell}>
-                              <time dateTime={e.createdAt}>
-                                {new Date(e.createdAt).toLocaleString(undefined, {
-                                  dateStyle: "medium",
-                                  timeStyle: "short",
-                                })}
-                              </time>
+                              <ClientLocaleTime
+                                iso={e.createdAt}
+                                mode="datetime"
+                                options={{ dateStyle: "medium", timeStyle: "short" }}
+                              />
                             </td>
                           </tr>
                         ))}

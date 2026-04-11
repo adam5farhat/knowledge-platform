@@ -385,21 +385,18 @@ documentsRouter.post(
       throw AppError.badRequest("Validation failed", undefined, body.error.flatten());
     }
 
-    const docsToDelete: { id: string; title: string; departmentId: string | null; storageKeys: string[] }[] = [];
-    for (const id of body.data.ids) {
-      const doc = await prisma.document.findUnique({
-        where: { id },
-        include: { versions: { select: { storageKey: true } } },
-      });
-      if (!doc) continue;
-      if (!canManageDocument(user, doc)) continue;
-      docsToDelete.push({
+    const docs = await prisma.document.findMany({
+      where: { id: { in: body.data.ids } },
+      include: { versions: { select: { storageKey: true } } },
+    });
+    const docsToDelete = docs
+      .filter((doc) => canManageDocument(user, doc))
+      .map((doc) => ({
         id: doc.id,
         title: doc.title,
         departmentId: doc.departmentId,
         storageKeys: doc.versions.map((v) => v.storageKey),
-      });
-    }
+      }));
 
     await prisma.$transaction(async (tx) => {
       for (const doc of docsToDelete) {

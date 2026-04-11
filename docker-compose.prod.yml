@@ -1,0 +1,88 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: kp-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-knowledge_platform}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-knowledge_platform}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: kp-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: kp-api
+    ports:
+      - "${API_PORT:-3001}:3001"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-knowledge_platform}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (min 32 chars)}
+      NODE_ENV: production
+      WEB_APP_URL: ${WEB_APP_URL:?Set WEB_APP_URL to your frontend origin}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:3001}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_CHAT_MODEL: ${GEMINI_CHAT_MODEL:-gemini-2.5-flash}
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
+      STORAGE_PATH: /app/uploads
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@example.com}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+    volumes:
+      - api_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set NEXT_PUBLIC_API_URL to the public API URL}
+        PUBLIC_API_URL: http://api:3001
+    container_name: kp-web
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  api_uploads:

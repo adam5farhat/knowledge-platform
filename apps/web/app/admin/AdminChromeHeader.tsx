@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
 import { NotificationBell } from "@/components/NotificationBell";
+import { ThemeToggleMenu } from "@/components/ThemeToggle";
 import { signOut } from "@/lib/authClient";
 import dash from "../components/shellNav.module.css";
 import { API_BASE as API } from "@/lib/apiBase";
@@ -51,7 +52,7 @@ export function AdminChromeHeader({ user, className, navVariant = "admin" }: Pro
       <nav className={dash.navLeft} aria-label="Primary">
         <Link prefetch={false} className={dash.brand} href="/dashboard">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className={dash.brandMark} src="/logo-swapped.svg" alt="Platform" />
+          <img className={`${dash.brandMark} kp-platform-logo`} src="/logo-swapped.svg" alt="Platform" />
         </Link>
       </nav>
 
@@ -110,6 +111,7 @@ export function AdminChromeHeader({ user, className, navVariant = "admin" }: Pro
                 </Link>
               </>
             )}
+            <ThemeToggleMenu />
             <button
               type="button"
               className={dash.menuItem}

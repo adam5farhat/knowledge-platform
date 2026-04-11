@@ -127,9 +127,9 @@
   font-weight: 600;
   padding: 0.45rem 0.85rem;
   border-radius: 10px;
-  border: 1px solid #18181b;
-  background: #18181b;
-  color: #fafafa;
+  border: 1px solid var(--primary-cta-bg);
+  background: var(--primary-cta-bg);
+  color: var(--primary-cta-fg);
   cursor: pointer;
 }
 
