@@ -326,12 +326,12 @@ Shared CSS custom properties (`--ease-out`, `--ease-spring`, `--dur-fast`, `--du
 
 - **API Helmet** with restrictive **Content-Security-Policy** (`default-src 'none'`, `frame-ancestors 'none'`, `connect-src 'self'`).
 - **Frontend CSP** via `next.config.ts` headers: `script-src 'self' 'unsafe-inline'`, `img-src 'self' data: blob: https: <api>`, `frame-src 'self' blob:` (for PDF/image blob previews), `connect-src 'self' <api>`, `frame-ancestors 'none'`, plus `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy`.
-- **CORS**: strict origin validation from `WEB_APP_URL`; production denies all origins if `WEB_APP_URL` is unset.
+- **CORS**: allowed origins come from `WEB_APP_URL` (one origin or comma-separated list). With `NODE_ENV=production`, **`WEB_APP_URL` is required** — the API process exits at startup if it is missing. In development/test it defaults to `http://localhost:3000` when unset.
 - **SMTP TLS**: `requireTLS: true` enforced on the nodemailer transporter when not using implicit TLS.
 
 ### Access control
 
-1. **JWT** carries user id, email, role, primary `departmentId`, and `authVersion`. `authenticateToken` loads the live user from DB on every request, rejects stale tokens with `ACCESS_TOKEN_OUTDATED` if email/role/department have changed, and computes:
+1. **JWT** carries user id, email, role, primary `departmentId`, and `authVersion`. `authenticateToken` loads the live user from the database on each request (no snapshot cache), rejects stale tokens with `ACCESS_TOKEN_OUTDATED` if email/role/department have changed, and computes:
    - **`readableDepartmentIds`** — departments whose documents the user may read (multi-department rows + hierarchy rules in `departmentAccess.ts`, cached with 30s TTL).
    - **`manageableDepartmentIds`** — departments the user may manage (for example `MANAGER` access on a parent can extend to descendants per helper logic).
 
@@ -585,7 +585,7 @@ npm run dev:turbo
 | `REDIS_URL` | Optional | Defaults toward local Redis; BullMQ + health |
 | `PORT` | Optional | Default `3001` |
 | `PUBLIC_API_URL` | Strongly recommended | Public base URL of API (no trailing slash); align with web |
-| `WEB_APP_URL` | Recommended in production | Web origin for CORS and password-reset links. If unset in production, CORS denies all cross-origin requests |
+| `WEB_APP_URL` | **Required** when `NODE_ENV=production` | Web origin(s) for CORS and password-reset emails (comma-separated for multiple origins). Defaults to `http://localhost:3000` in development/test when unset |
 | `TRUST_PROXY` | Optional | Set to hop count (e.g. `1`) or subnet behind a reverse proxy. Avoid `true` in production |
 | `STORAGE_PATH` | Optional | Upload directory |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | Optional | If unset in dev, password reset links log to console. TLS is enforced when `SMTP_SECURE` is not `true` (STARTTLS upgrade) |
@@ -649,7 +649,7 @@ The API image includes a **health check** (`GET /health`) with 30-second interva
 ### Option B: Manual deployment
 
 - Set strong **`JWT_SECRET`** (minimum 32 characters, generated with `openssl rand -hex 32`), production **`DATABASE_URL`**, **`REDIS_URL`**, **`GEMINI_API_KEY`**, and **`PUBLIC_API_URL`** / **`NEXT_PUBLIC_API_URL`** to real public hostnames as appropriate.
-- Set **`WEB_APP_URL`** to the production web origin — CORS will deny all cross-origin requests if this is unset in production.
+- Set **`WEB_APP_URL`** to the production web origin (required with `NODE_ENV=production`; the API will not start without it).
 - Set **`TRUST_PROXY`** to your reverse proxy hop count or subnet (e.g. `1` or `"loopback"`). Avoid `true` as it trusts all `X-Forwarded-For` headers unconditionally.
 - Run **`npm run db:migrate`** against the production database before rolling out API versions that change schema.
 - Build and serve **web** with `next build` + `next start` (or your host's equivalent).

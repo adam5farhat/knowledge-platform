@@ -9,7 +9,14 @@ import { authenticateToken } from "../middleware/auth.js";
 import { mapUserResponse } from "../lib/mapUser.js";
 import { generateRawResetToken, hashResetToken } from "../lib/passwordReset.js";
 import { sendPasswordResetEmail } from "../lib/email.js";
-import { loginRateLimiter, forgotPasswordRateLimiter, refreshRateLimiter, resetPasswordRateLimiter, changePasswordRateLimiter } from "../lib/rateLimiter.js";
+import {
+  loginIpRateLimiter,
+  loginEmailRateLimiter,
+  forgotPasswordRateLimiter,
+  refreshRateLimiter,
+  resetPasswordRateLimiter,
+  changePasswordRateLimiter,
+} from "../lib/rateLimiter.js";
 import { generateRawRefreshToken, hashRefreshToken, refreshTokenTtlMs } from "../lib/refreshToken.js";
 import { setRefreshCookie, clearRefreshCookie, readRefreshCookie } from "../lib/refreshCookie.js";
 import { isAllowedProfilePictureUrlForUser } from "../lib/avatar.js";
@@ -51,8 +58,9 @@ const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 const LOGIN_LOCK_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_FAILED_ATTEMPTS = 5;
 
+/** First origin in WEB_APP_URL (for emails); trailing slash removed. */
 function webAppBaseUrl(): string {
-  return config.webAppUrl.replace(/\/$/, "");
+  return config.webAppUrl.split(",")[0]!.trim().replace(/\/$/, "");
 }
 
 const loginBody = z.object({
@@ -182,7 +190,7 @@ async function logAuthEvent(input: {
   }
 }
 
-authRouter.post("/login", loginRateLimiter, asyncHandler(async (req, res) => {
+authRouter.post("/login", loginIpRateLimiter, loginEmailRateLimiter, asyncHandler(async (req, res) => {
   const parsed = loginBody.safeParse(req.body);
   if (!parsed.success) {
     throw AppError.badRequest("Validation failed", undefined, parsed.error.flatten());

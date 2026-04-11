@@ -20,35 +20,13 @@ const USER_SELECT = {
   role: { select: { name: true } },
 } as const;
 
-type CachedUser = NonNullable<Awaited<ReturnType<typeof prisma.user.findUnique<{ where: { id: string }; select: typeof USER_SELECT }>>>>;
-
-const AUTH_USER_CACHE_TTL_MS = 5_000;
-const authUserCache = new Map<string, { user: CachedUser; expiresAt: number }>();
-
-function getCachedUser(userId: string): CachedUser | undefined {
-  const entry = authUserCache.get(userId);
-  if (!entry) return undefined;
-  if (Date.now() > entry.expiresAt) {
-    authUserCache.delete(userId);
-    return undefined;
-  }
-  return entry.user;
-}
-
-function setCachedUser(userId: string, user: CachedUser): void {
-  if (authUserCache.size > 2000) {
-    const now = Date.now();
-    for (const [k, v] of authUserCache) {
-      if (now > v.expiresAt) authUserCache.delete(k);
-    }
-  }
-  authUserCache.set(userId, { user, expiresAt: Date.now() + AUTH_USER_CACHE_TTL_MS });
-}
-
 /**
  * Bearer auth: `sub` + `authVersion` identify the session; **role, email, and primary department**
  * are always taken from the database. JWT claims for those fields must match the DB or the token
  * is rejected (401) so clients refresh and get a new access token aligned with the server.
+ *
+ * The user row is loaded on **every** request (no in-memory cache) so revocations, `authVersion`
+ * bumps, and restriction flags apply immediately after admin or profile changes.
  */
 export async function authenticateToken(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization;
@@ -59,14 +37,10 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
   }
   try {
     const payload = verifyAccessToken(token);
-    const user = getCachedUser(payload.sub) ?? await (async () => {
-      const u = await prisma.user.findUnique({
-        where: { id: payload.sub },
-        select: USER_SELECT,
-      });
-      if (u) setCachedUser(payload.sub, u);
-      return u;
-    })();
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: USER_SELECT,
+    });
     if (!user || !user.isActive || user.deletedAt) {
       res.status(401).json({ error: "Invalid or expired token", code: AuthErrorCode.INVALID_SESSION });
       return;

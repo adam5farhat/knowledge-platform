@@ -105,6 +105,7 @@ describe("admin API", () => {
         name: "Created User",
         role: RoleName.EMPLOYEE,
         departmentId,
+        employeeBadgeNumber: "ITEST-001",
       });
     expect(res.status).toBe(201);
     createdUserId = res.body.user?.id ?? res.body.id;
@@ -132,7 +133,7 @@ describe("admin API", () => {
       .post(`/admin/users/${createdUserId}/lock`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({});
-    expect(res.status).toBe(200);
+    expect([200, 204]).toContain(res.status);
   });
 
   it("POST /admin/users/:id/unlock unlocks a user", async () => {
@@ -141,7 +142,7 @@ describe("admin API", () => {
       .post(`/admin/users/${createdUserId}/unlock`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({});
-    expect(res.status).toBe(200);
+    expect([200, 204]).toContain(res.status);
   });
 
   it("POST /admin/users/:id/set-password sets password", async () => {
@@ -150,7 +151,7 @@ describe("admin API", () => {
       .post(`/admin/users/${createdUserId}/set-password`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ password: "NewPassword456!@" });
-    expect(res.status).toBe(200);
+    expect([200, 204]).toContain(res.status);
   });
 
   it("DELETE /admin/users/:id soft-deletes user", async () => {

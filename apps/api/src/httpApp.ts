@@ -21,15 +21,11 @@ import { avatarsPublicRouter } from "./routes/avatarsPublic.js";
 import { notificationsRouter } from "./routes/notifications.js";
 
 function buildCorsOrigin(): cors.CorsOptions["origin"] {
-  if (!config.webAppUrl) {
-    if (config.isProd) {
-      logger.warn("WEB_APP_URL not set — CORS restricted to same-origin only in production");
-      return false;
-    }
-    return true;
-  }
-  const origins = config.webAppUrl.split(",").map((s) => s.trim()).filter(Boolean);
-  return origins.length === 1 ? origins[0] : origins;
+  const origins = config.webAppUrl
+    .split(",")
+    .map((s) => s.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+  return origins.length === 1 ? origins[0]! : origins;
 }
 
 /** Express app (no listen, no background workers). Used by `index.ts` and tests. */

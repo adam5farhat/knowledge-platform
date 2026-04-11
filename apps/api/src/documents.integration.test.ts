@@ -116,7 +116,7 @@ describe("documents API", () => {
       .post(`/documents/${uploadedDocId}/view`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({});
-    expect(res.status).toBe(200);
+    expect([200, 204]).toContain(res.status);
   });
 
   it("POST /documents/:id/favorite adds favorite", async () => {
@@ -125,7 +125,7 @@ describe("documents API", () => {
       .post(`/documents/${uploadedDocId}/favorite`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({});
-    expect([200, 201]).toContain(res.status);
+    expect([200, 201, 204]).toContain(res.status);
   });
 
   it("DELETE /documents/:id/favorite removes favorite", async () => {

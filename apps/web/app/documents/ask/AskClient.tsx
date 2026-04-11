@@ -11,8 +11,8 @@ import { UserAvatarNavButton } from "@/components/UserAvatarNavButton";
 import {
   clearStoredSession,
   fetchWithAuth,
+  fetchWithAuthStreaming,
   getValidAccessToken,
-  refreshAccessToken,
   signOut,
 } from "../../../lib/authClient";
 import {
@@ -240,28 +240,21 @@ export default function AskClient() {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    const currentController = controller;
     try {
       const token = await getValidAccessToken();
       if (!token) { router.replace("/login"); return; }
 
-      let res = await fetch(`${API}/search/ask`, {
+      const res = await fetchWithAuthStreaming(`${API}/search/ask`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, history }),
         signal: controller.signal,
       });
 
       if (res.status === 401) {
-        const refreshed = await refreshAccessToken();
-        if (!refreshed) { clearStoredSession(); router.replace("/login"); return; }
-        res = await fetch(`${API}/search/ask`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${refreshed}` },
-          body: JSON.stringify({ question, history }),
-          signal: currentController.signal,
-        });
-        if (res.status === 401) { clearStoredSession(); router.replace("/login"); return; }
+        clearStoredSession();
+        router.replace("/login");
+        return;
       }
       if (res.status === 403) {
         const data = (await res.json().catch(() => ({}))) as { code?: string; feature?: string };

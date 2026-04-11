@@ -40,6 +40,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/knowledge_platform
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your .env file}
+      WEB_APP_URL: ${WEB_APP_URL:-http://localhost:3000}
       NODE_ENV: production
     depends_on:
       postgres:

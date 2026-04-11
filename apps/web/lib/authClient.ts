@@ -199,3 +199,31 @@ export async function fetchWithAuth(input: string, init: RequestInit = {}): Prom
     return new Response(null, { status: 503, statusText: "Network error" });
   }
 }
+
+/**
+ * Same 401 → refresh → retry behavior as `fetchWithAuth`, but **no client-side request timeout**.
+ * Use for **SSE** or other long-running responses so the connection is not aborted after 20s.
+ * Sends `credentials: "include"` for the refresh cookie. Honors `init.signal` for user cancellation.
+ */
+export async function fetchWithAuthStreaming(input: string, init: RequestInit = {}): Promise<Response> {
+  let token = await getValidAccessToken();
+  const headers = new Headers(init.headers ?? {});
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  let first: Response;
+  try {
+    first = await fetch(input, { credentials: "include", ...init, headers });
+  } catch {
+    return new Response(null, { status: 503, statusText: "Network error" });
+  }
+  if (first.status !== 401) return first;
+
+  token = await refreshAccessToken();
+  if (!token) return first;
+  const retryHeaders = new Headers(init.headers ?? {});
+  retryHeaders.set("Authorization", `Bearer ${token}`);
+  try {
+    return await fetch(input, { credentials: "include", ...init, headers: retryHeaders });
+  } catch {
+    return new Response(null, { status: 503, statusText: "Network error" });
+  }
+}

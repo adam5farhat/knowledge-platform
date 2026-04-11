@@ -38,6 +38,21 @@ const isProd = process.env.NODE_ENV === "production";
 const isDev = process.env.NODE_ENV === "development";
 const isTest = process.env.VITEST === "true";
 
+/**
+ * `WEB_APP_URL` value: one origin or comma-separated list for CORS. Trimmed; required when NODE_ENV=production.
+ * In development/test, defaults to `http://localhost:3000` when unset.
+ */
+function resolveWebAppUrl(): string {
+  const raw = (process.env.WEB_APP_URL ?? "").trim();
+  if (raw) return raw;
+  if (isProd) {
+    throw new Error(
+      "Missing required environment variable: WEB_APP_URL (set to your web app origin, e.g. https://app.example.com)",
+    );
+  }
+  return "http://localhost:3000";
+}
+
 export const config = {
   isProd,
   isDev,
@@ -46,7 +61,7 @@ export const config = {
 
   port: optionalInt("PORT", 3001),
   trustProxy: process.env.TRUST_PROXY ?? "",
-  webAppUrl: process.env.WEB_APP_URL ?? "",
+  webAppUrl: resolveWebAppUrl(),
 
   jwtSecret: requiredInProd("JWT_SECRET", "dev-only-jwt-secret-do-not-use-in-prod"),
   jwtExpiresIn: optional("JWT_EXPIRES_IN", "15m"),
