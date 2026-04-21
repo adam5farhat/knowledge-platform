@@ -1,0 +1,30 @@
+@startuml seq-20-admin-department-merge
+title POST /admin/departments/merge
+
+actor "Administrator" as A <<human>>
+participant "Browser" as B <<browser>>
+participant "Express\n/admin" as API <<service>>
+database "PostgreSQL" as DB
+
+B -> API: POST /admin/departments/merge\n{ sourceDepartmentId, targetDepartmentId }
+
+API -> DB: load source + target departments
+alt Same id / missing
+  API --> B: 400 / 404
+else OK
+  API -> DB: $transaction
+  note right
+    Reassign **UserDepartmentAccess** with\nlevel merge rules; bump **authVersion**\nfor affected users; move users' primary\ndepartmentId; move documents' departmentId;\ndelete source department.
+  end note
+  alt Source has child departments
+    API --> B: 409 Reassign children first
+  else Success
+    API --> B: 200 { ok, mergedInto }
+  end
+end
+
+note right of API
+  Source: **apps/api/src/routes/admin.ts** (~392+).
+end note
+
+@enduml

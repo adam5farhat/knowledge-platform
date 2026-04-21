@@ -1,0 +1,29 @@
+@startuml seq-30-conversations-crud-supplement
+title Conversations — list, get, patch title, delete
+
+actor User as U <<human>>
+participant Browser as B <<browser>>
+participant "Express /conversations" as API <<service>>
+database PostgreSQL as DB
+
+B -> API : GET /conversations/
+API -> DB : findMany by userId
+API --> B : 200 list
+
+B -> API : GET /conversations/:id
+API -> DB : findFirst owned
+API --> B : 200 detail
+
+B -> API : PATCH /conversations/:id { title }
+API -> DB : update
+API --> B : 200
+
+B -> API : DELETE /conversations/:id
+API -> DB : delete cascade messages
+API --> B : 204/200
+
+note right of API
+  Source: **apps/api/src/routes/conversations.ts** (list ~25, get ~140,\npatch ~298, delete ~386 — approximate).
+end note
+
+@enduml

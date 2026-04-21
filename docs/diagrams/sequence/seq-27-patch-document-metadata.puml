@@ -1,0 +1,23 @@
+@startuml seq-27-patch-document-metadata
+title PATCH /documents/:documentId
+
+actor User as U <<human>>
+participant Browser as B <<browser>>
+participant "Express /documents" as API <<service>>
+database PostgreSQL as DB
+participant notifyDocumentUpdated as N <<service>>
+
+B -> API : PATCH /documents/:id\nJSON fields
+API -> API : requireManage + canManage + Zod
+API -> DB : document.update tags/visibility/title…
+API -> DB : audit UPDATED
+opt dept present
+  API -> N : notifyDocumentUpdated.catch
+end
+API --> B : 200 { document }
+
+note right of API
+  Source: **apps/api/src/routes/documents.ts** (~517+).
+end note
+
+@enduml

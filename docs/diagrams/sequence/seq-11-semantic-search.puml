@@ -1,0 +1,33 @@
+@startuml seq-11-semantic-search
+title POST /search/semantic — vector similarity over chunks
+
+actor "User" as U <<human>>
+participant "Browser" as B <<browser>>
+participant "Express\n/search" as API <<service>>
+participant "authenticateToken +\nrequireDocLibraryAccess +\nrequireUseAiQueries" as MW <<service>>
+participant "embedQuery\n(Gemini)" as G <<external>>
+database "PostgreSQL\n(vectorSearch)" as DB
+
+B -> API: POST /search/semantic\n{ query, limit? }
+
+API -> MW: chain
+alt Blocked / invalid
+  API --> B: 401 / 403 / 400
+else OK
+  API -> G: embedQuery(query)
+  alt Invalid embedding / no API key
+    API --> B: 503 or error
+  else OK
+    API -> API: build vecLiteral + deptIds\n(admin vs readableDepartmentIds)
+    API -> DB: $queryRaw vectorSearch\n(accessFilter on READY chunks)
+    DB --> API: ChunkRow[]
+    API --> B: 200 { query, results[] }
+  end
+end
+
+note right of API
+  Source: **apps/api/src/routes/search.ts** (~96+),
+  **embeddings.ts** (**embedQuery**).
+end note
+
+@enduml

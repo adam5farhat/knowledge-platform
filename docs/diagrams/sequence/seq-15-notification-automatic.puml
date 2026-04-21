@@ -1,0 +1,25 @@
+@startuml seq-15-notification-automatic
+title Automatic notification — document created (example)
+
+participant "Documents route\n(after commit)" as DOC <<service>>
+participant "notifyDocumentCreated" as H <<service>>
+participant "createNotification" as CN <<service>>
+database "PostgreSQL" as DB
+
+DOC -> H: notifyDocumentCreated(actorId, docId, title, deptId)\n(async .catch — non-blocking)
+
+H -> CN: createNotification({\n type: DOCUMENT_CREATED,\n target: department,\n actorId, documentId, departmentId\n})
+
+CN -> DB: resolveRecipientIds(department)\nprimary dept members +\nUserDepartmentAccess rows
+alt Zero recipients (after exclude actor)
+  CN -> CN: log skipped; return null
+else Has recipients
+  CN -> DB: notification.create +\ncreateMany userNotification
+  CN --> H: notificationId
+end
+
+note right of CN
+  Source: **apps/api/src/lib/notificationService.ts**\n(**resolveRecipientIds**, **createNotification**).
+end note
+
+@enduml

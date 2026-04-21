@@ -1,0 +1,20 @@
+@startuml seq-38-admin-document-audit
+title GET /admin/document-audit (+ export)
+
+actor Admin as A <<human>>
+participant Browser as B <<browser>>
+participant "Express /admin" as API <<service>>
+database PostgreSQL as DB
+
+B -> API : GET /admin/document-audit?…
+API -> DB : query DocumentAuditLog joined
+API --> B : 200 JSON
+
+B -> API : GET /admin/document-audit/export
+API --> B : CSV
+
+note right of API
+  Source: **apps/api/src/routes/admin.ts** (~1828, ~1789).
+end note
+
+@enduml

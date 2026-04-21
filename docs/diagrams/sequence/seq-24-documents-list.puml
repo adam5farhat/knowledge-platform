@@ -1,0 +1,24 @@
+@startuml seq-24-documents-list
+title GET /documents — library list
+
+actor User as U <<human>>
+participant Browser as B <<browser>>
+participant "Express /documents" as API <<service>>
+participant "auth + requireDocLibrary" as MW <<service>>
+participant listDocuments as L <<service>>
+database PostgreSQL as DB
+
+B -> API : GET /documents?…
+API -> MW : chain
+MW --> API : next
+API -> L : listDocuments(filters, user)
+L -> DB : scoped query
+DB --> L : rows
+L --> API : documents, total
+API --> B : 200 JSON
+
+note right of API
+  Source: **apps/api/src/routes/documents.ts** (~425+),\n**documentQuery.ts** / **listDocuments**.
+end note
+
+@enduml

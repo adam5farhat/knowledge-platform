@@ -39,6 +39,20 @@ type Source = {
   version: { id?: string; fileName: string };
 };
 
+type ClaimVerification = {
+  claim: string;
+  bestChunkId: string | null;
+  similarity: number;
+  supported: boolean;
+};
+
+type Verification = {
+  claims: ClaimVerification[];
+  unsupportedCount: number;
+  totalCount: number;
+  faithfulnessRatio: number;
+};
+
 type Message = {
   id: string;
   role: "user" | "assistant";
@@ -46,9 +60,18 @@ type Message = {
   sources?: Source[];
   confidence?: ConfidenceLevel;
   streaming?: boolean;
+  /** Set true while a `correction-token` stream is in flight or after a
+   *  final `correction` event has committed. */
   corrected?: boolean;
+  /** True only between the first `correction-token` and the final
+   *  `correction` event - drives the "Refining..." indicator. */
+  refining?: boolean;
   feedback?: "up" | "down" | null;
+  feedbackComment?: string;
   dbId?: string;
+  followUps?: string[];
+  verification?: Verification;
+  warnings?: string[];
 };
 
 type ConversationSummary = {
@@ -57,6 +80,18 @@ type ConversationSummary = {
   preview: string;
   updatedAt: string;
 };
+
+/**
+ * Convert inline `[Source N]` markers into markdown links so react-markdown
+ * renders them as clickable anchors that scroll to the source card.
+ *
+ * Escapes the brackets in the visible text so they survive markdown parsing
+ * (otherwise `[Source 1]` would be interpreted as a link with empty href).
+ */
+function linkifyCitations(text: string, msgId: string): string {
+  if (!text) return text;
+  return text.replace(/\[Source\s+(\d+)\]/g, (_, n) => `[\\[Source ${n}\\]](#source-${msgId}-${n})`);
+}
 
 const EXAMPLE_QUERIES = [
   "What are the quantity tolerance rules?",
@@ -82,6 +117,8 @@ export default function AskClient() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [feedbackPanelOpen, setFeedbackPanelOpen] = useState<string | null>(null);
+  const [feedbackDraftComment, setFeedbackDraftComment] = useState("");
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -180,7 +217,7 @@ export default function AskClient() {
     } catch { /* ignore */ }
   }
 
-  async function saveMessage(convId: string, msg: { role: string; content: string; sources?: unknown; confidence?: string }): Promise<string | null> {
+  async function saveMessage(convId: string, msg: { role: string; content: string; sources?: unknown; confidence?: string; topic?: string }): Promise<string | null> {
     try {
       const res = await fetchWithAuth(`${API}/conversations/${convId}/messages`, {
         method: "POST",
@@ -271,6 +308,7 @@ export default function AskClient() {
       let finalSources: Source[] | undefined;
       let finalConfidence: ConfidenceLevel | undefined;
       let finalContent = "";
+      let finalTopic: string | undefined;
 
       if (contentType.includes("text/event-stream")) {
         const reader = res.body?.getReader();
@@ -298,13 +336,34 @@ export default function AskClient() {
                 if (currentEvent === "sources") {
                   finalSources = Array.isArray(data.sources) ? (data.sources as Source[]) : undefined;
                   finalConfidence = (data.confidence as ConfidenceLevel) ?? "high";
+                  if (typeof data.topic === "string" && data.topic.length > 0) finalTopic = data.topic;
                   setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, sources: finalSources, confidence: finalConfidence } : m));
                 } else if (currentEvent === "token" && typeof data.token === "string") {
                   finalContent += data.token;
                   setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: m.content + data.token } : m));
+                } else if (currentEvent === "correction-token" && typeof data.token === "string") {
+                  // First correction-token: clear the original answer and start
+                  // streaming the refined version live.
+                  setMessages((prev) => prev.map((m) => {
+                    if (m.id !== assistantId) return m;
+                    if (!m.refining) return { ...m, content: data.token as string, refining: true, corrected: true };
+                    return { ...m, content: m.content + (data.token as string) };
+                  }));
+                  finalContent = (finalContent && !finalContent.startsWith(data.token as string))
+                    ? (data.token as string)
+                    : finalContent + (data.token as string);
                 } else if (currentEvent === "correction" && typeof data.correctedAnswer === "string") {
                   finalContent = data.correctedAnswer;
-                  setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: data.correctedAnswer as string, corrected: true } : m));
+                  setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: data.correctedAnswer as string, corrected: true, refining: false } : m));
+                } else if (currentEvent === "verification" && data.claims) {
+                  const v = data as unknown as Verification;
+                  setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, verification: v } : m));
+                } else if (currentEvent === "followups" && Array.isArray(data.followUps)) {
+                  const fus = (data.followUps as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 3);
+                  setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, followUps: fus } : m));
+                } else if (currentEvent === "warning" && typeof data.message === "string") {
+                  const stage = typeof data.stage === "string" ? data.stage : "warning";
+                  setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, warnings: [...(m.warnings ?? []), `${stage}: ${data.message as string}`] } : m));
                 }
               } catch { /* skip */ }
               currentEvent = "";
@@ -320,7 +379,7 @@ export default function AskClient() {
       }
 
       if (convId && finalContent) {
-        const savedId = await saveMessage(convId, { role: "assistant", content: finalContent, sources: finalSources, confidence: finalConfidence });
+        const savedId = await saveMessage(convId, { role: "assistant", content: finalContent, sources: finalSources, confidence: finalConfidence, topic: finalTopic });
         if (savedId) {
           setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, dbId: savedId } : m));
         }
@@ -357,11 +416,15 @@ export default function AskClient() {
     setExpandedSources((prev) => { const next = new Set(prev); if (next.has(msgId)) next.delete(msgId); else next.add(msgId); return next; });
   }
 
-  async function submitFeedback(msg: Message, rating: "up" | "down") {
+  async function submitFeedback(msg: Message, rating: "up" | "down", comment?: string) {
     if (!activeConvId || !msg.dbId) return;
     const prev = msg.feedback;
-    const isToggleOff = prev === rating;
-    setMessages((ms) => ms.map((m) => m.id === msg.id ? { ...m, feedback: isToggleOff ? null : rating } : m));
+    const isToggleOff = prev === rating && !comment;
+    setMessages((ms) => ms.map((m) => m.id === msg.id ? {
+      ...m,
+      feedback: isToggleOff ? null : rating,
+      feedbackComment: isToggleOff ? undefined : (comment ?? m.feedbackComment),
+    } : m));
     try {
       if (isToggleOff) {
         await fetchWithAuth(`${API}/conversations/${activeConvId}/messages/${msg.dbId}/feedback`, { method: "DELETE" });
@@ -369,10 +432,50 @@ export default function AskClient() {
         await fetchWithAuth(`${API}/conversations/${activeConvId}/messages/${msg.dbId}/feedback`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rating }),
+          body: JSON.stringify({ rating, ...(comment ? { comment } : {}) }),
         });
       }
     } catch { /* best-effort */ }
+  }
+
+  function handleThumbsDown(msg: Message) {
+    if (msg.feedback === "down") {
+      // Toggle off if already down and no comment panel is open for this msg.
+      void submitFeedback(msg, "down");
+      return;
+    }
+    setFeedbackPanelOpen(msg.id);
+    setFeedbackDraftComment(msg.feedbackComment ?? "");
+    void submitFeedback(msg, "down");
+  }
+
+  async function submitFeedbackComment(msg: Message) {
+    const trimmed = feedbackDraftComment.trim();
+    if (trimmed.length === 0) {
+      setFeedbackPanelOpen(null);
+      return;
+    }
+    await submitFeedback(msg, "down", trimmed);
+    setFeedbackPanelOpen(null);
+  }
+
+  function expandSourcesAndScroll(msgId: string, sourceIndex: number) {
+    setExpandedSources((prev) => {
+      const next = new Set(prev);
+      next.add(msgId);
+      return next;
+    });
+    setTimeout(() => {
+      const el = document.getElementById(`source-${msgId}-${sourceIndex}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      el?.classList.add(styles.sourceCardFlash ?? "");
+      setTimeout(() => el?.classList.remove(styles.sourceCardFlash ?? ""), 1500);
+    }, 80);
+  }
+
+  function insertFollowUp(question: string) {
+    setInput(question);
+    inputRef.current?.focus();
   }
 
   async function copyAnswer(msgId: string, content: string) {
@@ -558,12 +661,56 @@ export default function AskClient() {
                     <div className={styles.messageContent}>
                       <div className={styles.messageHeader}>
                         <span className={styles.messageRole}>{msg.role === "user" ? "You" : "Assistant"}</span>
+                        {isAssistant && msg.confidence && !msg.streaming && (
+                          <span
+                            className={`${styles.confidenceBadge} ${
+                              msg.confidence === "high" ? styles.confidenceHigh
+                                : msg.confidence === "low" ? styles.confidenceLow
+                                : styles.confidenceNone
+                            }`}
+                            title={
+                              msg.confidence === "high" ? "High confidence — sources directly support this answer."
+                                : msg.confidence === "low" ? "Low confidence — sources only loosely match the question."
+                                : "No matching sources were found."
+                            }
+                          >
+                            {msg.confidence === "high" ? "high confidence" : msg.confidence === "low" ? "low confidence" : "no sources"}
+                          </span>
+                        )}
+                        {isAssistant && msg.refining && (
+                          <span className={styles.refiningBadge}>refining…</span>
+                        )}
                       </div>
                       <div className={styles.messageBody}>
                         {isAssistant ? (
                           <div className={styles.markdown}>
-                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ children, href, ...rest }) => <a href={href} target="_blank" rel="noopener noreferrer nofollow" {...rest}>{children}</a> }}>
-                              {msg.content || (msg.streaming ? "" : "...")}
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                a: ({ children, href, ...rest }) => {
+                                  const citationMatch = typeof href === "string" && href.startsWith("#source-")
+                                    ? href.match(/#source-([^-]+)-(\d+)/)
+                                    : null;
+                                  if (citationMatch) {
+                                    const [, mid, idxStr] = citationMatch;
+                                    const idx = Number(idxStr);
+                                    const src = msg.sources?.find((s) => s.index === idx);
+                                    return (
+                                      <a
+                                        href={href}
+                                        className={styles.citationLink}
+                                        onClick={(e) => { e.preventDefault(); expandSourcesAndScroll(mid!, idx); }}
+                                        title={src ? `${src.document.title} — ${src.version.fileName}\n\n${src.content.slice(0, 240)}${src.content.length > 240 ? "…" : ""}` : undefined}
+                                      >
+                                        {children}
+                                      </a>
+                                    );
+                                  }
+                                  return <a href={href} target="_blank" rel="noopener noreferrer nofollow" {...rest}>{children}</a>;
+                                },
+                              }}
+                            >
+                              {linkifyCitations(msg.content || (msg.streaming ? "" : "..."), msg.id)}
                             </ReactMarkdown>
                             {msg.streaming && <span className={styles.cursor} />}
                           </div>
@@ -592,7 +739,7 @@ export default function AskClient() {
                           <button
                             type="button"
                             className={`${styles.feedbackBtn} ${msg.feedback === "down" ? styles.feedbackActive : ""}`}
-                            onClick={() => void submitFeedback(msg, "down")}
+                            onClick={() => handleThumbsDown(msg)}
                             title="Bad answer"
                           >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill={msg.feedback === "down" ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"><path d="M7 22V11l-5 0 7-9v7h6l-1 8H7z" transform="translate(2,1) rotate(180 12 12)"/></svg>
@@ -603,13 +750,62 @@ export default function AskClient() {
                               Self-verified &amp; refined
                             </span>
                           )}
+                          {msg.verification && msg.verification.totalCount > 0 && (
+                            <span
+                              className={
+                                msg.verification.faithfulnessRatio >= 0.85 ? styles.verifyHigh
+                                : msg.verification.faithfulnessRatio >= 0.6 ? styles.verifyMid
+                                : styles.verifyLow
+                              }
+                              title={`${msg.verification.totalCount - msg.verification.unsupportedCount} of ${msg.verification.totalCount} claims supported by sources (≥0.55 cosine similarity).`}
+                            >
+                              {msg.verification.unsupportedCount === 0
+                                ? `all ${msg.verification.totalCount} claims grounded`
+                                : `${msg.verification.unsupportedCount}/${msg.verification.totalCount} claims unsupported`}
+                            </span>
+                          )}
                         </div>
+                      )}
+
+                      {feedbackPanelOpen === msg.id && (
+                        <div className={styles.feedbackComment}>
+                          <textarea
+                            value={feedbackDraftComment}
+                            onChange={(e) => setFeedbackDraftComment(e.target.value)}
+                            placeholder="Optional: tell us what was wrong (helps the model improve)"
+                            rows={2}
+                            maxLength={1000}
+                          />
+                          <div className={styles.feedbackCommentActions}>
+                            <button type="button" className={styles.feedbackSkip} onClick={() => setFeedbackPanelOpen(null)}>Skip</button>
+                            <button type="button" className={styles.feedbackSubmit} onClick={() => void submitFeedbackComment(msg)}>Send feedback</button>
+                          </div>
+                        </div>
+                      )}
+
+                      {isAssistant && !msg.streaming && msg.warnings && msg.warnings.length > 0 && (
+                        <ul className={styles.warningList}>
+                          {msg.warnings.map((w, wi) => (<li key={wi}>{w}</li>))}
+                        </ul>
                       )}
 
                       {isAssistant && !msg.streaming && msg.confidence === "low" && (
                         <p className={styles.lowConfidence}>
                           Low relevance — the answer above may be incomplete or imprecise.
                         </p>
+                      )}
+
+                      {isAssistant && !msg.streaming && msg.followUps && msg.followUps.length > 0 && (
+                        <div className={styles.followUps}>
+                          <span className={styles.followUpsLabel}>Suggested follow-ups</span>
+                          <div className={styles.followUpsRow}>
+                            {msg.followUps.map((q, qi) => (
+                              <button key={qi} type="button" className={styles.followUpChip} onClick={() => insertFollowUp(q)}>
+                                {q}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       )}
 
                       {isAssistant && msg.sources && msg.sources.length > 0 && !msg.streaming && (
@@ -625,7 +821,11 @@ export default function AskClient() {
                                 const displayContent = isExpanded || !needsTruncation ? s.content : s.content.slice(0, 300) + "…";
 
                                 return (
-                                  <div key={s.chunkId} className={styles.sourceCard}>
+                                  <div
+                                    key={s.chunkId}
+                                    id={`source-${msg.id}-${s.index}`}
+                                    className={styles.sourceCard}
+                                  >
                                     <div className={styles.sourceCardHeader}>
                                       <span className={styles.sourceBadge}>[{s.index}]</span>
                                       <Link

@@ -1,0 +1,14 @@
+@startuml seq-32-register-info-static
+title GET /register (Next.js) — no API
+
+actor Visitor as V <<human>>
+participant Browser as B <<browser>>
+
+V -> B : navigate /register
+B -> B : render static page\n"no self-registration"
+
+note right of B
+  Source: **apps/web/app/register/page.tsx**.\nNo backend call.
+end note
+
+@enduml

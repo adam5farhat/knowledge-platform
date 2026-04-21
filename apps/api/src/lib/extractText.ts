@@ -59,8 +59,7 @@ export async function extractPlainText(buffer: Buffer, mimeType: string, fileNam
   }
 
   if (mt === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-    const { value } = await mammoth.extractRawText({ buffer });
-    return normalizeText(value);
+    return normalizeText(await extractDocxText(buffer));
   }
 
   if (mt === "application/msword") {
@@ -80,12 +79,16 @@ export async function extractPlainText(buffer: Buffer, mimeType: string, fileNam
     return normalizeText(extractSpreadsheetText(buffer));
   }
 
-  if (mt === "text/plain" || mt === "text/markdown" || mt === "text/csv") {
+  if (mt === "text/csv") {
+    return normalizeText(extractCsvText(buffer));
+  }
+
+  if (mt === "text/plain" || mt === "text/markdown") {
     return normalizeText(buffer.toString("utf8"));
   }
 
   if (mt === "text/html") {
-    return normalizeText(cheerio.load(buffer.toString("utf8")).text());
+    return normalizeText(extractHtmlPreservingTables(buffer.toString("utf8")));
   }
 
   if (mt === "text/xml" || mt === "application/xml") {
@@ -122,15 +125,24 @@ async function extractPptxText(buffer: Buffer): Promise<string> {
     });
 
   const parts: string[] = [];
-  for (const name of names) {
+  for (let i = 0; i < names.length; i++) {
+    const name = names[i]!;
     const xml = await zip.file(name)?.async("string");
     if (!xml) continue;
-    const matches = [...xml.matchAll(/<a:t[^>]*>([^<]*)<\/a:t>/g)];
-    const text = matches
-      .map((m) => m[1])
-      .join("")
-      .trim();
-    if (text) parts.push(text);
+    // Each <a:p> is a paragraph in PowerPoint; preserve the boundary as a
+    // newline so titles, bullets, and notes don't fuse into one giant string.
+    const paragraphs = [...xml.matchAll(/<a:p[\s\S]*?<\/a:p>/g)]
+      .map((p) => {
+        const runs = [...p[0].matchAll(/<a:t[^>]*>([^<]*)<\/a:t>/g)].map((m) => m[1]).join("");
+        return runs.trim();
+      })
+      .filter((s) => s.length > 0);
+    if (paragraphs.length === 0) continue;
+    // First paragraph is almost always the slide title; mark it as a heading
+    // so the chunker uses it as a section title instead of mid-chunking it.
+    const slideNo = i + 1;
+    const [first, ...rest] = paragraphs;
+    parts.push(`## Slide ${slideNo}: ${first}\n\n${rest.join("\n")}`.trim());
   }
   return parts.join("\n\n");
 }
@@ -148,16 +160,114 @@ function collectTextNodes(node: unknown): string[] {
   return [];
 }
 
+/**
+ * Render a 2D array of cells as a GitHub-flavoured markdown table.
+ * Returns null when the input is empty or has no header row.
+ *
+ * Markdown tables survive chunking better than TSV because the chunker
+ * recognises pipe-delimited rows and refuses to split mid-table.
+ */
+function rowsToMarkdownTable(rows: unknown[][]): string | null {
+  const cleaned = rows
+    .map((r) => r.map((c) => (c == null ? "" : String(c).replace(/\|/g, "\\|").replace(/\n/g, " ").trim())))
+    .filter((r) => r.some((c) => c.length > 0));
+  if (cleaned.length === 0) return null;
+
+  const cols = Math.max(...cleaned.map((r) => r.length));
+  if (cols === 0) return null;
+
+  const header = cleaned[0]!;
+  while (header.length < cols) header.push("");
+
+  const lines: string[] = [];
+  lines.push("| " + header.join(" | ") + " |");
+  lines.push("| " + Array(cols).fill("---").join(" | ") + " |");
+  for (let i = 1; i < cleaned.length; i++) {
+    const row = cleaned[i]!.slice();
+    while (row.length < cols) row.push("");
+    lines.push("| " + row.join(" | ") + " |");
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Parse a CSV buffer into a markdown table so the chunker keeps it intact and
+ * the embedder gets header context for each row.
+ *
+ * Falls back to the raw UTF-8 string if parsing fails or the file is not a
+ * well-formed table.
+ */
+function extractCsvText(buffer: Buffer): string {
+  try {
+    const wb = XLSX.read(buffer.toString("utf8"), { type: "string", raw: true });
+    const sheetName = wb.SheetNames[0];
+    if (!sheetName) return buffer.toString("utf8");
+    const sheet = wb.Sheets[sheetName];
+    if (!sheet) return buffer.toString("utf8");
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false, defval: "" });
+    const md = rowsToMarkdownTable(rows);
+    return md ?? buffer.toString("utf8");
+  } catch {
+    return buffer.toString("utf8");
+  }
+}
+
 function extractSpreadsheetText(buffer: Buffer): string {
   const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
-  const lines: string[] = [];
+  const out: string[] = [];
   for (const sheetName of wb.SheetNames) {
     const sheet = wb.Sheets[sheetName];
     if (!sheet) continue;
-    const csv = XLSX.utils.sheet_to_csv(sheet, { FS: "\t" });
-    lines.push(`## ${sheetName}\n${csv}`);
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, blankrows: false, defval: "" });
+    const md = rowsToMarkdownTable(rows);
+    if (md) {
+      out.push(`## ${sheetName}\n\n${md}`);
+    } else {
+      const csv = XLSX.utils.sheet_to_csv(sheet, { FS: "\t" });
+      out.push(`## ${sheetName}\n${csv}`);
+    }
   }
-  return lines.join("\n\n");
+  return out.join("\n\n");
+}
+
+/**
+ * HTML extractor that converts <table> elements to markdown tables before
+ * stripping the rest of the markup. Preserves headings as `## ` so the
+ * downstream chunker can use them as section titles.
+ */
+function extractHtmlPreservingTables(html: string): string {
+  const $ = cheerio.load(html);
+
+  // Remove non-content nodes that would otherwise leak into chunks.
+  $("script, style, noscript, nav, header, footer").remove();
+
+  $("table").each((_, el) => {
+    const rows: string[][] = [];
+    $(el)
+      .find("tr")
+      .each((__, tr) => {
+        const cells: string[] = [];
+        $(tr)
+          .find("th, td")
+          .each((___, td) => {
+            cells.push($(td).text().replace(/\s+/g, " ").trim());
+          });
+        if (cells.some((c) => c.length > 0)) rows.push(cells);
+      });
+    const md = rowsToMarkdownTable(rows);
+    if (md) {
+      // Wrap with blank lines so chunkText sees this as its own paragraph
+      // and the isTableParagraph check kicks in.
+      $(el).replaceWith(`\n\n${md}\n\n`);
+    }
+  });
+
+  $("h1,h2,h3,h4,h5,h6").each((_, el) => {
+    const text = $(el).text().trim();
+    if (text) $(el).replaceWith(`\n\n## ${text}\n\n`);
+  });
+
+  return $("body").length > 0 ? $("body").text() : $.root().text();
 }
 
 function extractXmlPlainText(xml: string): string {
@@ -170,17 +280,37 @@ function extractXmlPlainText(xml: string): string {
   }
 }
 
+/**
+ * Render JSON as `key: value` lines so the embedder sees both the field name
+ * and the value (the field name is often the most informative half — e.g.
+ * `policyName`, `effectiveDate`, `owner`).
+ *
+ * Falls back to the raw string when the JSON is invalid.
+ */
 function extractJsonStrings(json: string): string {
   try {
     const v = JSON.parse(json) as unknown;
-    const out: string[] = [];
-    const walk = (x: unknown): void => {
-      if (typeof x === "string") out.push(x);
-      else if (Array.isArray(x)) x.forEach(walk);
-      else if (x && typeof x === "object") Object.values(x as object).forEach(walk);
+    const lines: string[] = [];
+    const walk = (x: unknown, path: string): void => {
+      if (x == null) return;
+      if (typeof x === "string" || typeof x === "number" || typeof x === "boolean") {
+        const val = String(x).trim();
+        if (val.length === 0) return;
+        lines.push(path ? `${path}: ${val}` : val);
+        return;
+      }
+      if (Array.isArray(x)) {
+        x.forEach((item, i) => walk(item, path ? `${path}[${i}]` : `[${i}]`));
+        return;
+      }
+      if (typeof x === "object") {
+        for (const [k, val] of Object.entries(x as Record<string, unknown>)) {
+          walk(val, path ? `${path}.${k}` : k);
+        }
+      }
     };
-    walk(v);
-    return out.join("\n");
+    walk(v, "");
+    return lines.join("\n");
   } catch {
     return json;
   }
@@ -196,6 +326,33 @@ function stripRtf(s: string): string {
   t = t.replace(/\\[a-z]+\d* ?/gi, "");
   t = t.replace(/[{}]/g, "");
   return t;
+}
+
+/**
+ * DOCX → text with headings and tables preserved.
+ *
+ * `mammoth.extractRawText` flattens everything to a single string and loses
+ * heading levels and table boundaries, which kills section-aware chunking and
+ * makes tables impossible for the chunker to keep intact.
+ *
+ * We instead convert to HTML (mammoth knows how to map Word styles to
+ * `<h1>..<h6>` and `<table>`), then funnel that through the same
+ * `extractHtmlPreservingTables` pipeline used for HTML uploads. As a safety
+ * net we fall back to raw text if the HTML pass throws.
+ */
+async function extractDocxText(buffer: Buffer): Promise<string> {
+  try {
+    const { value: html } = await mammoth.convertToHtml({ buffer });
+    if (html && html.length > 0) {
+      return extractHtmlPreservingTables(html);
+    }
+  } catch (err) {
+    logger.warn("DOCX HTML conversion failed, falling back to raw text", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+  const { value } = await mammoth.extractRawText({ buffer });
+  return value;
 }
 
 async function extractOdtText(buffer: Buffer): Promise<string> {

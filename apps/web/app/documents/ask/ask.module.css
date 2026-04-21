@@ -857,3 +857,199 @@
     height: 26px;
   }
 }
+
+/* ── Confidence badge (inline next to "Assistant") ── */
+.confidenceBadge {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  text-transform: lowercase;
+  border: 1px solid transparent;
+  margin-left: 0.5rem;
+  white-space: nowrap;
+}
+.confidenceHigh {
+  color: var(--status-ok-text);
+  background: color-mix(in srgb, var(--status-ok-border) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--trend-positive) 35%, transparent);
+}
+.confidenceLow {
+  color: var(--warning);
+  background: var(--banner-warning-bg);
+  border-color: var(--banner-warning-border);
+}
+.confidenceNone {
+  color: var(--muted);
+  background: var(--surface-muted, var(--bg));
+  border-color: var(--border);
+}
+.refiningBadge {
+  margin-left: 0.5rem;
+  font-size: 0.7rem;
+  color: var(--accent-purple-strong, var(--interactive));
+  font-weight: 600;
+  font-style: italic;
+}
+
+/* ── Verification (per-claim cosine faithfulness) ── */
+.verifyHigh,
+.verifyMid,
+.verifyLow {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  margin-left: 0.25rem;
+}
+.verifyHigh {
+  color: var(--status-ok-text);
+  background: color-mix(in srgb, var(--status-ok-border) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--trend-positive) 30%, transparent);
+}
+.verifyMid {
+  color: var(--warning);
+  background: var(--banner-warning-bg);
+  border-color: var(--banner-warning-border);
+}
+.verifyLow {
+  color: var(--error);
+  background: var(--tint-danger);
+  border-color: color-mix(in srgb, var(--error) 35%, var(--border));
+}
+
+/* ── Inline citation link [Source N] ── */
+.citationLink {
+  display: inline-block;
+  font-size: 0.78em;
+  font-weight: 600;
+  color: var(--interactive);
+  background: color-mix(in srgb, var(--interactive) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--interactive) 25%, transparent);
+  border-radius: 4px;
+  padding: 0 0.3em;
+  margin: 0 0.1em;
+  text-decoration: none;
+  cursor: pointer;
+  vertical-align: baseline;
+}
+.citationLink:hover {
+  background: color-mix(in srgb, var(--interactive) 18%, transparent);
+  text-decoration: none;
+}
+
+.sourceCardFlash {
+  animation: sourceFlash 1.4s ease-out;
+}
+@keyframes sourceFlash {
+  0% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive) 40%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* ── Follow-up question chips ── */
+.followUps {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.followUpsLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.followUpsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.followUpChip {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+.followUpChip:hover {
+  border-color: var(--interactive);
+  color: var(--interactive);
+  background: color-mix(in srgb, var(--interactive) 8%, var(--card-bg));
+}
+
+/* ── Feedback comment panel (thumbs-down) ── */
+.feedbackComment {
+  margin-top: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.feedbackComment textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.55rem;
+  resize: vertical;
+  min-height: 2.2rem;
+}
+.feedbackComment textarea:focus {
+  outline: none;
+  border-color: var(--interactive);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive) 15%, transparent);
+}
+.feedbackCommentActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+.feedbackSkip,
+.feedbackSubmit {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+}
+.feedbackSubmit {
+  background: var(--interactive);
+  color: var(--on-interactive);
+  border-color: var(--interactive);
+}
+.feedbackSubmit:hover {
+  filter: brightness(1.05);
+}
+.feedbackSkip:hover {
+  border-color: var(--interactive);
+  color: var(--interactive);
+}
+
+/* ── Warnings (critique/verification errors surfaced via SSE) ── */
+.warningList {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.74rem;
+  color: var(--warning);
+  list-style: disc;
+}
+.warningList li {
+  margin: 0.1rem 0;
+}

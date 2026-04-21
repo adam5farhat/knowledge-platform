@@ -1,0 +1,28 @@
+@startuml seq-26-favorites-recents
+title Favorites + recents
+
+actor User as U <<human>>
+participant Browser as B <<browser>>
+participant "Express /documents" as API <<service>>
+database PostgreSQL as DB
+
+== favorite add ==
+B -> API : POST /documents/:id/favorite
+API -> DB : upsert DocumentUserFavorite + audit FAVORITED
+API --> B : 204
+
+== favorite remove ==
+B -> API : DELETE /documents/:id/favorite
+API -> DB : deleteMany + audit UNFAVORITED
+API --> B : 204
+
+== recent ==
+B -> API : POST /documents/:id/view
+API -> DB : upsert DocumentUserRecent + audit VIEWED
+API --> B : 204
+
+note right of API
+  Source: **apps/api/src/routes/documents.ts** (~644–714).
+end note
+
+@enduml

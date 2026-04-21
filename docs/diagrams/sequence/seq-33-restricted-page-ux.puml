@@ -1,0 +1,15 @@
+@startuml seq-33-restricted-page-ux
+title /restricted — client-side explanation
+
+actor User as U <<human>>
+participant Browser as B <<browser>>
+participant "Next /restricted" as P <<browser>>
+
+U -> B : app links to /restricted?feature=…
+B -> P : render explanation from query
+
+note right of P
+  Source: **apps/web** + **restrictions.ts**.\nAPI 403 path remains **seq-07**.
+end note
+
+@enduml

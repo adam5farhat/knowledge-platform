@@ -1,0 +1,85 @@
+@startuml platform-architecture
+title Knowledge Platform — system architecture\n(aligned with repository README: High-level architecture)
+
+skinparam shadowing false
+skinparam defaultFontName Verdana
+skinparam ArrowColor #333333
+skinparam component {
+  BackgroundColor #F5F5F5
+  BorderColor #333333
+}
+skinparam database {
+  BackgroundColor #E8F4FC
+  BorderColor #333333
+}
+skinparam queue {
+  BackgroundColor #FFF8E1
+  BorderColor #333333
+}
+
+actor "User" as user <<human>>
+
+package "Client (browser)" {
+  component "Next.js 15\nApp Router (apps/web)" as web <<browser>>
+}
+
+package "Server (apps/api — single Node.js process)" {
+  component "Express HTTP\n(httpApp + routes)" as http <<service>>
+
+  component "Auth\nJWT access + refresh sessions\n(/auth)" as auth <<service>>
+  component "Documents + storage\n(/documents, multer)" as docs <<service>>
+  component "Search / RAG + SSE\n(/search)" as search <<service>>
+  component "Conversations\n(/conversations)" as conv <<service>>
+  component "Notifications\n(/notifications)" as notif <<service>>
+
+  component "BullMQ worker\n(document ingest)\njobs/documentIngest.ts" as worker <<queue>>
+
+  http --> auth
+  http --> docs
+  http --> search
+  http --> conv
+  http --> notif
+}
+
+database "PostgreSQL\n+ pgvector\n(Prisma)" as pg <<database>>
+queue "Redis 7\n(BullMQ + health)" as redis <<queue>>
+component "Local filesystem\nSTORAGE_PATH" as disk <<storage>>
+cloud "Google Gemini\n(embeddings, optimize,\nrerank, chat / stream)" as gemini <<external>>
+
+user --> web : HTTPS
+web --> http : REST + Bearer JWT\nrefresh: HttpOnly cookie kp_rt
+
+notif --> pg : Prisma
+notif --> disk : attachments
+docs --> pg
+docs --> disk : uploads / versions
+docs --> redis : enqueue ingest job
+
+search --> pg : vectors + FTS + RRF
+search --> gemini
+
+conv --> pg
+conv --> gemini
+
+auth --> pg
+
+http --> redis : client + /health
+
+worker --> redis : consume ingest queue
+worker --> pg : chunks + status
+worker --> disk : read uploaded files
+worker --> gemini : embeddings
+
+note right of web
+  Browser holds access JWT **in memory** only.\nConfigure NEXT_PUBLIC_API_URL.\nSee README — Authentication and session.
+end note
+
+note bottom of worker
+  Worker starts after **app.listen** in\napps/api/src/index.ts (same PID as API).\nSee README — Document ingest worker.
+end note
+
+note bottom of gemini
+  Runtime RAG uses Gemini (GEMINI_API_KEY).\nSee README — AI / RAG pipeline.
+end note
+
+@enduml

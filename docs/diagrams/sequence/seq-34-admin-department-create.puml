@@ -1,0 +1,18 @@
+@startuml seq-34-admin-department-create
+title POST /admin/departments
+
+actor Admin as A <<human>>
+participant Browser as B <<browser>>
+participant "Express /admin" as API <<service>>
+database PostgreSQL as DB
+
+B -> API : POST /admin/departments { name, parentId? }
+API -> API : requireRole ADMIN + Zod
+API -> DB : department.create
+API --> B : 201 department
+
+note right of API
+  Source: **apps/api/src/routes/admin.ts** (~250+).
+end note
+
+@enduml

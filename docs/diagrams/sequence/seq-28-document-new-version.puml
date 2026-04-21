@@ -1,0 +1,22 @@
+@startuml seq-28-document-new-version
+title POST /documents/:documentId/versions
+
+actor User as U <<human>>
+participant Browser as B <<browser>>
+participant "Express /documents" as API <<service>>
+participant Storage as FS <<service>>
+queue BullMQ as Q <<queue>>
+database PostgreSQL as DB
+
+B -> API : multipart new file for existing doc
+API -> API : requireManage + canManage + multer
+API -> FS : save file
+API -> DB : transaction create new DocumentVersion\nincrement versionNumber
+API -> Q : enqueueDocumentIngest(versionId)
+API --> B : 201 version metadata
+
+note right of API
+  Source: **apps/api/src/routes/documents.ts** (~913+).
+end note
+
+@enduml

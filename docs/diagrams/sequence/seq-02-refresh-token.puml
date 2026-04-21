@@ -1,0 +1,57 @@
+@startuml seq-02-refresh-token
+title POST /auth/refresh — rotate refresh, new access token
+
+actor "User" as U <<human>>
+participant "Browser" as B <<browser>>
+participant "Express\n/auth" as API <<service>>
+participant "express-rate-limit" as RL <<service>>
+database "PostgreSQL" as DB
+
+B -> API: POST /auth/refresh\n(Cookie: kp_rt)
+
+API -> RL: refreshRateLimiter (per IP)
+alt Too many refreshes
+  API --> B: 429
+else OK
+  API -> API: readRefreshCookie(req)
+  alt Missing cookie
+    API --> B: 401 Missing refresh token
+  else Has cookie
+    API -> API: hashRefreshToken(raw)
+    API -> DB: refreshSession.findUnique({ tokenHash })\ninclude user, role, department
+    alt No session / expired / user inactive
+      API -> DB: logAuthEvent(REFRESH_FAILURE)
+      API -> API: clearRefreshCookie
+      API --> B: 401 Invalid or expired refresh token
+    else revokedAt set (reuse / replay)
+      API -> DB: Walk replacedById chain;\nrevoke active descendants
+      API -> DB: logAuthEvent(REFRESH_FAILURE, token_reuse_detected)
+      API -> API: clearRefreshCookie
+      API --> B: 401 Session invalidated…
+    else user.authVersion != session.authVersion
+      API -> DB: revoke session
+      API -> DB: logAuthEvent(REFRESH_FAILURE, auth_version_mismatch)
+      API -> API: clearRefreshCookie
+      API --> B: 401 Session expired…
+    else loginAllowed false
+      API -> DB: revoke session + log + clear cookie
+      API --> B: 403 ACCOUNT_RESTRICTED
+    else Valid active session
+      API -> API: generateRawRefreshToken + hash
+      API -> DB: $transaction:\n create new RefreshSession\n revoke old (replacedById)
+      API -> API: signAccessToken(JWT claims)
+      API -> API: buildManagerDashboardUserFields
+      API -> API: setRefreshCookie(next raw)
+      API --> B: 200 { token, user }\n(new kp_rt)
+      API -> DB: logAuthEvent(REFRESH_SUCCESS, metadata ids)
+    end
+  end
+end
+
+note right of API
+  Source: **apps/api/src/routes/auth.ts** (~322+),
+  **apps/api/src/lib/refreshToken.ts**,
+  **refreshCookie.ts** (kp_rt).
+end note
+
+@enduml

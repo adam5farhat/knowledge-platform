@@ -1,0 +1,17 @@
+@startuml seq-36-admin-stats
+title GET /admin/stats
+
+actor Admin as A <<human>>
+participant Browser as B <<browser>>
+participant "Express /admin" as API <<service>>
+database PostgreSQL as DB
+
+B -> API : GET /admin/stats
+API -> DB : KPI queries / aggregates
+API --> B : 200 stats JSON
+
+note right of API
+  Source: **apps/api/src/routes/admin.ts** (~1311+).
+end note
+
+@enduml

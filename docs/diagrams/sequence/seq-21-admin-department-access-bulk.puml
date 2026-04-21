@@ -1,0 +1,27 @@
+@startuml seq-21-admin-department-access-bulk
+title PUT /admin/users/:userId/department-access — replace all
+
+actor "Administrator" as A <<human>>
+participant "Browser" as B <<browser>>
+participant "Express\n/admin" as API <<service>>
+database "PostgreSQL" as DB
+participant "notifyManagerAssigned /\nnotifyMemberAdded" as N <<service>>
+
+B -> API: PUT /admin/users/:userId/department-access\n{ assignments: [{ departmentId, accessLevel }] }
+
+API -> DB: find user
+API -> DB: $transaction:\n deleteMany UserDepartmentAccess\n createMany new rows
+API -> DB: bumpAuthAfterDepartmentAccessChange\n(authVersion++ + sync refresh sessions)
+
+loop rows with changed access vs oldMap
+  API -> N: optional notification per row\n.fire-and-forget
+end
+
+API -> DB: findMany rows for response
+API --> B: 200 [ access rows ]
+
+note right of API
+  Source: **apps/api/src/routes/admin.ts** (~2149+),\n**bumpAuthAfterDepartmentAccessChange**.
+end note
+
+@enduml

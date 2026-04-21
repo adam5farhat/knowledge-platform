@@ -425,7 +425,7 @@ export default function AdminDepartmentsClient() {
       setPanelUser(null);
       setPanelDocId(null);
       setPanelDocDetail(null);
-      return;
+        return;
     }
     setSelectedDeptId(dept.id);
     setPanelUser(null);
@@ -476,7 +476,7 @@ export default function AdminDepartmentsClient() {
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         setDocPanelActionError(body.error ?? "Download failed");
-        return;
+          return;
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -505,7 +505,7 @@ export default function AdminDepartmentsClient() {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
         setDocPanelActionError(body.error ?? "Retry failed");
-        return;
+          return;
       }
       await openDocPanel(panelDocId);
       if (selectedDeptId) void fetchDrillForDept(selectedDeptId);
@@ -537,7 +537,7 @@ export default function AdminDepartmentsClient() {
       if (docVersionFileInputRef.current) docVersionFileInputRef.current.value = "";
       await openDocPanel(panelDocId);
       if (selectedDeptId) void fetchDrillForDept(selectedDeptId);
-    } catch {
+      } catch {
       setDocPanelActionError("Could not reach the API.");
     } finally {
       setDocPanelBusy(false);
@@ -1000,7 +1000,7 @@ export default function AdminDepartmentsClient() {
   }
 
   if (authPhase === "ready" && dataPhase !== "ready") {
-    return (
+  return (
       <main>
         <p>Loading…</p>
       </main>
@@ -1045,7 +1045,7 @@ export default function AdminDepartmentsClient() {
                 Org hierarchy, member previews, and documents per department — aligned with the rest of admin.
               </p>
             </div>
-            <button
+        <button
               type="button"
               className={hubStyles.addButton}
               onClick={() => {
@@ -1055,7 +1055,7 @@ export default function AdminDepartmentsClient() {
             >
               <IconPlus />
               Add department
-            </button>
+        </button>
           </div>
 
           {departmentSuccess ? (
@@ -1075,35 +1075,35 @@ export default function AdminDepartmentsClient() {
                   not have child departments.
                 </p>
                 <div className={styles.mergeRow}>
-                  <select
+          <select
                     className={styles.mergeSelect}
-                    value={mergeSource}
-                    onChange={(e) => setMergeSource(e.target.value)}
-                    aria-label="Source department"
-                  >
-                    <option value="">Source…</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
+            value={mergeSource}
+            onChange={(e) => setMergeSource(e.target.value)}
+            aria-label="Source department"
+          >
+            <option value="">Source…</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
                   <span className={styles.mergeArrow} aria-hidden>
                     →
                   </span>
-                  <select
+          <select
                     className={styles.mergeSelect}
-                    value={mergeTarget}
-                    onChange={(e) => setMergeTarget(e.target.value)}
-                    aria-label="Target department"
-                  >
-                    <option value="">Target…</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
+            value={mergeTarget}
+            onChange={(e) => setMergeTarget(e.target.value)}
+            aria-label="Target department"
+          >
+            <option value="">Target…</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
                   <button type="button" disabled={mergeBusy} onClick={() => void onMerge()} className={hubStyles.btnGhost}>
                     {mergeBusy ? "Merging…" : "Merge"}
                   </button>
@@ -1137,8 +1137,8 @@ export default function AdminDepartmentsClient() {
                 <div key={d.id} className={`${styles.deptCard} ${selected ? styles.deptCardSelected : ""}`}>
                   <span className={styles.deptCardTab} aria-hidden />
                   <div className={styles.deptCardMenuWrap} data-dept-card-menu>
-                    <button
-                      type="button"
+          <button
+            type="button"
                       className={styles.deptCardMenuBtn}
                       aria-expanded={cardMenuId === d.id}
                       aria-label={`Menu for ${d.name}`}
@@ -1173,8 +1173,8 @@ export default function AdminDepartmentsClient() {
                           }}
                         >
                           Delete
-                        </button>
-                      </div>
+          </button>
+        </div>
                     ) : null}
                   </div>
                   <button type="button" className={styles.deptCardBody} onClick={() => void loadDrill(d)}>
@@ -1215,8 +1215,8 @@ export default function AdminDepartmentsClient() {
                     {d.parentDepartmentId ? (
                       <p style={{ margin: "0.35rem 0 0", fontSize: "0.78rem", color: "var(--muted)" }}>
                         Under {parentLabel(departments, d.parentDepartmentId)}
-                      </p>
-                    ) : null}
+          </p>
+        ) : null}
                   </button>
                 </div>
               );
@@ -1277,7 +1277,7 @@ export default function AdminDepartmentsClient() {
                         <span className={styles.deptAccessCount}>
                           {deptAccessUsers.length} grant{deptAccessUsers.length === 1 ? "" : "s"}
                         </span>
-                      ) : null}
+        ) : null}
                     </div>
                     {deptAccessLoading ? (
                       <div className={styles.deptAccessBody}>
@@ -1425,7 +1425,7 @@ export default function AdminDepartmentsClient() {
                         </div>
                       </div>
                     </div>
-                  </section>
+      </section>
 
                   <div className={styles.drillTablesRegion} role="region" aria-labelledby="dept-drill-heading">
                     <h3 id="dept-drill-heading" className={styles.drillTablesHeading}>
@@ -1598,7 +1598,7 @@ export default function AdminDepartmentsClient() {
                 <span>Parent (optional)</span>
                 <select value={createParentId} onChange={(e) => setCreateParentId(e.target.value)}>
                   <option value="">None (top level)</option>
-                  {departments.map((d) => (
+                {departments.map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.name}
                     </option>
@@ -1613,7 +1613,7 @@ export default function AdminDepartmentsClient() {
               <div className={hubStyles.modalActions}>
                 <button type="submit" disabled={creatingDepartment} className={hubStyles.btnPrimary}>
                   {creatingDepartment ? "Creating…" : "Create department"}
-                </button>
+                      </button>
                 <button
                   type="button"
                   className={hubStyles.btnGhost}
@@ -1623,7 +1623,7 @@ export default function AdminDepartmentsClient() {
                   }}
                 >
                   Cancel
-                </button>
+                      </button>
               </div>
             </form>
           </div>
@@ -2002,7 +2002,7 @@ export default function AdminDepartmentsClient() {
                       >
                         {docSaveBusy ? "Saving…" : "Save changes"}
                       </button>
-                    </div>
+          </div>
                   ) : (
                     <div className={styles.docFormSection}>
                       <div className={hubStyles.profileField}>
@@ -2139,33 +2139,33 @@ export default function AdminDepartmentsClient() {
             <h2>Edit department</h2>
             <div className={hubStyles.formGrid}>
               <label>
-                <span>Name</span>
-                <input
-                  value={editDept.name}
-                  onChange={(e) => setEditDept({ ...editDept, name: e.target.value })}
-                />
-              </label>
+              <span>Name</span>
+              <input
+                value={editDept.name}
+                onChange={(e) => setEditDept({ ...editDept, name: e.target.value })}
+              />
+            </label>
               <label>
-                <span>Parent</span>
-                <select
-                  value={editDept.parentDepartmentId ?? ""}
-                  onChange={(e) =>
-                    setEditDept({
-                      ...editDept,
-                      parentDepartmentId: e.target.value || null,
-                    })
-                  }
-                >
-                  <option value="">None (top level)</option>
-                  {departments
-                    .filter((x) => x.id !== editDept.id)
-                    .map((x) => (
-                      <option key={x.id} value={x.id}>
-                        {x.name}
-                      </option>
-                    ))}
-                </select>
-              </label>
+              <span>Parent</span>
+              <select
+                value={editDept.parentDepartmentId ?? ""}
+                onChange={(e) =>
+                  setEditDept({
+                    ...editDept,
+                    parentDepartmentId: e.target.value || null,
+                  })
+                }
+              >
+                <option value="">None (top level)</option>
+                {departments
+                  .filter((x) => x.id !== editDept.id)
+                  .map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
             </div>
             {departmentError ? (
               <p role="alert" style={{ color: "var(--error)" }}>

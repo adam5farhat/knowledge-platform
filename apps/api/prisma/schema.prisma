@@ -352,6 +352,9 @@ model Conversation {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String   @default("New conversation")
+  /// Topic inferred by queryOptimizer for the most recent question. Used by
+  /// the feedback memory module to weight past mistakes by topic.
+  topic     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   messages  ConversationMessage[]

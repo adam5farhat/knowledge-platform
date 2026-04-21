@@ -1,0 +1,28 @@
+@startuml seq-03-logout
+title POST /auth/logout — revoke current refresh session
+
+actor "User" as U <<human>>
+participant "Browser" as B <<browser>>
+participant "Express\n/auth" as API <<service>>
+database "PostgreSQL" as DB
+
+U -> B: Sign out
+B -> API: POST /auth/logout\n(optional Cookie kp_rt)
+
+API -> API: readRefreshCookie
+opt Cookie present
+  API -> API: hashRefreshToken
+  API -> DB: refreshSession.findUnique(tokenHash)
+  API -> DB: refreshSession.updateMany\nrevokedAt = now (matching hash)
+  API -> DB: logAuthEvent(LOGOUT, metadata count)
+end
+API -> API: clearRefreshCookie(res)
+API --> B: 200 { ok: true }
+B -> B: Drop in-memory access token
+
+note right of API
+  Source: **apps/api/src/routes/auth.ts** (~474+).
+  **POST /auth/logout-all** (authenticated) revokes\nall sessions for userId — separate flow.
+end note
+
+@enduml

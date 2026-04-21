@@ -63,6 +63,19 @@ function computeLegalPriority(content: string): number {
   return boost;
 }
 
+/**
+ * Build a representative passage view for the reranker. Sends up to
+ * `config.rag.rerankPassageChars` chars - prefers the section title plus the
+ * first half + last half of long chunks so deadlines and exception clauses
+ * (often near the bottom) are visible to the judge.
+ */
+function buildRerankPassage(content: string, sectionTitle: string | null, chunkIndex: number, cap: number): string {
+  const header = sectionTitle ? `(${sectionTitle})` : `(chunk ${chunkIndex})`;
+  if (content.length <= cap) return `${header}\n${content}`;
+  const half = Math.floor((cap - 50) / 2);
+  return `${header}\n${content.slice(0, half)}\n... [truncated middle] ...\n${content.slice(-half)}`;
+}
+
 export async function rerankChunks(
   question: string,
   chunks: RagChunk[],
@@ -71,10 +84,15 @@ export async function rerankChunks(
 ): Promise<RagChunk[]> {
   if (chunks.length === 0) return [];
 
-  let filtered = preFilterByTopic(chunks, options.mustExclude ?? []);
-  filtered = boostMustInclude(filtered, options.mustInclude ?? []);
+  // mustExclude is now a SOFT penalty (subtracted from the rerank score) instead
+  // of a hard drop, so a long boilerplate that mentions an "excluded" term but
+  // also contains the actual answer can still surface.
+  const mustExcludeRatios = computeMustExcludeRatios(chunks, options.mustExclude ?? []);
+  const filtered = boostMustInclude(chunks, options.mustInclude ?? []);
   if (filtered.length === 0) return [];
   if (filtered.length === 1) return filtered;
+
+  const cap = config.rag.rerankPassageChars;
 
   try {
     const client = getClient();
@@ -84,7 +102,7 @@ export async function rerankChunks(
     });
 
     const passageList = filtered
-      .map((c, i) => `[Passage ${i + 1}] (${c.sectionTitle || `chunk ${c.chunkIndex}`})\n${c.content.slice(0, 1000)}`)
+      .map((c, i) => `[Passage ${i + 1}] ${buildRerankPassage(c.content, c.sectionTitle, c.chunkIndex, cap)}`)
       .join("\n\n---\n\n");
 
     const topicLine = options.topic ? `Detected topic: "${options.topic}"` : "";
@@ -102,9 +120,12 @@ export async function rerankChunks(
       return applyLegalPriority(filtered);
     }
 
+    const penaltyAmount = config.rag.mustExcludePenalty;
     const scored = filtered.map((c, i) => {
-      const rerankScore = scores[i] ?? 0;
+      const baseScore = scores[i] ?? 0;
       const legalBoost = computeLegalPriority(c.content);
+      const excludePenalty = (mustExcludeRatios.get(c.chunkId) ?? 0) * penaltyAmount * 10;
+      const rerankScore = Math.max(0, baseScore - excludePenalty);
       return { chunk: c, rerankScore, legalBoost };
     });
 
@@ -143,13 +164,18 @@ function boostMustInclude(chunks: RagChunk[], mustInclude: string[]): RagChunk[]
   });
 }
 
-function preFilterByTopic(chunks: RagChunk[], mustExclude: string[]): RagChunk[] {
-  if (mustExclude.length === 0) return chunks;
-
-  return chunks.filter((c) => {
+/**
+ * Returns chunkId -> ratio of mustExclude terms that appear in the chunk.
+ * Used as a soft penalty during reranking instead of a hard filter, so a chunk
+ * that has the answer but also mentions an excluded term in passing isn't lost.
+ */
+function computeMustExcludeRatios(chunks: RagChunk[], mustExclude: string[]): Map<string, number> {
+  const map = new Map<string, number>();
+  if (mustExclude.length === 0) return map;
+  for (const c of chunks) {
     const lower = c.content.toLowerCase();
-    const excludeHits = mustExclude.filter((term) => lower.includes(term.toLowerCase())).length;
-    const excludeRatio = excludeHits / mustExclude.length;
-    return excludeRatio < 0.7;
-  });
+    const hits = mustExclude.filter((term) => lower.includes(term.toLowerCase())).length;
+    map.set(c.chunkId, hits / mustExclude.length);
+  }
+  return map;
 }

@@ -1,0 +1,37 @@
+@startuml seq-18-manager-dashboard
+title Manager dashboard — list departments + department detail
+
+actor "ManagerUser" as U <<human>>
+participant "Browser" as B <<browser>>
+participant "Express\n/manager" as API <<service>>
+participant "authenticateToken +\nrequireManagerDashboardAccess" as MW <<service>>
+database "PostgreSQL" as DB
+
+B -> API: GET /manager/departments
+
+API -> MW: must be Admin, global Manager,\nor have manageableDepartmentIds;\naccessDashboardAllowed
+alt Forbidden
+  API --> B: 401 / 403
+else OK
+  API -> API: departmentIdsForManagerPicker\n(admin → all depts)
+  API -> DB: department.findMany(ids)
+  API --> B: 200 { departments }
+end
+
+B -> API: GET /manager/department?departmentId=…
+
+API -> MW: same
+API -> API: canManageDepartmentInUi(user, deptId)
+alt Cannot manage
+  API --> B: 403
+else OK
+  API -> DB: department.findUnique;\nuser.findMany (members in dept)
+  API --> B: 200 { department, members }
+end
+
+note right of API
+  Source: **apps/api/src/routes/manager.ts**,
+  **middleware/auth.ts** (**requireManagerDashboardAccess**).
+end note
+
+@enduml

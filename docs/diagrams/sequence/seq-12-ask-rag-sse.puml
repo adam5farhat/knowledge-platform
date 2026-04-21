@@ -1,0 +1,68 @@
+@startuml seq-12-ask-rag-sse
+title POST /search/ask — hybrid RAG + SSE stream
+
+actor "User" as U <<human>>
+participant "Browser" as B <<browser>>
+participant "Express\n/search" as API <<service>>
+participant "authenticateToken +\naskRateLimiter +\nrequireDocLibrary +\nrequireUseAi" as MW <<service>>
+participant "queryOptimizer" as QO <<service>>
+participant "Gemini\n(embed + rerank + stream)" as G <<external>>
+database "PostgreSQL" as DB
+
+B -> API: POST /search/ask\n{ question, chunkLimit?, history? }
+
+API -> MW: pre-checks
+alt Fail auth / rate / restrictions / validation
+  API --> B: 4xx JSON (not SSE)
+else Accepted
+  API -> QO: optimizeQuery(question)
+  QO --> API: rewrittenQuery, keywords,\ntopic, subQueries, multiHop…
+
+  API -> G: embedQuery(rewrittenQuery)
+  G --> API: embedding vector
+
+  par
+    API -> DB: vectorSearch(vecLiteral, …)
+    DB --> API: vectorRows
+  else
+    API -> DB: runBM25Search(original Q, keywords, …)
+    DB --> API: bm25Rows
+  end
+
+  API -> API: reciprocalRankFusion\n+ optional multi-hop vector passes
+  API -> API: filter by RELEVANCE_LOW
+  API -> G: rerankChunks(question, chunks, meta)
+  G --> API: reranked → topChunks (≤6)
+  API -> API: assessConfidence(topChunks)\nbuild **sources** payload
+
+  API -> API: set SSE headers\n(text/event-stream)
+  API --> B: event: **sources** + confidence
+
+  opt findNegativeFeedbackLessons
+    API -> DB: read recent negative feedback
+    API -> API: buildFeedbackAddendum
+  end
+
+  loop streamRagAnswer (async generator)
+    API -> G: generate tokens (RAG completion)
+    G --> API: token chunk
+    API --> B: event: **token** { token }
+  end
+
+  opt critiqueAnswer + correctAnswer
+    API -> G: critique then optional correct
+    API --> B: event: **correction** (if materially different)
+  end
+
+  API --> B: event: **done**
+  API -> API: res.end()
+end
+
+note right of API
+  Source: **apps/api/src/routes/search.ts** (~154+),
+  **queryOptimizer**, **reranker**, **ragCompletion**,
+  **feedbackMemory**, **ragEvaluation**.
+  Client must parse **SSE** events.
+end note
+
+@enduml

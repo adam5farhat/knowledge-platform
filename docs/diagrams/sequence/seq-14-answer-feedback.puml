@@ -1,0 +1,24 @@
+@startuml seq-14-answer-feedback
+title POST /conversations/:id/messages/:messageId/feedback
+
+actor "User" as U <<human>>
+participant "Browser" as B <<browser>>
+participant "Express\n/conversations" as API <<service>>
+database "PostgreSQL" as DB
+
+B -> API: POST .../feedback\n{ rating: up|down, comment? }
+
+API -> DB: findFirst ConversationMessage\n(id, conversation userId,\nrole == assistant)
+alt Not assistant / not found
+  API --> B: 404
+else OK
+  API -> DB: answerFeedback.upsert\n(unique messageId)
+  API --> B: 200 { feedback }
+end
+
+note right of API
+  Source: **apps/api/src/routes/conversations.ts** (~333+).
+  Schema: **AnswerFeedback.messageId** @unique.
+end note
+
+@enduml

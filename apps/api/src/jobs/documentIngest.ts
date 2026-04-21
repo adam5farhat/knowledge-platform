@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Queue, Worker, type Job } from "bullmq";
 import type { DocumentProcessingStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
-import { chunkText, type ChunkWithMeta } from "../lib/chunkText.js";
+import { chunkTextAsync, type ChunkWithMeta } from "../lib/chunkText.js";
 import { embedTexts } from "../lib/embeddings.js";
 import { extractPlainText, resolveMimeType } from "../lib/extractText.js";
 import { readFileBuffer } from "../lib/storage.js";
@@ -84,7 +84,7 @@ async function processIngest(job: Job<{ documentVersionId: string }>): Promise<v
     const text = await extractPlainText(buffer, mime, version.fileName);
 
     await setProgress(version.id, 25);
-    const chunks: ChunkWithMeta[] = chunkText(text);
+    const chunks: ChunkWithMeta[] = await chunkTextAsync(text);
 
     if (chunks.length === 0) {
       await setVersionStatus(version.id, "FAILED", "No extractable text in this file.", 0);

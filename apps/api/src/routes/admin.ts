@@ -605,16 +605,16 @@ adminRouter.post("/users", authenticateToken, requireRole(RoleName.ADMIN), async
   try {
     const user = await prisma.$transaction(async (tx) => {
       const u = await tx.user.create({
-        data: {
-          email,
-          name,
-          passwordHash,
-          roleId: roleRecord.id,
-          departmentId: department.id,
-          employeeBadgeNumber: normalizedBadge || undefined,
-          phoneNumber: phoneNumber ?? undefined,
-          position: position ?? undefined,
-        },
+      data: {
+        email,
+        name,
+        passwordHash,
+        roleId: roleRecord.id,
+        departmentId: department.id,
+        employeeBadgeNumber: normalizedBadge || undefined,
+        phoneNumber: phoneNumber ?? undefined,
+        position: position ?? undefined,
+      },
         include: { role: true, department: true },
       });
       const accessLevel = role === RoleName.MANAGER

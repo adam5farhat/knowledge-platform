@@ -1,0 +1,30 @@
+@startuml seq-22-health-check
+title GET /health — readiness probe
+
+participant "Client / monitor" as C <<human>>
+participant "Express" as E <<service>>
+database "PostgreSQL" as DB
+participant "Redis" as R <<service>>
+
+C -> E: GET /health
+
+par Database check
+  E -> DB: prisma.$queryRaw SELECT 1
+  DB --> E: ok / throws
+else Redis check
+  E -> R: PING
+  R --> E: PONG / throws
+end
+
+E -> E: Aggregate checks.database,\nchecks.redis
+alt both ok
+  E --> C: 200 { status: "ok", checks, timestamp }
+else degraded
+  E --> C: 503 { status: "degraded", … }
+end
+
+note right of E
+  Source: **apps/api/src/httpApp.ts**\n**GET /health** handler.
+end note
+
+@enduml

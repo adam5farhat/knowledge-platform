@@ -1,0 +1,27 @@
+@startuml seq-25-document-detail
+title GET /documents/:documentId
+
+actor User as U <<human>>
+participant Browser as B <<browser>>
+participant "Express /documents" as API <<service>>
+participant documentAccess as ACC <<service>>
+database PostgreSQL as DB
+
+B -> API : GET /documents/:id\nBearer
+API -> DB : findUnique + versions + tags
+alt not found
+  API --> B : 404
+else
+  API -> ACC : can read / detail gate
+  alt forbidden
+    API --> B : 403/404
+  else
+    API --> B : 200 document payload
+  end
+end
+
+note right of API
+  Source: **apps/api/src/routes/documents.ts** (~812+).
+end note
+
+@enduml

@@ -1,0 +1,38 @@
+@startuml seq-13-conversation-and-messages
+title Conversations — create thread, append message, optional title
+
+actor "User" as U <<human>>
+participant "Browser" as B <<browser>>
+participant "Express\n/conversations" as API <<service>>
+database "PostgreSQL" as DB
+participant "Gemini\n(title)" as G <<external>>
+
+== Create conversation ==
+B -> API: POST /conversations/\n{ title? }
+API -> DB: conversation.create(userId, title)
+API --> B: 201 { conversation }
+
+== Append message (user or assistant row) ==
+B -> API: POST /conversations/:id/messages\n{ role, content, sources?, confidence? }
+API -> DB: findFirst conversation\n(id + userId)
+alt Not found
+  API --> B: 404
+else OK
+  API -> DB: conversationMessage.create
+  API -> DB: conversation.update(updatedAt)
+  API --> B: 201 { message }
+end
+
+== Optional: generate title ==
+B -> API: POST /conversations/:id/generate-title\n(requireUseAiQueries)\n{ question }
+API -> DB: load conversation
+API -> G: LLM title from question
+G --> API: title string
+API -> DB: conversation.update({ title })
+API --> B: 200 { conversation }
+
+note right of API
+  Source: **apps/api/src/routes/conversations.ts**\n(~174 create, ~214 messages, ~255 title).
+end note
+
+@enduml

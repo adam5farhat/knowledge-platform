@@ -1,0 +1,38 @@
+@startuml seq-08-document-upload
+title POST /documents/upload — new document + version + enqueue ingest
+
+actor "User" as U <<human>>
+participant "Browser" as B <<browser>>
+participant "Express\n/documents" as API <<service>>
+participant "authenticateToken +\nrequireDocLibraryAccess +\nrequireManageDocumentsCapability" as MW <<service>>
+participant "multer" as MU <<service>>
+participant "Local storage" as FS <<service>>
+database "PostgreSQL" as DB
+queue "BullMQ\ndocument-ingest" as Q <<queue>>
+participant "notifyDocumentCreated\n(async)" as N <<service>>
+
+B -> API: POST /documents/upload\nmultipart (file + fields)
+
+API -> MW: pre-handlers
+alt Fails middleware / multer
+  API --> B: 401 / 403 / 400
+else OK
+  API -> MU: upload.single("file")
+  API -> API: Zod uploadMeta;\nresolveMimeType; sha256;\nallocateStorageKey
+  API -> FS: saveUploadedFile(storageKey, buffer)
+  API -> DB: $transaction:\n document.create (+ tags)\n documentVersion.create v1
+  API -> Q: enqueueDocumentIngest(versionId)
+  API -> DB: logDocumentAudit(CREATED)
+  opt document.departmentId set
+    API -> N: notifyDocumentCreated(...)\n.fire-and-forget .catch(log)
+    N -> DB: createNotification + recipients\n(see seq-15)
+  end
+  API --> B: 201 { document, version }
+end
+
+note right of API
+  Source: **apps/api/src/routes/documents.ts** (~76+),
+  **enqueueDocumentIngest** in **jobs/documentIngest.ts**.
+end note
+
+@enduml

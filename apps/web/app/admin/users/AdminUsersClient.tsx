@@ -505,8 +505,8 @@ export default function AdminUsersClient() {
   useEffect(() => {
     if (authPhase !== "ready") {
       setBootstrapPhase("idle");
-      return;
-    }
+        return;
+      }
     let cancelled = false;
     setBootstrapPhase("loading");
     void (async () => {
@@ -543,8 +543,8 @@ export default function AdminUsersClient() {
             if (qParam) {
               setUserSearch(qParam);
               setUserQ(qParam.trim());
-            }
-          } catch {
+        }
+      } catch {
             /* ignore */
           }
           setBootstrapPhase("ready");
@@ -1268,7 +1268,7 @@ export default function AdminUsersClient() {
   }
 
   if (authPhase === "ready" && bootstrapPhase === "error") {
-    return (
+  return (
       <main>
         <p style={{ color: "var(--error)" }}>Could not load departments or roles.</p>
         <Link prefetch={false} href="/dashboard">Dashboard</Link>
@@ -1391,36 +1391,36 @@ export default function AdminUsersClient() {
                         <div className={styles.filterPopoverGrid}>
                           <label>
                             Department
-                            <select
-                              value={filterDepartmentId}
+          <select
+            value={filterDepartmentId}
                               onChange={(e) => setFilterDepartmentId(e.target.value)}
-                            >
-                              <option value="">All departments</option>
-                              {departments.map((d) => (
-                                <option key={d.id} value={d.id}>
-                                  {d.name}
-                                </option>
-                              ))}
-                            </select>
+          >
+            <option value="">All departments</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
                           </label>
                           <label>
                             Role
                             <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
-                              <option value="">All roles</option>
-                              {roles.map((r) => (
-                                <option key={r.id} value={r.name}>
-                                  {r.name}
-                                </option>
-                              ))}
-                            </select>
+            <option value="">All roles</option>
+            {roles.map((r) => (
+              <option key={r.id} value={r.name}>
+                {r.name}
+              </option>
+            ))}
+          </select>
                           </label>
                           <label>
                             Status
                             <select value={filterActive} onChange={(e) => setFilterActive(e.target.value)}>
-                              <option value="">Active + inactive</option>
-                              <option value="true">Active only</option>
-                              <option value="false">Inactive only</option>
-                            </select>
+            <option value="">Active + inactive</option>
+            <option value="true">Active only</option>
+            <option value="false">Inactive only</option>
+          </select>
                           </label>
                           <label>
                             Login access
@@ -1515,8 +1515,8 @@ export default function AdminUsersClient() {
           {selectedIds.size > 0 ? (
             <div className={styles.bulkBar}>
               <span className={styles.bulkBarCount}>{selectedIds.size} selected</span>
-              <button
-                type="button"
+          <button
+            type="button"
                 className={styles.btnGhost}
                 disabled={bulkBusy}
                 onClick={() => void bulkLockSelected()}
@@ -1589,19 +1589,19 @@ export default function AdminUsersClient() {
               </button>
               <button type="button" className={styles.btnGhost} disabled={bulkBusy} onClick={clearSelection}>
                 Clear selection
-              </button>
-            </div>
+          </button>
+        </div>
           ) : null}
 
-          {directoryError ? (
+        {directoryError ? (
             <p role="alert" style={{ color: "var(--error)", padding: "0 1.1rem" }}>
-              {directoryError}
-            </p>
-          ) : null}
+            {directoryError}
+          </p>
+        ) : null}
 
           <div className={styles.tableScroll}>
             <table className={styles.dataTable}>
-              <thead>
+            <thead>
                 <tr>
                   <th className={styles.checkboxTh} scope="col">
                     <input
@@ -1622,16 +1622,16 @@ export default function AdminUsersClient() {
                   <th scope="col">Force pwd</th>
                   <th scope="col">Lock</th>
                   <th scope="col">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {directoryLoading ? (
-                  <tr>
+              </tr>
+            </thead>
+            <tbody>
+              {directoryLoading ? (
+                <tr>
                     <td colSpan={11} className={styles.cellMuted} style={{ padding: "1.25rem" }}>
-                      Loading…
-                    </td>
-                  </tr>
-                ) : null}
+                    Loading…
+                  </td>
+                </tr>
+              ) : null}
                 {!directoryLoading && directoryUsers.length === 0 ? (
                   <tr>
                     <td colSpan={11} className={styles.cellMuted} style={{ padding: "1.25rem" }}>
@@ -1639,7 +1639,7 @@ export default function AdminUsersClient() {
                     </td>
                   </tr>
                 ) : null}
-                {!directoryLoading &&
+              {!directoryLoading &&
                   directoryUsers.map((u) => {
                     const initials = userInitials(u.name);
                     const photoSrc = profilePictureDisplayUrl(u.profilePictureUrl);
@@ -1684,18 +1684,18 @@ export default function AdminUsersClient() {
                         <td className={styles.cellMuted}>{fmtDateTime(u.lastLoginAt)}</td>
                         <td className={styles.cellMuted}>{u.mustChangePassword ? "Yes" : "—"}</td>
                         <td className={styles.cellMuted}>
-                          {u.loginLockedUntil || u.failedLoginAttempts > 0 ? (
+                      {u.loginLockedUntil || u.failedLoginAttempts > 0 ? (
                             <span style={{ color: "var(--warning)" }} title={u.loginLockedUntil ?? undefined}>
-                              {u.failedLoginAttempts > 0 ? `${u.failedLoginAttempts} fails` : "Locked"}
-                            </span>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
+                          {u.failedLoginAttempts > 0 ? `${u.failedLoginAttempts} fails` : "Locked"}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                         <td onClick={(e) => e.stopPropagation()}>
                           <div className={styles.rowMenuWrap} data-admin-users-row-menu>
-                            <button
-                              type="button"
+                      <button
+                        type="button"
                               ref={(el) => {
                                 const m = rowMenuBtnRefs.current;
                                 if (el) m.set(u.id, el);
@@ -1718,14 +1718,14 @@ export default function AdminUsersClient() {
                                 <button
                                   type="button"
                                   role="menuitem"
-                                  onClick={() => {
+                        onClick={() => {
                                     setRowMenuUserId(null);
-                                    setModalError(null);
+                          setModalError(null);
                                     setEditUser(normalizeAdminUserRow({ ...u }));
-                                  }}
-                                >
-                                  Edit
-                                </button>
+                        }}
+                      >
+                        Edit
+                      </button>
                                 <button
                                   type="button"
                                   role="menuitem"
@@ -1734,13 +1734,13 @@ export default function AdminUsersClient() {
                                     void unlockUser(u.id);
                                   }}
                                 >
-                                  Unlock
-                                </button>
+                        Unlock
+                      </button>
                                 {u.id !== sessionUser.id ? (
-                                  <button
-                                    type="button"
+                      <button
+                        type="button"
                                     role="menuitem"
-                                    onClick={() => {
+                        onClick={() => {
                                       setRowMenuUserId(null);
                                       void lockUser(u.id);
                                     }}
@@ -1753,14 +1753,14 @@ export default function AdminUsersClient() {
                                   role="menuitem"
                                   onClick={() => {
                                     setRowMenuUserId(null);
-                                    setModalError(null);
-                                    setPasswordValue("");
+                          setModalError(null);
+                          setPasswordValue("");
                                     setForcePwdAfterSet(false);
-                                    setPasswordUserId(u.id);
-                                  }}
-                                >
-                                  Set password
-                                </button>
+                          setPasswordUserId(u.id);
+                        }}
+                      >
+                        Set password
+                      </button>
                                 <button
                                   type="button"
                                   role="menuitem"
@@ -1770,7 +1770,7 @@ export default function AdminUsersClient() {
                                   }}
                                 >
                                   Revoke all sessions
-                                </button>
+                      </button>
                                 {u.deletedAt ? (
                                   <button
                                     type="button"
@@ -1811,13 +1811,13 @@ export default function AdminUsersClient() {
                               </div>
                             ) : null}
                           </div>
-                        </td>
-                      </tr>
+                    </td>
+                  </tr>
                     );
                   })}
-              </tbody>
-            </table>
-          </div>
+            </tbody>
+          </table>
+        </div>
 
           <div className={styles.paginationBar}>
             <button type="button" disabled={listPage <= 1} onClick={() => setListPage((p) => Math.max(1, p - 1))}>
@@ -1845,14 +1845,14 @@ export default function AdminUsersClient() {
           >
             <div className={styles.detailPanelInner}>
               <header className={styles.profileTopBar}>
-                <button
-                  type="button"
+          <button
+            type="button"
                   className={styles.profileBackBtn}
                   aria-label="Close profile"
                   onClick={() => setPanelUser(null)}
                 >
                   <IconProfileBack />
-                </button>
+          </button>
                 <h2 id="user-detail-title" className={styles.profileTopTitle}>
                   Profile
                 </h2>
@@ -1873,7 +1873,7 @@ export default function AdminUsersClient() {
                   ) : (
                     <span className={styles.profileAvatarFallback} aria-hidden>
                       {userInitials(panelUser.name)}
-                    </span>
+          </span>
                   )}
                 </div>
                 <h3 className={styles.profileName}>{panelUser.name}</h3>
@@ -1884,8 +1884,8 @@ export default function AdminUsersClient() {
                 </p>
                 {!panelUser.deletedAt ? (
                   <>
-                    <button
-                      type="button"
+          <button
+            type="button"
                       className={styles.profilePhotoBtn}
                       onClick={() => {
                         setPanelPhotoUrlDraft(panelUser.profilePictureUrl ?? "");
@@ -1917,8 +1917,8 @@ export default function AdminUsersClient() {
                   }}
                 >
                   Edit profile
-                </button>
-              </div>
+          </button>
+        </div>
 
               <div className={styles.profileFieldsCard}>
                 <div className={styles.profileField}>
@@ -2218,80 +2218,80 @@ export default function AdminUsersClient() {
               }}
             >
               <label>
-                <span>Full name</span>
+            <span>Full name</span>
                 <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={200} />
-              </label>
+          </label>
               <label>
-                <span>Email</span>
+            <span>Email</span>
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="off" />
-              </label>
+          </label>
               <label>
                 <span>Temporary password (min 10 characters)</span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
                   minLength={10}
-                  autoComplete="new-password"
-                />
-              </label>
+              autoComplete="new-password"
+            />
+          </label>
               <label>
-                <span>Role</span>
+            <span>Role</span>
                 <select value={roleName} onChange={(e) => setRoleName(e.target.value)}>
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.name}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {roles.map((r) => (
+                <option key={r.id} value={r.name}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </label>
               <label>
-                <span>Department</span>
+            <span>Department</span>
                 <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} required>
-                  {departments.length === 0 ? (
-                    <option value="">No departments</option>
-                  ) : (
-                    departments.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))
-                  )}
-                </select>
+              {departments.length === 0 ? (
+                <option value="">No departments</option>
+              ) : (
+                departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))
+              )}
+            </select>
                 <p className={styles.hint} style={{ marginTop: "0.35rem" }}>
                   Need a new one? <Link prefetch={false} href="/admin/departments">Departments</Link>
                 </p>
-              </label>
+          </label>
               <label>
                 <span>
                   Employee badge {roleName === RoleNameApi.EMPLOYEE ? "(required for EMPLOYEE)" : "(optional)"}
                 </span>
-                <input
-                  value={employeeBadgeNumber}
-                  onChange={(e) => setEmployeeBadgeNumber(e.target.value)}
+            <input
+              value={employeeBadgeNumber}
+              onChange={(e) => setEmployeeBadgeNumber(e.target.value)}
                   required={roleName === RoleNameApi.EMPLOYEE}
-                />
-              </label>
+            />
+          </label>
               <label>
-                <span>Job title (optional)</span>
+            <span>Job title (optional)</span>
                 <input value={position} onChange={(e) => setPosition(e.target.value)} />
-              </label>
-              {submitError ? (
-                <p role="alert" style={{ color: "var(--error)", margin: 0 }}>
-                  {submitError}
-                </p>
-              ) : null}
-              {success ? (
+          </label>
+          {submitError ? (
+            <p role="alert" style={{ color: "var(--error)", margin: 0 }}>
+              {submitError}
+            </p>
+          ) : null}
+          {success ? (
                 <p role="status" style={{ color: "var(--success)", margin: 0 }}>
-                  {success}
-                </p>
-              ) : null}
+              {success}
+            </p>
+          ) : null}
               <div className={styles.modalActions}>
                 <button type="submit" className={styles.btnPrimary} disabled={loading || departments.length === 0}>
                   {loading ? "Creating…" : "Create user"}
                 </button>
-                <button
+          <button
                   type="button"
                   className={styles.btnGhost}
                   onClick={() => {
@@ -2301,9 +2301,9 @@ export default function AdminUsersClient() {
                   }}
                 >
                   Cancel
-                </button>
+          </button>
               </div>
-            </form>
+        </form>
           </div>
         </div>
       ) : null}
@@ -2498,14 +2498,14 @@ export default function AdminUsersClient() {
             <div className={styles.formGrid}>
               <label>
                 <span>New password (min 10 characters)</span>
-                <input
-                  type="password"
-                  value={passwordValue}
-                  onChange={(e) => setPasswordValue(e.target.value)}
+              <input
+                type="password"
+                value={passwordValue}
+                onChange={(e) => setPasswordValue(e.target.value)}
                   minLength={10}
-                  autoComplete="new-password"
-                />
-              </label>
+                autoComplete="new-password"
+              />
+            </label>
               <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <input
                   type="checkbox"

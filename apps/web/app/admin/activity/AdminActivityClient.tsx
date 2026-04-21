@@ -286,7 +286,7 @@ export default function AdminActivityClient() {
   const loadEvents = useCallback(async () => {
     if (phase !== "ready") return;
     setListLoading(true);
-    setLoadError(null);
+      setLoadError(null);
     try {
       const params = buildListParams();
       const res = await fetchWithAuth(`${API}/admin/activity?${params.toString()}`);
@@ -376,7 +376,7 @@ export default function AdminActivityClient() {
       <main style={{ maxWidth: 560 }}>
         <h1>Activity</h1>
         <p style={{ color: "var(--muted)" }}>Sign in to continue.</p>
-        <Link href="/login">Sign in</Link>
+          <Link href="/login">Sign in</Link>
       </main>
     );
   }
@@ -549,15 +549,15 @@ export default function AdminActivityClient() {
                 </label>
               </div>
 
-              {loadError ? (
+      {loadError ? (
                 <p role="alert" style={{ color: "var(--error)", padding: "0 1.1rem" }}>
-                  {loadError}
-                </p>
-              ) : null}
+          {loadError}
+        </p>
+      ) : null}
 
               <div className={u.tableScroll}>
                 <table className={u.dataTable}>
-                  <thead>
+          <thead>
                     <tr>
                       <th scope="col">When</th>
                       <th scope="col">Event</th>
@@ -566,9 +566,9 @@ export default function AdminActivityClient() {
                       <th scope="col" className={styles.hideNarrow}>
                         Client
                       </th>
-                    </tr>
-                  </thead>
-                  <tbody>
+            </tr>
+          </thead>
+          <tbody>
                     {listLoading ? (
                       <tr>
                         <td colSpan={5} className={u.cellMuted} style={{ padding: "1.25rem" }}>
@@ -598,40 +598,40 @@ export default function AdminActivityClient() {
                           aria-label={`View details for ${eventTypeLabel(e.eventType)} at ${new Date(e.createdAt).toLocaleString()}`}
                         >
                           <td className={u.cellMuted} style={{ whiteSpace: "nowrap" }}>
-                            {new Date(e.createdAt).toLocaleString()}
-                          </td>
+                  {new Date(e.createdAt).toLocaleString()}
+                </td>
                           <td>
                             <span className={eventPillClass(e.eventType)}>{eventTypeLabel(e.eventType)}</span>
                           </td>
                           <td onClick={(ev) => ev.stopPropagation()}>{eventUserCell(e)}</td>
                           <td style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.8125rem" }}>
                             {formatIpDisplay(e.ipAddress)}
-                          </td>
+                </td>
                           <td className={`${u.cellMuted} ${styles.userAgentCell} ${styles.hideNarrow}`}>
                             {e.userAgent?.trim() ? e.userAgent : "—"}
-                          </td>
-                        </tr>
+                </td>
+              </tr>
                       ))
                     )}
-                  </tbody>
-                </table>
-              </div>
+          </tbody>
+        </table>
+      </div>
 
               <div className={u.paginationBar}>
                 <button type="button" disabled={page <= 1 || listLoading} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                  Previous
-                </button>
+          Previous
+        </button>
                 <span>
                   Page {page} of {totalPages} ({total} event{total === 1 ? "" : "s"})
-                </span>
-                <button
-                  type="button"
+        </span>
+        <button
+          type="button"
                   disabled={page >= totalPages || listLoading}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next
-                </button>
-              </div>
+          onClick={() => setPage((p) => p + 1)}
+        >
+          Next
+        </button>
+      </div>
             </div>
           </div>
         </div>

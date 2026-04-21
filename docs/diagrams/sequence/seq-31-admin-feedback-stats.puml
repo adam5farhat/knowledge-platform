@@ -1,0 +1,18 @@
+@startuml seq-31-admin-feedback-stats
+title GET /conversations/feedback/stats (ADMIN)
+
+actor Admin as A <<human>>
+participant Browser as B <<browser>>
+participant "Express /conversations" as API <<service>>
+database PostgreSQL as DB
+
+B -> API : GET /conversations/feedback/stats\nBearer
+API -> API : authenticate + requireRole(ADMIN)
+API -> DB : aggregate AnswerFeedback + weak areas logic
+API --> B : 200 stats JSON
+
+note right of API
+  Source: **apps/api/src/routes/conversations.ts** (~95+).
+end note
+
+@enduml

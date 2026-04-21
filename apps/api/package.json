@@ -14,7 +14,13 @@
     "db:seed": "npx tsx prisma/seed.ts",
     "lint": "npx eslint src --config eslint.config.mjs",
     "test": "npx vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "eval:rag": "npx tsx src/lib/ragEvaluation.ts --full",
+    "eval:rag:quick": "npx tsx src/lib/ragEvaluation.ts",
+    "eval:rag:baseline": "npx tsx src/lib/ragEvaluation.ts --full --write-baseline",
+    "reindex:doc": "npx tsx src/scripts/reindex.ts",
+    "reindex:all": "npx tsx src/scripts/reindex.ts --all",
+    "export:feedback": "npx tsx src/scripts/exportFeedback.ts"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

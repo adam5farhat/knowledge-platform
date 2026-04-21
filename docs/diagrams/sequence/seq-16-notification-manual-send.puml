@@ -1,0 +1,36 @@
+@startuml seq-16-notification-manual-send
+title POST /notifications/send — manual announcement (Admin / Manager)
+
+actor "AdminOrManager" as U <<human>>
+participant "Browser" as B <<browser>>
+participant "Express\n/notifications" as API <<service>>
+participant "requireRole\n(ADMIN|MANAGER)" as R <<service>>
+participant "saveUploadedFile" as FS <<service>>
+participant "createNotification" as CN <<service>>
+database "PostgreSQL" as DB
+
+B -> API: multipart: title, body?,\ntargetType, optional dept/role,\noptional attachment
+
+API -> R: role + manager rules\n(department-only for managers)
+alt Forbidden target
+  API --> B: 403
+else OK
+  opt attachment file
+    API -> FS: allocateStorageKey + save buffer
+  end
+  API -> CN: createNotification(MANUAL, actor, target, meta…)
+  CN -> DB: resolve + insert rows
+  alt notifId null (no recipients)
+    API -> FS: deleteFileIfExists(attachment)\n(best effort)
+    API --> B: 200 { notificationId: null, message }
+  else Created
+    API --> B: 201 { notificationId }
+  end
+end
+
+note right of API
+  Source: **apps/api/src/routes/notifications.ts** (~181+),
+  **notificationService.createNotification**.
+end note
+
+@enduml

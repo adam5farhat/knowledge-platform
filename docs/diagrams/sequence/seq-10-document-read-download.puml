@@ -1,0 +1,39 @@
+@startuml seq-10-document-read-download
+title GET /documents/:documentId/versions/:versionId/file
+
+actor "User" as U <<human>>
+participant "Browser" as B <<browser>>
+participant "Express\n/documents" as API <<service>>
+participant "authenticateToken +\nrequireDocLibraryAccess" as MW <<service>>
+database "PostgreSQL" as DB
+participant "documentAccess\n(canReadDocument)" as ACC <<service>>
+participant "Local filesystem" as FS <<service>>
+
+B -> API: GET .../versions/:versionId/file\nBearer + optional ?inline=
+
+API -> MW: authenticate + library access
+alt Unauthorized / library blocked
+  API --> B: 401 / 403
+else OK
+  API -> DB: documentVersion.findUnique\ninclude document
+  alt Wrong ids / not found
+    API --> B: 404
+  else Found
+    API -> ACC: canReadDocument(user, document)
+    alt Forbidden
+      API --> B: 403 Forbidden
+    else Allowed
+      API -> FS: createReadStream(absolutePathForKey)
+      API -> API: Set Content-Type,\nContent-Disposition inline/attachment
+      FS --> B: Stream bytes (pipe)
+    end
+  end
+end
+
+note right of API
+  Source: **apps/api/src/routes/documents.ts** (~1017+),
+  **documentAccess.ts** (**canReadDocument**).
+  Router applies **authenticateToken** +\n**requireDocLibraryAccess** for routes\nregistered after **documentsRouter.use**.\nThis route is under that middleware.
+end note
+
+@enduml

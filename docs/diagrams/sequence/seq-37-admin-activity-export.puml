@@ -1,0 +1,21 @@
+@startuml seq-37-admin-activity-export
+title GET /admin/activity + GET /admin/activity/export
+
+actor Admin as A <<human>>
+participant Browser as B <<browser>>
+participant "Express /admin" as API <<service>>
+database PostgreSQL as DB
+
+B -> API : GET /admin/activity?page…
+API -> DB : query AuthEvent rows
+API --> B : 200 JSON
+
+B -> API : GET /admin/activity/export\n(CSV)
+API -> DB : same + CSV escape
+API --> B : text/csv stream
+
+note right of API
+  Source: **apps/api/src/routes/admin.ts** (~1976, ~1938).
+end note
+
+@enduml

@@ -92,6 +92,52 @@ export const config = {
   chunkMaxChars: Math.max(500, optionalInt("CHUNK_MAX_CHARS", 5000)),
   chunkOverlapChars: Math.max(0, optionalInt("CHUNK_OVERLAP_CHARS", 400)),
 
+  /**
+   * RAG retrieval / reranking knobs. Tune via the eval harness
+   * (`npm run eval:rag`) and the resulting JSON reports.
+   */
+  rag: {
+    /** Hits fetched per source before fusion. */
+    fuseDepth: Math.max(6, optionalInt("RAG_FUSE_DEPTH", 30)),
+    /** Top-N after RRF that get sent to the LLM reranker. */
+    rerankDepth: Math.max(3, optionalInt("RAG_RERANK_DEPTH", 20)),
+    /** Top-N kept after rerank for generation. */
+    contextChunks: Math.max(1, optionalInt("RAG_CONTEXT_CHUNKS", 6)),
+    /** Per-passage character cap shown to the reranker LLM. */
+    rerankPassageChars: Math.max(500, optionalInt("RAG_RERANK_PASSAGE_CHARS", 3000)),
+    /** Weights for reciprocal rank fusion. */
+    rrfDenseWeight: optionalInt("RRF_DENSE_WEIGHT", 100) / 100,
+    rrfSparseWeight: optionalInt("RRF_SPARSE_WEIGHT", 100) / 100,
+    /** k constant in RRF formula. */
+    rrfK: Math.max(1, optionalInt("RRF_K", 60)),
+    /** Use HyDE (hypothetical document embedding) for vector search. */
+    useHyde: optionalBool("RAG_USE_HYDE", false),
+    /** Use one critique+correction round even if first answer looks fine. */
+    iterativeCritique: optionalBool("RAG_ITERATIVE_CRITIQUE", true),
+    /** Cap on critique rounds. */
+    maxCritiqueRounds: Math.max(1, optionalInt("RAG_MAX_CRITIQUE_ROUNDS", 2)),
+    /** Final-answer cache TTL (seconds). 0 disables. */
+    answerCacheTtlSeconds: Math.max(0, optionalInt("RAG_ANSWER_CACHE_TTL", 3600)),
+    /** Soft penalty applied to a chunk that hits any mustExclude term (instead of hard drop). */
+    mustExcludePenalty: Math.max(0, optionalInt("RAG_MUST_EXCLUDE_PENALTY", 30)) / 100,
+    /** Bump prompt version to force the answer cache to invalidate. */
+    promptVersion: optional("RAG_PROMPT_VERSION", "v3"),
+    /**
+     * Embed every sentence of an oversize chunk and re-split at semantic
+     * boundaries. Default OFF — costs 1 embedding per sentence per oversize
+     * chunk per ingest. Worth it for high-stakes corpora; usually overkill.
+     */
+    semanticChunking: optionalBool("RAG_SEMANTIC_CHUNK", false),
+    /**
+     * After rerank, also pull the chunk immediately before and after each
+     * top-N hit in the same document. Cheap "small-to-big" approximation —
+     * keeps precise vector matching but gives the generator a wider context
+     * window. Default ON because it almost always helps and costs ~1 extra
+     * SQL query per ask.
+     */
+    neighborExpansion: optionalBool("RAG_NEIGHBOR_EXPANSION", true),
+  },
+
   avatarPublicApiUrl: (process.env.PUBLIC_API_URL ?? "").replace(/\/$/, ""),
 
   supportContactMessage: optional(

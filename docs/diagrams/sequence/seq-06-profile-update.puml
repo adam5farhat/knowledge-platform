@@ -1,0 +1,33 @@
+@startuml seq-06-profile-update
+title PATCH /auth/profile
+
+actor "User" as U <<human>>
+participant "Browser" as B <<browser>>
+participant "Express\n+ authenticateToken" as API <<service>>
+database "PostgreSQL" as DB
+
+B -> API: PATCH /auth/profile\nBearer + JSON body (optional fields)
+
+API -> API: Zod patchProfileBody
+alt No fields / invalid avatar URL rule
+  API --> B: 400
+else OK
+  API -> DB: prisma.user.update\n(merge fields; if email changed:\n authVersion++)
+  alt Unique constraint (email / badge)
+    API --> B: 409 conflict
+  else Success
+    opt emailChanged
+      API -> DB: revoke all refresh sessions
+      API -> API: issueSessionTokens + setRefreshCookie
+    end
+    API -> API: mapUserResponse + manager fields
+    API --> B: 200 { user, token? }
+  end
+end
+
+note right of API
+  Source: **apps/api/src/routes/auth.ts** (~546+),
+  **isAllowedProfilePictureUrlForUser**.
+end note
+
+@enduml

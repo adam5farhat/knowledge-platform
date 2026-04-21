@@ -1,0 +1,19 @@
+@startuml seq-39-admin-documents-csv-export
+title GET /documents/export (ADMIN CSV)
+
+actor Admin as A <<human>>
+participant Browser as B <<browser>>
+participant "Express /documents" as API <<service>>
+participant listDocuments as L <<service>>
+
+B -> API : GET /documents/export?…\nBearer
+API -> API : requireRole(ADMIN)
+API -> L : listDocuments wide pageSize
+API -> API : build CSV lines + formula escape
+API --> B : text/csv attachment
+
+note right of API
+  Source: **apps/api/src/routes/documents.ts** (~285+).
+end note
+
+@enduml

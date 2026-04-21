@@ -1,0 +1,20 @@
+@startuml seq-29-document-reprocess
+title POST .../versions/:versionId/reprocess
+
+actor User as U <<human>>
+participant Browser as B <<browser>>
+participant "Express /documents" as API <<service>>
+queue BullMQ as Q <<queue>>
+database PostgreSQL as DB
+
+B -> API : POST .../reprocess
+API -> DB : delete chunks; version status PENDING
+API -> Q : enqueueDocumentIngest
+API -> DB : audit REPROCESS_REQUESTED
+API --> B : 200 { ok: true }
+
+note right of API
+  Source: **apps/api/src/routes/documents.ts** (~876+).
+end note
+
+@enduml

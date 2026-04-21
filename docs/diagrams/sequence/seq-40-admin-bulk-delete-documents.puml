@@ -1,0 +1,20 @@
+@startuml seq-40-admin-bulk-delete-documents
+title POST /documents/bulk-delete
+
+actor Admin as A <<human>>
+participant Browser as B <<browser>>
+participant "Express /documents" as API <<service>>
+database PostgreSQL as DB
+participant Storage as FS <<service>>
+
+B -> API : POST /documents/bulk-delete { ids }
+API -> API : ADMIN + manage capability
+API -> DB : transaction delete docs + audit
+API -> FS : delete files per version
+API --> B : 200 { deleted: n }
+
+note right of API
+  Source: **apps/api/src/routes/documents.ts** (~373+).
+end note
+
+@enduml

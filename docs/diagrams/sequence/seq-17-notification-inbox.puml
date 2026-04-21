@@ -1,0 +1,41 @@
+@startuml seq-17-notification-inbox
+title Notification inbox — list, unread, read, delete, attachment
+
+actor "User" as U <<human>>
+participant "Browser" as B <<browser>>
+participant "Express\n/notifications" as API <<service>>
+database "PostgreSQL" as DB
+participant "Storage" as FS <<service>>
+
+note over API: All routes use **authenticateToken**\n(router.use)
+
+B -> API: GET /notifications?page&limit
+API -> DB: userNotification.findMany + counts
+API --> B: 200 { items, total, unreadCount, … }
+
+B -> API: GET /notifications/unread-count
+API -> DB: count where read=false
+API --> B: 200 { unreadCount }
+
+B -> API: PATCH /notifications/:id/read
+API -> DB: update read=true
+API --> B: 200 { ok: true }
+
+B -> API: PATCH /notifications/read-all
+API -> DB: updateMany
+API --> B: 200 { ok: true }
+
+B -> API: GET /notifications/:notificationId/attachment
+API -> DB: find userNotification\nfor user + notification
+API -> FS: stream file from attachmentKey
+FS --> B: file bytes
+
+B -> API: DELETE /notifications/:id
+API -> DB: userNotification.delete
+API --> B: 200 { ok: true }
+
+note right of API
+  Source: **apps/api/src/routes/notifications.ts**.
+end note
+
+@enduml

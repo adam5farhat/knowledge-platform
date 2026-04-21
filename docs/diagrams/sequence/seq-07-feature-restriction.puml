@@ -1,0 +1,31 @@
+@startuml seq-07-feature-restriction
+title Feature gates — document library or AI
+
+actor "User" as U <<human>>
+participant "Browser" as B <<browser>>
+participant "Express" as E <<service>>
+participant "authenticateToken" as AUTH <<service>>
+participant "requireDocLibraryAccess\nor requireUseAiQueries" as R <<service>>
+
+B -> E: Request (e.g. GET /documents or POST /search/ask)\nBearer token
+
+E -> AUTH: JWT verify + load User from DB\n(attach req.authUser)
+alt No / invalid token
+  AUTH --> B: 401
+else Authenticated
+  AUTH -> R: next()
+  alt accessDocumentsAllowed == false\n(requireDocLibraryAccess)
+    R --> B: 403 JSON\n{ code: FEATURE_RESTRICTED,\n feature: "accessDocuments", … }
+  else useAiQueriesAllowed == false\n(requireUseAiQueries)
+    R --> B: 403 JSON\nfeature: "useAiQueries"
+  else Allowed (for this middleware)
+    R -> E: next() → route handler
+  end
+end
+
+note right of R
+  Source: **apps/api/src/middleware/restrictions.ts**,
+  **jsonFeatureRestricted** in **userRestrictions.ts**.
+end note
+
+@enduml

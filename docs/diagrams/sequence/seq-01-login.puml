@@ -1,0 +1,57 @@
+@startuml seq-01-login
+title POST /auth/login — sign in
+
+actor "User" as U <<human>>
+participant "Browser\n(Next.js)" as B <<browser>>
+participant "Express\n/auth" as API <<service>>
+participant "express-rate-limit\n(IP + email)" as RL <<service>>
+database "PostgreSQL\n(Prisma)" as DB
+
+U -> B: Enter email + password
+B -> API: POST /auth/login { email, password }\n(+ cookies)
+
+API -> RL: loginIp + loginEmail limiters
+alt Rate limited
+  RL --> API: 429 Too many attempts
+  API --> B: 429 JSON
+  B --> U: Show error
+else Allowed
+  API -> API: Zod validate loginBody
+  alt Invalid body
+    API --> B: 400 validation
+  else Valid
+    API -> DB: findUnique user by email\n(include role, department)
+    alt No user / inactive / soft-deleted
+      API -> API: verifyPassword(dummy hash)\n(timing mitigation)
+      API -> DB: logAuthEvent(LOGIN_FAILURE)
+      API --> B: 401 Invalid email or password
+    else Account locked (loginLockedUntil)
+      API -> DB: logAuthEvent(LOGIN_LOCKED)
+      API --> B: 423 Locked
+    else Wrong password
+      API -> API: verifyPassword (false)
+      API -> DB: increment failedLoginAttempts;\nmaybe set loginLockedUntil
+      API -> DB: logAuthEvent(FAILURE or LOCKED)
+      API --> B: 401 Invalid email or password
+    else loginAllowed == false
+      API -> DB: logAuthEvent(LOGIN_FAILURE, login_disabled)
+      API --> B: 403 ACCOUNT_RESTRICTED
+    else Success
+      API -> DB: clear failed attempts / lock\nupdate lastLoginAt
+      API -> API: issueSessionTokens(...)\n(access JWT + refresh raw,\nsession cap 10, see refreshToken lib)
+      API -> DB: logAuthEvent(LOGIN_SUCCESS)
+      API -> API: buildManagerDashboardUserFields
+      API -> API: setRefreshCookie(res, refresh)\nHttpOnly cookie **kp_rt**
+      API --> B: 200 { user, token }\n(Set-Cookie: kp_rt)
+      B --> U: Signed in (access token in memory)
+    end
+  end
+end
+
+note right of API
+  Source: **apps/api/src/routes/auth.ts**
+  (login route ~193+), **issueSessionTokens**,
+  **setRefreshCookie** (kp_rt).
+end note
+
+@enduml

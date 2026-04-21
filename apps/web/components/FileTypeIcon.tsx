@@ -3,7 +3,7 @@
 import { type ReactNode } from "react";
 import css from "./FileTypeIcon.module.css";
 
-type FileIconKind = "pdf" | "csv" | "word" | "slides" | "doc" | "xls" | "ppt" | "other";
+﻿type FileIconKind = "pdf" | "csv" | "word" | "slides" | "doc" | "xls" | "ppt" | "other";
 
 /** Original full-bleed PDF artwork (user SVG). */
 function IconPdfDocument({ className }: { className?: string }) {

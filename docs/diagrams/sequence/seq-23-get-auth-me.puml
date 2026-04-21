@@ -1,0 +1,25 @@
+@startuml seq-23-get-auth-me
+title GET /auth/me
+
+actor User as U <<human>>
+participant Browser as B <<browser>>
+participant "Express /auth" as API <<service>>
+participant authenticateToken as AUTH <<service>>
+database PostgreSQL as DB
+
+U -> B : open app / refresh user
+B -> API : GET /auth/me\nBearer
+API -> AUTH : verify JWT, load user + dept sets
+alt invalid
+  AUTH --> B : 401
+else ok
+  AUTH -> DB : user.findUnique include role, department
+  API -> API : mapUserResponse + manager fields
+  API --> B : 200 { user }
+end
+
+note right of API
+  Source: **apps/api/src/routes/auth.ts** (~517+).
+end note
+
+@enduml

@@ -1,0 +1,44 @@
+@startuml seq-09-document-ingest-worker
+title BullMQ worker — document ingest pipeline
+
+queue "Redis / BullMQ" as Q <<queue>>
+participant "Worker\nprocessIngest" as W <<service>>
+database "PostgreSQL" as DB
+participant "Local storage" as FS <<service>>
+participant "Gemini\nembeddings" as G <<external>>
+
+Q -> W: Job { documentVersionId }
+
+W -> DB: documentVersion.findUnique\n(+ document)
+W -> DB: setVersionStatus(PROCESSING)
+
+alt Version missing
+  W -> W: log warn; return
+else Continue
+  W -> FS: readFileBuffer(storageKey)
+  W -> W: resolveMimeType + extractPlainText
+  W -> W: chunkText → chunks[]
+  alt No chunks
+    W -> DB: setVersionStatus(FAILED, "No extractable text")
+  else Has chunks
+    loop batches of 100
+      W -> G: embedTexts(batch)
+      G --> W: vectors[][]
+    end
+    W -> DB: $transaction:\n delete old chunks for version\n INSERT chunks (raw SQL vector)
+    W -> DB: delete chunks for older versions (cleanup)
+    W -> DB: setVersionStatus(READY, progress 100)
+  end
+end
+
+opt Exception in try
+  W -> DB: setVersionStatus(FAILED, error message)
+  W -> Q: job fails (retries per Bull config)
+end
+
+note right of W
+  Source: **apps/api/src/jobs/documentIngest.ts**
+  (concurrency 2, **DOCUMENT_INGEST_QUEUE**).
+end note
+
+@enduml

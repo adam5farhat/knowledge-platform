@@ -1,0 +1,21 @@
+@startuml seq-41-admin-user-patch-lock
+title PATCH /admin/users/:id + POST lock
+
+actor Admin as A <<human>>
+participant Browser as B <<browser>>
+participant "Express /admin" as API <<service>>
+database PostgreSQL as DB
+
+B -> API : PATCH /admin/users/:id\n(fields…)
+API -> DB : validate + user.update\n(may bump authVersion)
+API --> B : 200 user
+
+B -> API : POST /admin/users/:id/lock
+API -> DB : loginLockedUntil / flags
+API --> B : 200
+
+note right of API
+  Source: **apps/api/src/routes/admin.ts** (~645 patch, ~1160 lock).
+end note
+
+@enduml

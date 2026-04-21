@@ -1,0 +1,383 @@
+@startuml global-class-knowledge-platform
+title Global domain class diagram — Knowledge Platform (Prisma / PostgreSQL)
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+' --- Enums (referenced by packages below; PlantUML resolves by name) ---
+
+enum RoleName {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum DepartmentAccessLevel {
+  MEMBER
+  MANAGER
+  VIEWER
+}
+
+enum AuthEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGIN_LOCKED
+  REFRESH_SUCCESS
+  REFRESH_FAILURE
+  LOGOUT
+  LOGOUT_ALL
+  PASSWORD_CHANGE
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+}
+
+enum DocumentVisibility {
+  ALL
+  DEPARTMENT
+  PRIVATE
+}
+
+enum DocumentProcessingStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum DocumentAuditAction {
+  CREATED
+  VERSION_UPLOADED
+  UPDATED
+  DELETED
+  FAVORITED
+  UNFAVORITED
+  ARCHIVED
+  UNARCHIVED
+  VIEWED
+  REPROCESS_REQUESTED
+  BULK_DELETED
+}
+
+enum NotificationType {
+  DOCUMENT_CREATED
+  DOCUMENT_DELETED
+  DOCUMENT_UPDATED
+  MANAGER_ASSIGNED
+  MANAGER_REMOVED
+  MEMBER_ADDED
+  MANUAL
+}
+
+enum NotificationTarget {
+  ALL_USERS
+  DEPARTMENT
+  ROLE
+}
+
+package IdentityAndAccess {
+  class Role <<entity>> {
+    +id : UUID
+    +name : RoleName <<unique>>
+    +description : string?
+  }
+
+  class Department <<entity>> {
+    +id : UUID
+    +name : string <<unique>>
+    +parentDepartmentId : UUID?
+    +createdAt : DateTime
+    +updatedAt : DateTime
+    ..
+    {Self-relation: optional parent,}
+    {0..* children in same table}
+  }
+
+  class User <<entity>> {
+    +id : UUID
+    +employeeBadgeNumber : string? <<unique>>
+    +name : string
+    +email : string <<unique>>
+    +passwordHash : string
+    +phoneNumber : string?
+    +position : string?
+    +profilePictureUrl : string?
+    +roleId : UUID <<FK>>
+    +departmentId : UUID <<FK primary dept>>
+    +isActive : boolean
+    +loginAllowed : boolean
+    +accessDocumentsAllowed : boolean
+    +manageDocumentsAllowed : boolean
+    +accessDashboardAllowed : boolean
+    +useAiQueriesAllowed : boolean
+    +authVersion : int
+    +failedLoginAttempts : int
+    +loginLockedUntil : DateTime?
+    +lastLoginAt : DateTime?
+    +mustChangePassword : boolean
+    +deletedAt : DateTime?
+    +createdAt : DateTime
+    +updatedAt : DateTime
+  }
+
+  class UserDepartmentAccess <<entity>> {
+    +id : UUID
+    +userId : UUID <<FK>>
+    +departmentId : UUID <<FK>>
+    +accessLevel : DepartmentAccessLevel
+    +createdAt : DateTime
+    ..
+    {Unique (userId, departmentId)}
+  }
+}
+
+package Authentication {
+  class PasswordResetToken <<entity>> {
+    +id : UUID
+    +userId : UUID <<FK>>
+    +tokenHash : string <<unique>>
+    +expiresAt : DateTime
+    +createdAt : DateTime
+  }
+
+  class RefreshSession <<entity>> {
+    +id : UUID
+    +userId : UUID <<FK>>
+    +tokenHash : string <<unique>>
+    +authVersion : int
+    +expiresAt : DateTime
+    +revokedAt : DateTime?
+    +replacedById : string?
+    +userAgent : string?
+    +ipAddress : string?
+    +lastUsedAt : DateTime?
+    +createdAt : DateTime
+  }
+
+  class AuthEvent <<entity>> {
+    +id : UUID
+    +userId : UUID? <<FK optional>>
+    +eventType : AuthEventType
+    +ipAddress : string?
+    +userAgent : string?
+    +metadata : Json?
+    +createdAt : DateTime
+  }
+}
+
+package DocumentLibrary {
+  class Document <<entity>> {
+    +id : UUID
+    +title : string
+    +description : string?
+    +createdById : UUID <<FK>>
+    +departmentId : UUID? <<FK optional>>
+    +visibility : DocumentVisibility
+    +isArchived : boolean
+    +createdAt : DateTime
+    +updatedAt : DateTime
+  }
+
+  class DocumentVersion <<entity>> {
+    +id : UUID
+    +documentId : UUID <<FK>>
+    +versionNumber : int
+    +fileName : string
+    +mimeType : string
+    +storageKey : string <<unique>>
+    +sizeBytes : int
+    +sha256 : string
+    +processingStatus : DocumentProcessingStatus
+    +processingProgress : int
+    +processingError : string?
+    +createdById : UUID <<FK>>
+    +createdAt : DateTime
+    ..
+    {Unique (documentId, versionNumber)}
+  }
+
+  class DocumentChunk <<entity>> {
+    +id : UUID
+    +documentVersionId : UUID <<FK>>
+    +chunkIndex : int
+    +content : string
+    +sectionTitle : string?
+    +embedding : vector(768)
+    +searchVector : tsvector?
+    ..
+    {Unique (documentVersionId, chunkIndex)}
+    {Prisma: Unsupported types;}
+    {PostgreSQL pgvector + FTS}
+  }
+
+  class DocumentTag <<entity>> {
+    +id : UUID
+    +name : string <<unique>>
+    +createdAt : DateTime
+  }
+
+  class DocumentUserFavorite <<entity>> {
+    +userId : UUID <<PK/FK>>
+    +documentId : UUID <<PK/FK>>
+    +createdAt : DateTime
+  }
+
+  class DocumentUserRecent <<entity>> {
+    +userId : UUID <<PK/FK>>
+    +documentId : UUID <<PK/FK>>
+    +lastViewedAt : DateTime
+  }
+
+  class DocumentAuditLog <<entity>> {
+    +id : UUID
+    +documentId : UUID? <<FK optional>>
+    +userId : UUID? <<FK optional>>
+    +action : DocumentAuditAction
+    +metadata : Json?
+    +createdAt : DateTime
+  }
+}
+
+package AiConversations {
+  class Conversation <<entity>> {
+    +id : UUID
+    +userId : UUID <<FK>>
+    +title : string
+    +createdAt : DateTime
+    +updatedAt : DateTime
+  }
+
+  class ConversationMessage <<entity>> {
+    +id : UUID
+    +conversationId : UUID <<FK>>
+    +role : string
+    +content : string
+    +sources : Json?
+    +confidence : string?
+    +createdAt : DateTime
+  }
+
+  class AnswerFeedback <<entity>> {
+    +id : UUID
+    +messageId : UUID <<FK unique>>
+    +userId : UUID <<FK>>
+    +rating : string
+    +comment : string?
+    +createdAt : DateTime
+  }
+}
+
+package Notifications {
+  class Notification <<entity>> {
+    +id : UUID
+    +type : NotificationType
+    +title : string
+    +body : string?
+    +actorId : UUID? <<FK optional>>
+    +documentId : UUID? <<FK optional>>
+    +departmentId : UUID? <<FK optional>>
+    +targetType : NotificationTarget?
+    +targetDepartmentId : UUID?
+    +targetRoleName : string?
+    +attachmentKey : string?
+    +attachmentName : string?
+    +attachmentMimeType : string?
+    +attachmentSize : int?
+    +createdAt : DateTime
+  }
+
+  class UserNotification <<entity>> {
+    +id : UUID
+    +userId : UUID <<FK>>
+    +notificationId : UUID <<FK>>
+    +read : boolean
+    +readAt : DateTime?
+    +createdAt : DateTime
+    ..
+    {Unique (userId, notificationId)}
+  }
+}
+
+' --- Enum usage (dependency arrows) ---
+Role ..> RoleName
+UserDepartmentAccess ..> DepartmentAccessLevel
+AuthEvent ..> AuthEventType
+Document ..> DocumentVisibility
+DocumentVersion ..> DocumentProcessingStatus
+DocumentAuditLog ..> DocumentAuditAction
+Notification ..> NotificationType
+Notification ..> NotificationTarget
+
+' --- Identity & access ---
+Role "1" <-- "0..*" User : roleId\n«onDelete Restrict»
+
+Department "1" <-- "0..*" User : primary\ndepartmentId\n«onDelete Restrict»
+
+User "1" o-- "0..*" UserDepartmentAccess : «Cascade»
+Department "1" o-- "0..*" UserDepartmentAccess : extra access\n«Cascade»
+
+' --- Authentication (to User) ---
+User "1" *-- "0..*" PasswordResetToken : «Cascade»
+User "1" *-- "0..*" RefreshSession : «Cascade»
+User "0..1" <-- "0..*" AuthEvent : «SetNull»
+
+' --- Document library ---
+User "1" <-- "0..*" Document : createdBy\n«Restrict»
+
+Department "0..1" <-- "0..*" Document : «SetNull»
+
+Document "1" *-- "0..*" DocumentVersion : «Cascade»
+
+DocumentVersion "1" *-- "0..*" DocumentChunk : «Cascade»
+
+User "1" <-- "0..*" DocumentVersion : createdBy\n«Restrict»
+
+Document }o--o{ DocumentTag : implicit M:N\n(Prisma join)
+
+User "1" *-- "0..*" DocumentUserFavorite : «Cascade»
+Document "1" *-- "0..*" DocumentUserFavorite : «Cascade»
+
+User "1" *-- "0..*" DocumentUserRecent : «Cascade»
+Document "1" *-- "0..*" DocumentUserRecent : «Cascade»
+
+Document "0..1" <-- "0..*" DocumentAuditLog : «SetNull»
+User "0..1" <-- "0..*" DocumentAuditLog : «SetNull»
+
+' --- AI ---
+User "1" *-- "0..*" Conversation : «Cascade»
+
+Conversation "1" *-- "0..*" ConversationMessage : «Cascade»
+
+ConversationMessage "1" o-- "0..1" AnswerFeedback : messageId\n«unique 1:0..1»
+User "1" *-- "0..*" AnswerFeedback : «Cascade»
+
+' --- Notifications ---
+User "0..1" <-- "0..*" Notification : actor\n«SetNull»
+
+Document "0..1" <-- "0..*" Notification : «SetNull»
+
+Department "0..1" <-- "0..*" Notification : «SetNull»
+
+Notification "1" *-- "0..*" UserNotification : fan-out\n«Cascade»
+
+User "1" *-- "0..*" UserNotification : «Cascade»
+
+note as N1
+  **Legend — multiplicities**
+  * **0..1** optional FK (nullable in Prisma)
+  * **1** required FK
+  * **\*** zero or more (collection)
+  * **0..*** zero or more child rows (DB may not enforce a minimum count)
+  * **«Cascade» / «Restrict» / «SetNull»** mirror Prisma `onDelete`
+end note
+
+note bottom of DocumentChunk
+  **PostgreSQL types**
+  `embedding` and `searchVector` are modeled in Prisma as `Unsupported(...)`;
+  the database stores **vector(768)** and **tsvector** for hybrid RAG retrieval.
+end note
+
+note bottom of DocumentTag
+  **Many-to-many**
+  Prisma implicit **Document ↔ DocumentTag**; no explicit join table class in schema.
+end note
+
+@enduml

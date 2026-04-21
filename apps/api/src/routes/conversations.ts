@@ -209,6 +209,9 @@ const addMessageBody = z.object({
   content: z.string().min(1).max(50000),
   sources: z.array(sourceSchema).max(30).optional(),
   confidence: z.enum(["high", "medium", "low", "none"]).optional(),
+  /** Topic from queryOptimizer; persisted on the parent conversation so
+   *  feedback memory can match downvotes by topic. */
+  topic: z.string().min(1).max(80).optional(),
 });
 
 conversationsRouter.post("/:id/messages", authenticateToken, asyncHandler(async (req, res) => {
@@ -240,7 +243,10 @@ conversationsRouter.post("/:id/messages", authenticateToken, asyncHandler(async 
 
   await prisma.conversation.update({
     where: { id: conversation.id },
-    data: { updatedAt: new Date() },
+    data: {
+      updatedAt: new Date(),
+      ...(body.topic ? { topic: body.topic } : {}),
+    },
   });
 
   res.status(201).json({ message });

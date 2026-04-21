@@ -1,0 +1,21 @@
+@startuml seq-35-dept-access-single-post-delete
+title POST + DELETE single UserDepartmentAccess
+
+actor Admin as A <<human>>
+participant Browser as B <<browser>>
+participant "Express /admin" as API <<service>>
+database PostgreSQL as DB
+
+B -> API : POST /admin/users/:uid/department-access\n{ departmentId, accessLevel }
+API -> DB : upsert + bumpAuth + optional notify
+API --> B : 200 row
+
+B -> API : DELETE .../department-access/:deptId
+API -> DB : delete + bumpAuth + optional notify
+API --> B : 200 ok
+
+note right of API
+  Source: **apps/api/src/routes/admin.ts** (~2052–2137).
+end note
+
+@enduml

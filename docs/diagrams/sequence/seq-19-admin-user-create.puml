@@ -1,0 +1,32 @@
+@startuml seq-19-admin-user-create
+title POST /admin/users — create user (admin)
+
+actor "Administrator" as A <<human>>
+participant "Browser" as B <<browser>>
+participant "Express\n/admin" as API <<service>>
+participant "authenticateToken +\nrequireRole(ADMIN)" as MW <<service>>
+database "PostgreSQL" as DB
+
+B -> API: POST /admin/users\n{ email, password, name, role, departmentId, … }
+
+API -> MW: authorize
+API -> API: Zod createUserBody;\nvalidate EMPLOYEE needs badge
+API -> DB: findUnique email — conflict?
+API -> DB: department + role lookups
+alt Validation / conflict
+  API --> B: 400 / 409
+else OK
+  API -> API: hashPassword
+  API -> DB: $transaction:\n user.create\n userDepartmentAccess.create\n(MANAGER→MANAGER level else MEMBER)
+  alt Prisma P2002 unique
+    API --> B: 409 badge/email
+  else Success
+    API --> B: 201 { user }
+  end
+end
+
+note right of API
+  Source: **apps/api/src/routes/admin.ts** (~569+).
+end note
+
+@enduml
