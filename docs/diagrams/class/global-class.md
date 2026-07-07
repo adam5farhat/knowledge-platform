@@ -65,3 +65,4 @@ Multiplicities follow UML-style reading of associations. Stereotypes **`«Cascad
 ## Related UML artifacts
 
 - Global use cases: [global-use-case.md](../use-case/global-use-case.md) and [global-use-case-diagram.puml](../use-case/global-use-case-diagram.puml).
+- **Sprint-scoped class diagrams** (Chapter 3): `sprint-{1..5}-class-knowledge-platform.puml` — subset of this model per sprint increment (S5 covers operations components rather than new Prisma entities).

@@ -1,0 +1,67 @@
+@startuml sprint-4-use-case-knowledge-platform
+!theme plain
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam dpi 180
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+skinparam actorFontSize 10
+skinparam usecaseFontSize 9
+skinparam nodesep 12
+skinparam ranksep 14
+skinparam packageStyle rectangle
+skinparam rectangle {
+  BackgroundColor #FAFAFA
+  BorderColor #333333
+}
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+}
+skinparam actor {
+  BorderColor #333333
+}
+
+left to right direction
+title Sprint 4 use-case diagram — Governance and notifications
+
+actor "Authenticated user" as A_Auth <<abstract>>
+actor Employee <<human>> as A_Emp
+actor Manager <<human>> as A_Mgr
+actor Administrator <<human>> as A_Admin
+actor "System (events)" <<secondary>> as A_Sys
+
+A_Emp -up-|> A_Auth
+A_Mgr -up-|> A_Auth
+A_Admin -up-|> A_Auth
+A_Emp -[hidden]down-> A_Mgr
+A_Mgr -[hidden]down-> A_Admin
+
+rectangle "Sprint 4 — Governance and notifications" as SYS {
+  package "Notifications" as P_Noti {
+    usecase "Browse notifications" as UC_Inbox
+    usecase "Send manual notification" as UC_Manual
+    usecase "Emit automatic notification" as UC_Auto
+  }
+  package "Governance" as P_Gov {
+    usecase "Manager dashboard" as UC_MgrDash
+    usecase "Manage users" as UC_Users
+    usecase "Manage departments" as UC_Depts
+    usecase "Manage department access" as UC_Access
+    usecase "Stats, audit and exports" as UC_Stats
+  }
+}
+
+A_Auth --> UC_Inbox
+A_Auth --> UC_MgrDash
+A_Mgr --> UC_Manual
+A_Admin --> UC_Manual
+A_Admin --> UC_Users
+A_Admin --> UC_Depts
+A_Admin --> UC_Access
+A_Admin --> UC_Stats
+
+A_Sys --> UC_Auto
+UC_Manual .> UC_Inbox : <<extend>>
+
+@enduml

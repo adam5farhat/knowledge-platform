@@ -50,6 +50,8 @@ Users may have **`UserDepartmentAccess`** with `DepartmentAccessLevel.MANAGER` (
 
 ## 4. Global use cases (verb–noun)
 
+The rendered diagram ([global-use-case-diagram.puml](global-use-case-diagram.puml)) uses a **compact four-domain layout** (Identity & access, Knowledge services, Collaboration, Governance) optimised for A4 report pages. **Sprint-scoped** variants for detailed design are in `sprint-1-auth-use-case-diagram.puml` through `sprint-5-operations-use-case-diagram.puml` (Chapter 3, Section sprint design). Detailed use-case IDs below remain the authoritative inventory.
+
 Legend: **A** = Administrator only · **M** = platform Manager · **E** = Employee · **G** = Guest · **Auth** = any authenticated user · **R(x)** = precondition: user restriction / middleware (`accessDocumentsAllowed`, `useAiQueriesAllowed`, `accessDashboardAllowed`, `loginAllowed`, etc.) · **DM** = department-level manage access (may apply without platform Manager role)
 
 ### Authentication and account

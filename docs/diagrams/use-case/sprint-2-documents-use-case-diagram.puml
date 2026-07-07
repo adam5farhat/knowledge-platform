@@ -1,0 +1,69 @@
+@startuml sprint-2-use-case-knowledge-platform
+!theme plain
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam dpi 180
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+skinparam actorFontSize 10
+skinparam usecaseFontSize 9
+skinparam nodesep 14
+skinparam ranksep 16
+skinparam packageStyle rectangle
+skinparam rectangle {
+  BackgroundColor #FAFAFA
+  BorderColor #333333
+}
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+}
+skinparam actor {
+  BorderColor #333333
+}
+
+left to right direction
+title Sprint 2 use-case diagram — Document library and ingest
+
+actor "Authenticated user" as A_Auth <<abstract>>
+actor Employee <<human>> as A_Emp
+actor Manager <<human>> as A_Mgr
+actor Administrator <<human>> as A_Admin
+
+A_Emp -up-|> A_Auth
+A_Mgr -up-|> A_Auth
+A_Admin -up-|> A_Auth
+A_Emp -[hidden]down-> A_Mgr
+A_Mgr -[hidden]down-> A_Admin
+
+actor "Document processing\n(BullMQ worker)" <<secondary>> as A_Worker
+
+rectangle "Sprint 2 — Document library and ingest" as SYS {
+  usecase "Browse and filter documents" as UC_Browse
+  usecase "View / download document" as UC_Read
+  usecase "Manage metadata,\nfavorites and recents" as UC_Meta
+  usecase "Upload document" as UC_Upload
+  usecase "Create new version" as UC_Version
+  usecase "Reprocess document" as UC_Reprocess
+  usecase "Async ingest pipeline" as UC_Ingest
+}
+
+A_Auth --> UC_Browse
+A_Auth --> UC_Read
+A_Auth --> UC_Meta
+
+A_Mgr --> UC_Upload
+A_Mgr --> UC_Version
+A_Mgr --> UC_Reprocess
+A_Admin --> UC_Upload
+A_Admin --> UC_Version
+A_Admin --> UC_Reprocess
+
+UC_Read .> UC_Browse : <<include>>
+UC_Upload .> UC_Ingest : <<include>>
+UC_Version .> UC_Ingest : <<include>>
+UC_Reprocess .> UC_Ingest : <<include>>
+UC_Upload ..> A_Worker : <<enqueue>>
+UC_Version ..> A_Worker : <<enqueue>>
+
+@enduml

@@ -55,6 +55,7 @@ avatarsPublicRouter.get("/:userId/:filename", asyncHandler(async (req, res) => {
     const abs = absolutePathForKey(key);
     res.setHeader("Content-Type", type);
     res.setHeader("Cache-Control", "private, max-age=3600");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     res.sendFile(abs, (err) => {
       if (err && !res.headersSent) res.status(404).end();
     });

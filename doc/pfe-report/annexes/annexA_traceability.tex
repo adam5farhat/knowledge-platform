@@ -1,0 +1,63 @@
+\chapter{Recommended traceability tables}
+\label{annex:traceability}
+
+\section{Requirements Traceability Matrix}
+
+\begin{xltabular}{\linewidth}{>{\RaggedRight\arraybackslash}p{0.85cm} >{\RaggedRight\arraybackslash}p{0.22\linewidth} >{\RaggedRight\arraybackslash}p{0.26\linewidth} >{\RaggedRight\arraybackslash}p{0.28\linewidth} >{\RaggedRight\arraybackslash}p{1.35cm}}
+\toprule
+Req. & Design choice & Implemented element & Validation method & Status \\
+\midrule
+\endhead
+FR-01 & JWT + refresh families & \tcode{auth.ts} & \tcode{auth.integration.test} & Validated \\
+FR-02 & Avatar public route & \tcode{avatarsPublic.ts} & \tcode{avatars.integration.test} & Validated \\
+FR-03 & BullMQ ingest & worker in \tcode{index.ts} & \tcode{documents.integration.test} & Validated \\
+FR-04 & Visibility filters & \tcode{documents.ts} & \tcode{documents.integration.test} & Validated \\
+FR-05 & Tags/favorites/recents & \tcode{documents.ts} & \tcode{documents.integration.test} & Validated \\
+FR-06 & pgvector search & \tcode{search.ts} & \tcode{search.integration.test} & Validated \\
+FR-07 & Hybrid RAG SSE & \tcode{ragCompletion.ts} & search + manual & Validated \\
+FR-08 & Conversations & \tcode{conversations.ts} & \tcode{conversations.integration.test} & Validated \\
+FR-09 & Notifications & \tcode{notifications.ts} & \tcode{notifications.integration.test} & Validated \\
+FR-10 & Admin CRUD & \tcode{admin.ts} & \tcode{admin.integration.test} & Validated \\
+FR-11 & Manager scope & \tcode{manager.ts} & \tcode{manager.integration.test} & Validated \\
+FR-12 & Restrictions & \tcode{auth.ts} + middleware & auth + search tests & Validated \\
+NFR-01 & Health checks & \tcode{httpApp.ts} & \tcode{health.integration.test} & Validated \\
+NFR-02 & Helmet + limiters & \tcode{httpApp.ts} & integration + review & Validated \\
+NFR-03 & Single-flight refresh & \tcode{authClient.ts} & \tcode{auth.integration.test} & Validated \\
+NFR-04 & Docker Compose & \tcode{docker-compose.yml} & manual deploy & Validated \\
+NFR-05 & Vitest suites & \tcode{*.integration.test.ts} & CI local run & Validated \\
+NFR-06 & RAG eval CLI & \tcode{ragEvaluation.ts} & \tcode{eval:rag:quick} & Partial \\
+\bottomrule
+\end{xltabular}
+
+\section{Concept Comparison Matrix}
+
+\begin{table}[H]
+\centering
+\caption{Architecture concept comparison}
+\begin{tabularx}{\textwidth}{>{\RaggedRight\arraybackslash}p{2.2cm} >{\Centering\arraybackslash}p{1.1cm} >{\Centering\arraybackslash}p{1.1cm} >{\Centering\arraybackslash}p{1.1cm} Y}
+\toprule
+Criterion & Monorepo & Django & Microservices & Comment / final choice \\
+\midrule
+Performance & 3 & 2 & 2 & Express SSE for streaming \\
+Cost (ops) & 3 & 3 & 1 & Fewer moving parts \\
+Risk & 2 & 2 & 3 & Monorepo reduces integration risk \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Validation Summary Table}
+
+\begin{table}[H]
+\centering
+\caption{Annex validation summary}
+\begin{tabularx}{\textwidth}{>{\RaggedRight\arraybackslash}p{0.75cm} >{\RaggedRight\arraybackslash}p{0.30\linewidth} >{\Centering\arraybackslash}p{1.4cm} >{\Centering\arraybackslash}p{1.3cm} >{\Centering\arraybackslash}p{1.3cm} >{\Centering\arraybackslash}p{1.1cm}}
+\toprule
+Test & Objective & Indicator & Expected & Obtained & Conclusion \\
+\midrule
+T1 & Integration regression & Pass count & 74 & 74 & OK \\
+T2 & Auth refresh & Rotation works & Yes & Yes & OK \\
+T3 & RAG quick eval & Topic accuracy & $>$50\% & 44\% w/o API key & KO \\
+T4 & Avatar CORP & cross-origin & Yes & Yes & OK \\
+\bottomrule
+\end{tabularx}
+\end{table}

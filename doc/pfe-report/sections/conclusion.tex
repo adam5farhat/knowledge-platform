@@ -1,0 +1,28 @@
+\chapter*{General conclusion and perspectives}
+\addcontentsline{toc}{chapter}{General conclusion and perspectives}
+
+This final-year project addressed the problem of fragmented enterprise knowledge: documents spread across departments, slow retrieval, weak governance, and unstructured AI chat that lacks citations. Conducted at \CompanyName{}, the work produced the Knowledge Platform---a full-stack system that unifies document management, access control, and hybrid Retrieval-Augmented Generation.
+
+The main results are:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item a production-style TypeScript monorepo (Next.js + Express + PostgreSQL/pgvector + Redis/BullMQ);
+  \item a hybrid retrieval pipeline (dense + full-text + RRF + Gemini reranking) with SSE streaming and citations;
+  \item role-based administration, manager dashboards, notifications, and conversation feedback;
+  \item \textbf{74 passing integration tests} and a RAG evaluation harness for regression analysis;
+  \item Docker-based reproducibility and extensive UML/sequence documentation.
+\end{itemize}
+
+Relative to the objectives announced in the introduction:
+\begin{enumerate}[leftmargin=*,itemsep=0.2em]
+  \item multi-role secure platform --- \textbf{achieved};
+  \item hybrid retrieval implementation --- \textbf{achieved};
+  \item streaming cited answers with feedback --- \textbf{achieved};
+  \item automated validation --- \textbf{achieved} (integration tests; RAG eval partial without API key);
+  \item reproducible deployment --- \textbf{achieved}.
+\end{enumerate}
+
+Limitations remain: dependence on an external LLM provider, absence of large-scale performance benchmarking, and evaluation sensitivity to document corpus coverage.
+
+From an academic and professional standpoint, this project mobilized systems analysis, API design, data modeling, information retrieval, AI pipeline integration, security hardening, and critical validation---competencies expected of an engineering-degree graduate in Data Science.
+
+Future perspectives include cloud object storage, enterprise SSO, on-premise model options, CI-integrated RAG regression gates, mobile clients, and field deployment at the host organization with real corpus onboarding and user acceptance testing.

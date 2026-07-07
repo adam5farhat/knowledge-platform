@@ -1,0 +1,36 @@
+% ============================================================
+%  abstracts.tex — Abstract (EN)
+% ============================================================
+
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+Organizations today generate vast volumes of internal documentation — policies,
+technical guides, reports, and procedures — that remain largely inaccessible due to
+fragmented storage, inadequate search tools, and the absence of structured access
+governance. Employees, particularly new hires, waste significant time locating
+information, asking colleagues, or making decisions without reliable knowledge backing.
+
+This report presents the design and implementation of the \textbf{Knowledge Platform},
+an enterprise-grade document management and AI-assisted question-answering system
+built for teams organised by departments, with role-based access control. The platform
+is developed as a TypeScript monorepo comprising a \textbf{Next.js~15} web application,
+a \textbf{Node.js/Express} REST and Server-Sent Events API, \textbf{PostgreSQL with
+pgvector} for hybrid retrieval, \textbf{Redis and BullMQ} for asynchronous document
+ingestion, and \textbf{Google Gemini} as the sole external AI provider.
+
+The core technical contribution is a \textbf{hybrid Retrieval-Augmented Generation
+(RAG) pipeline} combining dense vector search and BM25-style full-text retrieval,
+merged through weighted Reciprocal Rank Fusion (RRF), followed by LLM-based
+reranking and streaming answer generation with source citations. The system enforces
+department-scoped document visibility, a three-role hierarchy (Administrator, Manager,
+Employee), and a feedback memory loop that uses negative user ratings to improve
+future answers semantically.
+
+Validation is grounded in \textbf{74 automated integration tests} across ten Vitest
+suites, a RAG evaluation harness with automated judge metrics, and a fully reproducible
+Docker Compose deployment. The project was managed using an \textbf{Agile Scrum}
+methodology structured across five sprints.
+
+\medskip
+\noindent\textbf{Keywords:} \KeywordsEN

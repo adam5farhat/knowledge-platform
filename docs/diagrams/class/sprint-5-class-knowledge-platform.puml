@@ -1,0 +1,113 @@
+@startuml sprint-5-class-knowledge-platform
+title Sprint 5 domain class diagram — Operations, testing and deployment
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam dpi 180
+
+package "Runtime health (NFR-01)" {
+  class HealthProbe <<service>> {
+    +getStatus() : HealthResponse
+    ..
+    Checks PostgreSQL + Redis
+  }
+
+  class HealthResponse <<dto>> {
+    +status : string
+    +postgres : boolean
+    +redis : boolean
+  }
+}
+
+package "Quality gates (NFR-05, NFR-06)" {
+  class IntegrationTestSuite <<component>> {
+    +suiteCount : 10
+    +testCount : 74
+    +run() : TestReport
+    ..
+    Vitest + Supertest
+  }
+
+  class TestReport <<artifact>> {
+    +passed : int
+    +failed : int
+    +durationMs : int
+  }
+
+  class RagEvaluationHarness <<component>> {
+    +runQuick() : RagEvalReport
+    +runFull() : RagEvalReport
+    ..
+    LLM-as-judge metrics
+  }
+
+  class RagEvalReport <<artifact>> {
+    +faithfulness : float
+    +relevance : float
+    +jsonPath : string
+  }
+}
+
+package "Deployment (NFR-04)" {
+  class DockerComposeStack <<component>> {
+    +services : string[]
+    ..
+    postgres, redis, api, web
+  }
+
+  class PrismaMigrator <<component>> {
+    +applyMigrations()
+    +seed()
+  }
+}
+
+package "Infrastructure" {
+  class PostgreSQL <<external>> {
+    +pgvector extension
+  }
+
+  class Redis <<external>> {
+    +BullMQ broker
+  }
+
+  class NodeApiProcess <<component>> {
+    +httpServer
+    +ingestWorker
+  }
+}
+
+package "Design artefacts" {
+  class PlantUmlCatalog <<artifact>> {
+    +structural : 3
+    +sprintUseCase : 5
+    +sprintClass : 5
+    +sequence : 41
+  }
+}
+
+HealthProbe --> PostgreSQL : ping
+HealthProbe --> Redis : ping
+HealthProbe ..> HealthResponse : returns
+
+IntegrationTestSuite --> NodeApiProcess : HTTP contract tests
+IntegrationTestSuite ..> PostgreSQL : test schema
+IntegrationTestSuite ..> Redis : queue tests
+IntegrationTestSuite ..> TestReport
+
+RagEvaluationHarness ..> RagEvalReport
+RagEvaluationHarness ..> NodeApiProcess : Ask pipeline
+
+DockerComposeStack *-- PostgreSQL
+DockerComposeStack *-- Redis
+DockerComposeStack *-- NodeApiProcess
+PrismaMigrator --> PostgreSQL
+
+note bottom of IntegrationTestSuite
+  **Sprint 5 scope**
+  Cross-cutting validation of all prior
+  sprint domains; no new Prisma entities.
+end note
+
+@enduml

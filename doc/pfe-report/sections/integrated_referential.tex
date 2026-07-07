@@ -1,0 +1,170 @@
+\chapter*{Integrated institutional guide for the final-year project}
+\addcontentsline{toc}{chapter}{Integrated institutional guide for the final-year project}
+
+\begin{guidebox}
+This section turns the template into a practical reading guide for the final-year project framework. It is visible only when guide mode is activated. For the clean submission version, disable it by replacing \texttt{\textbackslash showguidetrue} with \texttt{\textbackslash showguidefalse} in \texttt{config.tex}.
+\end{guidebox}
+
+\section*{1. Objectives of the final-year internship/project}
+\addcontentsline{toc}{section}{1. Objectives of the final-year internship/project}
+
+The final-year internship/project is both a synthesis exercise and a professionalization experience. Its purpose is to allow the engineering student to demonstrate the ability to address a complex engineering problem, analyze its stakes, propose a rigorous approach, and develop and validate an argued solution in a real or realistic context. The report is therefore not a simple activity log, but an academic proof of competence. At minimum, the internship/project should enable the student to:
+
+\begin{itemize}[leftmargin=1.2cm]
+\item analyze the context, problem statement, needs, constraints and scope of the topic;
+\item mobilize a critical state of the art, standards, tools, methods or existing solutions;
+\item justify technical, scientific, methodological or economic choices;
+\item design, implement, model, experiment with or integrate a solution;
+\item validate results through an explicit protocol and relevant indicators;
+\item demonstrate autonomy, professionalism, scientific integrity and clear communication skills.
+\end{itemize}
+
+\guided{In the general introduction, reformulate the topic as a problem statement and announce measurable objectives. In the conclusion, explicitly return to the degree of achievement of these objectives.}
+
+\section*{2. What the report must demonstrate}
+\addcontentsline{toc}{section}{2. What the report must demonstrate}
+
+The reader must be able to reconstruct the following logical chain: \textbf{problem or need $\rightarrow$ requirements $\rightarrow$ method $\rightarrow$ proposed solution $\rightarrow$ validation $\rightarrow$ results $\rightarrow$ conclusion}. In practice, this means that the report should present in a traceable way:
+
+\begin{itemize}[leftmargin=1.2cm]
+\item the context and positioning of the project;
+\item functional and non-functional needs, constraints and assumptions;
+\item design choices and their justifications;
+\item the actual implementation or experimentation;
+\item a test plan or validation protocol;
+\item a critical discussion: limitations, deviations, threats to validity and perspectives.
+\end{itemize}
+
+\guided{A strong final-year report is not only descriptive. It explains how and why decisions were made, and how their relevance was verified.}
+
+\section*{3. Recommended evaluation scheme}
+\addcontentsline{toc}{section}{3. Recommended evaluation scheme}
+
+The evaluation of the final-year project should remain readable, homogeneous and aligned with the targeted competencies. The following table can remain in the template so that the student understands, from the writing phase onward, what will be observed by the jury.
+
+\begin{longtable}{>{\RaggedRight\arraybackslash}p{4.3cm} >{\RaggedRight\arraybackslash}p{8cm} >{\centering\arraybackslash}p{2cm}}
+\toprule
+\textbf{Criterion} & \textbf{Observable indicators} & \textbf{Indicative weight} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Criterion} & \textbf{Observable indicators} & \textbf{Indicative weight} \\
+\midrule
+\endhead
+Quality of framing and analysis & Problem statement, objectives, needs, scope and initial positioning. & 10\% \\
+\addlinespace
+State of the art and use of sources & Relevance, diversity, critical thinking, citation quality and project positioning. & 10\% \\
+\addlinespace
+Methodology and rigor & Justified choices, structured approach, traceability, engineering logic. & 15\% \\
+\addlinespace
+Design and implementation & Architecture, implementation, integration, technical quality of the solution. & 20\% \\
+\addlinespace
+Validation and discussion & Protocols, results, critical analysis, comparison with objectives. & 15\% \\
+\addlinespace
+Report quality & Structure, clarity, style, figures, tables and formal consistency. & 10\% \\
+\addlinespace
+Oral defense & Clarity, mastery of the topic, time management, quality of presentation material. & 10\% \\
+\addlinespace
+Answers to questions and critical distance & Argumentation, autonomy, lucidity regarding limitations and perspectives. & 10\% \\
+\bottomrule
+\end{longtable}
+
+\guided{Use this grid as a self-check tool. Before submission, make sure that each criterion is visible in the report or prepared for the oral defense.}
+
+\section*{4. Bibliographic references: requirements and good practices}
+\addcontentsline{toc}{section}{4. Bibliographic references: requirements and good practices}
+
+The bibliography is one of the strongest indicators of the scientific quality of a report. Any borrowed idea, data, figure, table, code excerpt, formula or method must be properly attributed. The report should respect the following principles:
+
+\begin{itemize}[leftmargin=1.2cm]
+\item use a consistent citation style; the \textbf{IEEE} style is recommended for engineering programs;
+\item ensure that every source cited in the text appears in the bibliography and vice versa;
+\item prioritize indexed journal papers, recognized conference proceedings, academic books, standards, patents and reliable technical reports;
+\item target at least \textbf{\MinReferences{} references} for a master/engineering degree level report, with \IndexedRatio{} indexed scientific sources whenever applicable;
+\item avoid Wikipedia, non-specialized blogs, unverifiable commercial content and websites without clearly identifiable authorship;
+\item add an access date for web resources.
+\end{itemize}
+
+\subsection*{4.1 How to cite in the text}
+
+In IEEE style, citations appear in numbered brackets such as \texttt{[1]}, \texttt{[2]} or \texttt{[3], [4]}. The citation should appear as close as possible to the corresponding idea. A paraphrase must be cited just like a direct quotation.
+
+\begin{quote}
+Example: \textit{Recent work shows that system robustness strongly depends on training-data quality and on the validation protocol} \cite{example_journal_2024}. \\
+Example: \textit{The selected architecture is consistent with practices described in technical literature} \cite{example_conference_2023,example_standard}.
+\end{quote}
+
+\subsection*{4.2 Examples of IEEE references}
+
+\begin{itemize}[leftmargin=1.2cm]
+\item \textbf{Journal article:} [1] A. Author and B. Author, \enquote{Article title,} \textit{Journal name}, vol. X, no. Y, pp. xx--yy, year.
+\item \textbf{Conference paper:} [2] A. Author, \enquote{Paper title,} in \textit{Proc. Conference name}, city, country, year, pp. xx--yy.
+\item \textbf{Book:} [3] A. Author, \textit{Book title}, Xth ed. city: publisher, year.
+\item \textbf{Standard:} [4] \textit{Standard title}, organization, reference, year.
+\item \textbf{Website:} [5] Author or organization, \enquote{Resource title,} website, year. [Online]. Available: URL. [Accessed: day month year].
+\end{itemize}
+
+\subsection*{4.3 How to fill in \texttt{references.bib}}
+
+The \texttt{references.bib} file provided with this template allows students to manage their references properly with BibTeX. The minimum workflow is the following:
+
+\begin{enumerate}[leftmargin=1.2cm]
+\item add a bibliographic entry to \texttt{references.bib};
+\item cite the source in the text using \texttt{\textbackslash cite\{key\}};
+\item compile the project with the standard Overleaf sequence;
+\item verify that all references are correct, complete and homogeneous.
+\end{enumerate}
+
+\subsection*{4.4 BibTeX examples to copy and adapt}
+
+\begin{lstlisting}[numbers=none]
+@article{myPaper2025,
+  author  = {A. Author and B. Author},
+  title   = {Article title},
+  journal = {Journal name},
+  volume  = {12},
+  number  = {3},
+  pages   = {101--115},
+  year    = {2025}
+}
+
+@inproceedings{myConf2024,
+  author    = {A. Author and B. Author},
+  title     = {Paper title},
+  booktitle = {Proceedings of ...},
+  pages     = {55--60},
+  year      = {2024}
+}
+
+@book{myBook2023,
+  author    = {A. Author},
+  title     = {Book title},
+  publisher = {Publisher},
+  year      = {2023}
+}
+
+@misc{myWeb2026,
+  author = {{Organization name}},
+  title  = {Web resource title},
+  year   = {2026},
+  url    = {https://example.org},
+  note   = {[Online]. Accessed: 15 April 2026}
+}
+\end{lstlisting}
+
+\guided{A long bibliography does not automatically improve report quality. Juries value a selection that is relevant, reasonably recent, scientifically credible and actually used in the analysis.}
+
+\section*{5. How to use this template pedagogically}
+\addcontentsline{toc}{section}{5. How to use this template pedagogically}
+
+It is recommended that students read this section before starting to write, then come back to it at three key moments:
+
+\begin{itemize}[leftmargin=1.2cm]
+\item at the beginning, to understand the academic purpose of the internship/project;
+\item midway through, to check the alignment between objectives, chapters and produced evidence;
+\item before submission, to verify the report's compliance with institutional expectations.
+\end{itemize}
+
+\begin{guidebox}
+Practical suggestion for supervisors: keep this section in the working version shared with the student, then hide it in the final submission version. The template then serves a dual purpose: \textbf{report model} and \textbf{reading support for the final-year project framework}.
+\end{guidebox}

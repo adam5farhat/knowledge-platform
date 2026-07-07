@@ -1,0 +1,46 @@
+@startuml sprint-5-use-case-knowledge-platform
+!theme plain
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam dpi 180
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+skinparam actorFontSize 10
+skinparam usecaseFontSize 9
+skinparam nodesep 14
+skinparam ranksep 16
+skinparam packageStyle rectangle
+skinparam rectangle {
+  BackgroundColor #FAFAFA
+  BorderColor #333333
+}
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+}
+skinparam actor {
+  BorderColor #333333
+}
+
+left to right direction
+title Sprint 5 use-case diagram — Operations, testing and deployment
+
+actor Administrator <<human>> as A_Admin
+actor "Operations / CI" <<secondary>> as A_Ops
+actor "Developer" <<human>> as A_Dev
+
+A_Dev -[hidden]down-> A_Admin
+
+rectangle "Sprint 5 — Operations, testing and deployment" as SYS {
+  usecase "Health check probe" as UC_Health
+  usecase "Run integration tests" as UC_Tests
+  usecase "Deploy with Docker Compose" as UC_Deploy
+  usecase "Run RAG evaluation harness" as UC_Eval
+}
+
+A_Ops --> UC_Health
+A_Dev --> UC_Tests
+A_Admin --> UC_Deploy
+A_Dev --> UC_Eval
+
+@enduml

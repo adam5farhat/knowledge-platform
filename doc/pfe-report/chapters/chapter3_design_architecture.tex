@@ -1,0 +1,192 @@
+\chapter{Design and Architecture}
+\label{ch:architecture}
+
+This chapter translates the requirements and sprint plan of Chapter~\ref{ch:requirements}
+into a concrete system design. The presentation follows two complementary views:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item \textbf{Static design} (Sections~\ref{sec:overall-architecture}--\ref{sec:technology-justification}) --- platform architecture, subsystem responsibilities, persisted domain model, and technology justification;
+  \item \textbf{Dynamic design} (Section~\ref{sec:sprint-design}) --- sprint-scoped use-case and class models, followed by interaction sequence diagrams for every major API and UX flow.
+\end{itemize}
+Implementation details and validation evidence are developed in
+Chapters~\ref{ch:implementation} and~\ref{ch:validation}.
+
+\section{Overall Solution Architecture}
+\label{sec:overall-architecture}
+
+The Knowledge Platform follows a three-tier logical architecture: browser client, API layer, and data/AI services. Figure~\ref{fig:architecture} summarizes component responsibilities and data flows (see also Appendix~\ref{fig:annex-architecture} for the full exported diagram).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth]{assets/figures/platform-architecture.png}
+\caption[Overall platform architecture]{Overall architecture of the Knowledge Platform (PlantUML source: \texttt{platform-architecture.puml})}
+\label{fig:architecture}
+\end{figure}
+
+The web application (\texttt{apps/web}) keeps access tokens in memory and uses HttpOnly refresh cookies. The API (\texttt{apps/api}) mounts routers for \texttt{/auth}, \texttt{/documents}, \texttt{/search}, \texttt{/conversations}, \texttt{/admin}, \texttt{/manager}, \texttt{/notifications}, and public \texttt{/avatars}. A BullMQ consumer runs in the same Node process after the HTTP server starts.
+
+\section{Logical Subsystem Decomposition}
+\label{sec:subsystem-decomposition}
+
+\begin{table}[H]
+\centering
+\caption{Subsystem responsibilities}
+\label{tab:subsystems}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.5cm}|Y|>{\RaggedRight\arraybackslash}p{3.1cm}|}
+\hline
+\rowcolor{sectionblue!15}
+\textbf{Subsystem} & \textbf{Responsibility} & \textbf{Key modules} \\
+\hline
+Authentication & Login, refresh families, restrictions, password reset &
+\tcodelines{auth.ts}{authClient.ts} \\
+\hline
+Documents & CRUD, versions, visibility, audit, download &
+\tcodelines{documents.ts}{storage.ts} \\
+\hline
+Ingest worker & Extract, chunk, embed, persist chunks &
+\tcodelines{BullMQ worker}{index.ts} \\
+\hline
+Search / RAG & Hybrid retrieval, SSE answers, cache &
+\tcodelines{search.ts}{ragCompletion.ts} \\
+\hline
+Conversations & Threads, messages, feedback &
+\tcode{conversations.ts} \\
+\hline
+Notifications & Auto events and manual announcements &
+\tcode{notifications.ts} \\
+\hline
+Admin / Manager & Governance dashboards &
+\tcodelines{admin.ts}{manager.ts} \\
+\hline
+\end{tabularx}
+\end{table}
+
+\section{Domain Data Model}
+\label{sec:domain-model}
+
+The Prisma schema defines 20+ entities including \texttt{User}, \texttt{Department},
+\texttt{Document}, \texttt{DocumentVersion}, \texttt{Chunk} (768-d embedding),
+\texttt{Conversation}, \texttt{AnswerFeedback}, and \texttt{Notification}.
+Multi-department access is modeled through \texttt{UserDepartmentAccess}.
+Figure~\ref{fig:class-diagram} presents the principal persisted classes and their
+relationships across all sprints; sprint-scoped excerpts appear in
+Section~\ref{sec:sprint-design}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,keepaspectratio]{assets/figures/global-class-knowledge-platform.png}
+\caption{Global domain class diagram (persisted entities and main relationships)}
+\label{fig:class-diagram}
+\end{figure}
+
+\section{Technology Choice Justification}
+\label{sec:technology-justification}
+
+Table~\ref{tab:decision-matrix} scores architectural options (1 = weak, 3 = strong).
+The selected stack favours a TypeScript monorepo with Express and Next.js for
+streaming RAG, operational simplicity, and alignment with project skills.
+
+\begin{table}[H]
+\centering
+\caption{Decision-support matrix for platform architecture (scores: 1 = weak, 3 = strong)}
+\label{tab:decision-matrix}
+\renewcommand{\arraystretch}{1.4}
+\setlength{\tabcolsep}{5pt}
+\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.6cm}|>{\Centering\arraybackslash}p{1.7cm}|>{\Centering\arraybackslash}p{1.3cm}|>{\Centering\arraybackslash}p{2.1cm}|Y|}
+\hline
+\rowcolor{sectionblue!15}
+\textbf{Criterion} &
+\textbf{Monorepo} &
+\textbf{Django} &
+\textbf{Microservices} &
+\textbf{Rationale} \\
+\hline
+Time to market & 3 & 2 & 1 & Shared TypeScript types; one repository \\
+\hline
+SSE streaming fit & 3 & 2 & 2 & Native Express streaming for RAG \\
+\hline
+Team skill alignment & 3 & 2 & 1 & Matches React + Node stack \\
+\hline
+Operational complexity & 3 & 3 & 1 & Single API process + worker \\
+\hline
+\end{tabularx}
+\end{table}
+
+\textbf{PostgreSQL + pgvector vs.\ dedicated vector DB:} colocating relational and vector data simplifies hybrid SQL+vector retrieval, transactional consistency, and department filters in one query layer~\cite{pgvector-docs}.
+
+\textbf{Gemini vs.\ open-weight models:} the embedding and chat APIs reduce operational burden while providing strong multilingual embeddings (768 dimensions in this deployment)~\cite{google-gemini-docs}.
+
+\textbf{In-process BullMQ worker vs.\ separate worker service:} embedding the consumer in the API process reduces deployment complexity for an academic/prototype-scale platform, at the cost of horizontal scaling coupling.
+
+Table~\ref{tab:traceability-main} links representative requirements to the chosen
+design elements and validation artefacts (see also Table~\ref{tab:fr-traceability}
+in Chapter~\ref{ch:requirements}).
+
+\begin{table}[H]
+\centering
+\caption{Requirements-to-design traceability (excerpt)}
+\label{tab:traceability-main}
+\footnotesize
+\renewcommand{\arraystretch}{1.35}
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{1.0cm}|>{\RaggedRight\arraybackslash}p{2.5cm}|Y|>{\RaggedRight\arraybackslash}p{2.6cm}|}
+\hline
+\rowcolor{sectionblue!15}
+\textbf{Req.} & \textbf{Design choice} & \textbf{Implemented element} & \textbf{Validation} \\
+\hline
+FR-01 & JWT + refresh rotation &
+\tcodelines{auth.ts}{authClient.ts} &
+\testfile{auth.integration.test} \\
+\hline
+FR-02 & Avatar CORP header &
+\tcode{avatarsPublic.ts} &
+\testfile{avatars.integration.test} \\
+\hline
+FR-03 & Async ingest queue &
+\tcode{BullMQ + Redis} &
+\testfile{documents.integration.test} \\
+\hline
+FR-07 & Hybrid RAG + SSE &
+\tcodelines{search.ts}{ragCompletion.ts} &
+\testfile{search.integration.test} \\
+\hline
+FR-10 & Admin RBAC &
+\tcode{admin.ts} &
+\testfile{admin.integration.test} \\
+\hline
+NFR-02 & Helmet + rate limits &
+\tcode{httpApp.ts} &
+manual + integration \\
+\hline
+\end{tabularx}
+\end{table}
+
+\section{Dynamic Interaction Design by Sprint}
+\label{sec:sprint-design}
+
+Sections~\ref{sec:overall-architecture}--\ref{sec:technology-justification} describe
+\textbf{what} the platform is made of (components, data, and technology). This section
+describes \textbf{how} actors and subsystems interact at runtime. For each sprint in
+Table~\ref{tab:sprints} of Chapter~\ref{ch:requirements}, the design is organised in
+three layers:
+\begin{enumerate}[leftmargin=*,itemsep=0.2em]
+  \item \textbf{Sprint scope} --- objectives and mapped functional requirements;
+  \item \textbf{Scoped structural views} --- sprint use-case model and sprint domain class model;
+  \item \textbf{Interaction sequence diagrams} --- request/response flows between client, API, workers, and external services.
+\end{enumerate}
+The full diagram catalog is indexed in Appendix~\ref{annex:diagrams}; implementation
+evidence appears in Chapter~\ref{ch:implementation} and validation in
+Chapter~\ref{ch:validation}.
+
+\input{chapters/chapter3_sprint_sequence_design}
+
+\section{Chapter Conclusion}
+
+This chapter defined the architectural foundation of the Knowledge Platform in two
+complementary views: static design (architecture, subsystems, domain model, and
+technology justification) and dynamic design (sprint-scoped structural views and
+interaction sequence diagrams). The decision matrix and requirements-to-design
+traceability established that each major functional and non-functional requirement
+is mapped to concrete modules, interaction flows, and validation evidence.
+Chapter~\ref{ch:implementation} describes how these design artefacts were realized
+in code.

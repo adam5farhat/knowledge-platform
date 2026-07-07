@@ -1,0 +1,43 @@
+\begin{titlepage}
+\selectlanguage{english}
+\thispagestyle{empty}
+\begin{center}
+
+{\large \textbf{\DegreeName}}\\[0.35cm]
+{\large Academic year \AcademicYear}\\[0.9cm]
+
+\IfFileExists{\EsprimLogoPath}{
+    \includegraphics[width=0.62\textwidth]{\EsprimLogoPath}\\[0.6cm]
+}{
+    \fbox{\parbox[c][2.8cm][c]{7cm}{\centering ESPRIM logo}}\\[0.6cm]
+}
+
+{\normalsize \DepartmentName}\\[0.15cm]
+{\normalsize \SpecialityName}\\[1.2cm]
+
+{\Large \textbf{Final-Year Engineering Project Report}}\\[0.25cm]
+{\large Discipline: \DisciplineName}\\[0.9cm]
+
+\rule{0.9\textwidth}{0.8pt}\\[0.35cm]
+{\Huge \bfseries \ReportTitleEN}\\[0.25cm]
+{\large \itshape \ReportTitleFR}\\[0.35cm]
+\rule{0.9\textwidth}{0.8pt}\\[1cm]
+
+\begin{tabular}{>{\bfseries}p{5cm}p{8.3cm}}
+Prepared by & \StudentName \\
+Host organization & \CompanyName \\
+Industrial supervisor & \IndustrialSupervisor \\
+Academic supervisor & \AcademicSupervisor \\
+Defense date & \DefenseDate \\
+
+Jury chair & \JuryPresident \\
+Examiner & \JuryMemberA \\
+\end{tabular}
+
+\vfill
+\end{center}
+\end{titlepage}
+
+\guided{%
+This page should remain formal, sober and institutionally consistent. The official school logo is already integrated in the template. If the project is confidential, prepare an academic version that preserves the scientific logic while masking sensitive elements.
+}

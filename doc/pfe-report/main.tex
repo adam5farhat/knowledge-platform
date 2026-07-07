@@ -1,0 +1,303 @@
+\documentclass[12pt,a4paper,oneside]{report}
+
+% ----------------------------------------------------------
+% Core packages - Overleaf compatible (pdfLaTeX)
+% ----------------------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english,french]{babel}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{array,booktabs,tabularx,longtable,multirow}
+\usepackage{xltabular}
+\usepackage{ragged2e}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{bookmark}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{amsmath,amssymb}
+\usepackage{siunitx}
+\usepackage{csquotes}
+\usepackage{etoolbox}
+\usepackage{ifthen}
+\usepackage{listings}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{tocloft}
+\usepackage{emptypage}
+\usepackage{pifont}
+\usepackage{tcolorbox}
+\usepackage{cite}
+\usepackage{url}
+\usepackage{xurl}
+\usepackage{microtype}
+\usepackage{truncate}
+\usepackage{seqsplit}
+\usepackage{pdfpages}
+\usepackage{appendix}
+\usepackage{float}
+\usepackage{afterpage}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, positioning, arrows.meta}
+
+\input{config}
+
+% ----------------------------------------------------------
+% Page layout
+% ----------------------------------------------------------
+\geometry{top=2.5cm,bottom=2.5cm,left=3cm,right=2.5cm}
+\setstretch{1.5}
+\setlength{\parskip}{0.3em}
+\setlength{\parindent}{0pt}
+\emergencystretch=2em
+\setlength{\headheight}{14pt}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{2}
+
+% ----------------------------------------------------------
+% Colors and styles
+% ----------------------------------------------------------
+\definecolor{EsprimRed}{RGB}{166,28,33}
+\definecolor{EsprimDark}{RGB}{45,45,45}
+\definecolor{EsprimGrey}{RGB}{95,95,95}
+\definecolor{GuideBlue}{RGB}{232,241,251}
+\definecolor{GuideBorder}{RGB}{74,122,178}
+\definecolor{GoodGreen}{RGB}{15,110,60}
+\definecolor{WarnOrange}{RGB}{180,110,0}
+\definecolor{sectionblue}{RGB}{74,122,178}
+
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries\Huge\color{EsprimDark}}
+  {\filleft\MakeUppercase{Chapter \thechapter}}
+  {0.8ex}
+  {\titlerule[0.8pt]\vspace{1ex}\filright}
+
+\titleformat{\section}
+  {\normalfont\bfseries\Large\color{EsprimDark}}
+  {\thesection}{0.8em}{}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\large\color{EsprimDark}}
+  {\thesubsection}{0.8em}{}
+
+\titleformat{\subsubsection}
+  {\normalfont\bfseries\normalsize\color{EsprimDark}}
+  {\thesubsubsection}{0.8em}{}
+
+\titleformat{\paragraph}[block]
+  {\normalfont\bfseries\normalsize\color{EsprimDark}}
+  {}{0em}{}
+
+\captionsetup[figure]{labelfont=bf,textfont=small,position=below,justification=justified,singlelinecheck=false}
+\captionsetup[table]{labelfont=bf,textfont=small,position=above,justification=justified,singlelinecheck=false}
+
+% List of figures/tables: short captions + room for page numbers
+\setlength{\cftfigindent}{0pt}
+\setlength{\cftfignumwidth}{2.8em}
+\setlength{\cfttabindent}{0pt}
+\setlength{\cfttabnumwidth}{2.8em}
+\cftsetrmarg{2.5em plus 1fil}
+
+% Inline-safe monospace (tables and prose). Do not use \\ inside table cells.
+\newcommand{\tcode}[1]{{\footnotesize\ttfamily #1}}
+\newcommand{\apicode}[1]{{\footnotesize\ttfamily\url{#1}}}
+\newcommand{\tcodelines}[2]{\apicode{#1}\newline\apicode{#2}}
+\newcommand{\testfile}[1]{{\footnotesize\ttfamily\seqsplit{#1}}}
+
+% Diagram helpers (sequence + sprint-scoped use cases)
+\newcommand{\seqdiagram}[4]{%
+  \begin{figure}[H]
+  \centering
+  \includegraphics[width=0.98\textwidth,keepaspectratio]{assets/figures/#1.png}
+  \caption[#2]{#2 (\texttt{#3})}
+  \label{#4}
+  \end{figure}%
+}
+\newcommand{\sprintusecase}[3]{%
+  \begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{assets/figures/sprint-#1-use-case-knowledge-platform.png}
+  \caption[#2]{#2}
+  \label{#3}
+  \end{figure}%
+}
+\newcommand{\sprintclass}[3]{%
+  \begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{assets/figures/sprint-#1-class-knowledge-platform.png}
+  \caption[#2]{#2}
+  \label{#3}
+  \end{figure}%
+}
+% Sprint structural block: use-case + domain class diagrams under one subsubsection
+\newcommand{\sprintstructural}[5]{%
+  \subsubsection{Scoped structural views}%
+  \label{subsubsec:sprint#1-structural}%
+  \paragraph{Use-case model.}%
+  \sprintusecase{#1}{#2}{#3}%
+  \paragraph{Domain class model.}%
+  \sprintclass{#1}{#4}{#5}%
+}
+\newcommand{\sprintsequences}[1]{%
+  \subsubsection{Interaction sequence diagrams}%
+  \label{subsubsec:sprint#1-sequences}%
+}
+\newcommand{\sprintflowgroup}[1]{%
+  \par\vspace{0.6em}\noindent\textit{#1}\par\vspace{0.3em}%
+}
+
+% Slightly tighter tables; consistent wrapping
+% tabularx allows only ONE X column per table — use p{0.xx\linewidth} for other flexible cols
+\newcolumntype{Y}{>{\RaggedRight\arraybackslash}X}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.3}
+\AtBeginEnvironment{tabular}{\small\setlength{\tabcolsep}{4pt}}
+\AtBeginEnvironment{tabularx}{\small\setlength{\tabcolsep}{4pt}\renewcommand{\arraystretch}{1.3}}
+\AtBeginEnvironment{xltabular}{\small\setlength{\tabcolsep}{4pt}\renewcommand{\arraystretch}{1.3}}
+\AtBeginEnvironment{longtable}{\small\setlength{\tabcolsep}{4pt}}
+
+\counterwithin{figure}{chapter}
+\counterwithin{table}{chapter}
+\counterwithin{equation}{chapter}
+
+% ----------------------------------------------------------
+% Header / footer
+% ----------------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\truncate{0.52\textwidth}{\nouppercase{\leftmark}}}
+\fancyhead[R]{\small \SchoolShort{} -- Final Project Report}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% ----------------------------------------------------------
+% Hyperlinks
+% ----------------------------------------------------------
+\hypersetup{
+  colorlinks=true,
+  linkcolor=EsprimRed,
+  citecolor=EsprimRed,
+  urlcolor=blue,
+  breaklinks=true,
+  pdftitle={\ReportTitleEN},
+  pdfauthor={\StudentName},
+  pdfsubject={\PDFSubject},
+  pdfkeywords={\PDFKeywords}
+}
+
+% ----------------------------------------------------------
+% Listings and pseudo-code
+% ----------------------------------------------------------
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+  captionpos=b,
+  tabsize=2,
+  showstringspaces=false
+}
+
+% ----------------------------------------------------------
+% Guidance boxes
+% ----------------------------------------------------------
+\newtcolorbox{guidebox}{
+  colback=GuideBlue,
+  colframe=GuideBorder,
+  boxrule=0.7pt,
+  arc=1.5mm,
+  left=2mm,right=2mm,top=1.5mm,bottom=1.5mm,
+  title=Writing and compliance guide
+}
+
+\newcommand{\guided}[1]{\ifshowguide\begin{guidebox}#1\end{guidebox}\fi}
+\newcommand{\todo}[1]{\textcolor{EsprimRed}{\textbf{[To complete: #1]}}}
+\newcommand{\okitem}{\textcolor{GoodGreen}{\ding{51}}}
+\newcommand{\warnitem}{\textcolor{WarnOrange}{\ding{108}}}
+
+% ----------------------------------------------------------
+% Discipline-specific reminders
+% ----------------------------------------------------------
+\newcommand{\disciplinehint}{%
+\ifstrequal{\disciplinecode}{ds}{
+Data Science / AI-oriented project: clarify data sources, dataset quality, experimental protocol, metrics, reproducibility, bias analysis and model limitations.
+}{
+\ifstrequal{\disciplinecode}{eet}{
+EET-oriented project: make the hardware/software architecture, interfaces, real-time constraints, safety aspects, protocols, relevant standards, measurements and test bench explicit.
+}{
+Mechatronics-oriented project: explain system decomposition, mechanical-electronic-control coupling, CAD aspects, kinematics/dynamics, integration strategy, performance testing and operational safety.
+}}
+}
+
+% ----------------------------------------------------------
+% Start document
+% ----------------------------------------------------------
+\begin{document}
+\selectlanguage{english}
+
+% ---------------- Front matter ----------------
+\pagenumbering{roman}
+\setcounter{page}{1}
+
+\input{sections/cover}
+\cleardoublepage
+\input{sections/dedication}
+\cleardoublepage
+\input{sections/acknowledgements}
+\cleardoublepage
+\input{sections/abstracts}
+\cleardoublepage
+
+\tableofcontents
+\addcontentsline{toc}{chapter}{Table of contents}
+\cleardoublepage
+
+\listoffigures
+\addcontentsline{toc}{chapter}{List of figures}
+\cleardoublepage
+
+\listoftables
+\addcontentsline{toc}{chapter}{List of tables}
+\cleardoublepage
+
+\input{sections/abbreviations}
+\cleardoublepage
+
+\ifshowguide
+\input{sections/integrated_referential}
+\cleardoublepage
+\fi
+
+% ---------------- Main body ----------------
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\input{sections/introduction}
+\input{chapters/chapter1_state_of_the_art}
+\input{chapters/chapter2_requirements_methodology}
+\input{chapters/chapter3_design_architecture}
+\input{chapters/chapter4_implementation}
+\input{chapters/chapter5_validation_discussion}
+\input{sections/conclusion}
+
+% ---------------- Bibliography ----------------
+\cleardoublepage
+\addcontentsline{toc}{chapter}{References}
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+% ---------------- Appendices ----------------
+\begin{appendices}
+\input{annexes/annexD_system_diagrams}
+\end{appendices}
+
+\end{document}

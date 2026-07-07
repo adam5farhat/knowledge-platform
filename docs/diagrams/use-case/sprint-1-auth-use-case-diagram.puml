@@ -1,0 +1,72 @@
+@startuml sprint-1-use-case-knowledge-platform
+!theme plain
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam dpi 180
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+skinparam actorFontSize 10
+skinparam usecaseFontSize 9
+skinparam nodesep 14
+skinparam ranksep 16
+skinparam packageStyle rectangle
+skinparam rectangle {
+  BackgroundColor #FAFAFA
+  BorderColor #333333
+}
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+}
+skinparam actor {
+  BorderColor #333333
+}
+
+left to right direction
+title Sprint 1 use-case diagram — Authentication and access control
+
+actor Guest <<human>> as A_Guest
+actor "Authenticated user" as A_Auth <<abstract>>
+actor Employee <<human>> as A_Emp
+actor Manager <<human>> as A_Mgr
+actor Administrator <<human>> as A_Admin
+
+A_Emp -up-|> A_Auth
+A_Mgr -up-|> A_Auth
+A_Admin -up-|> A_Auth
+A_Guest -[hidden]down-> A_Emp
+A_Emp -[hidden]down-> A_Mgr
+A_Mgr -[hidden]down-> A_Admin
+
+actor "Email (SMTP)" <<secondary>> as A_Email
+
+rectangle "Sprint 1 — Authentication and access control" as SYS {
+  usecase "Authenticate user" as UC_Login
+  usecase "Refresh session" as UC_Refresh
+  usecase "Sign out" as UC_Logout
+  usecase "Reset password" as UC_Reset
+  usecase "Change password" as UC_ChangePwd
+  usecase "Manage profile and avatar" as UC_Profile
+  usecase "Get current user (/me)" as UC_Me
+  usecase "Read provisioning info" as UC_Register
+  usecase "View restricted-feature page" as UC_Restricted
+  usecase "Enforce feature restrictions" as UC_Restrict
+}
+
+A_Guest --> UC_Login
+A_Guest --> UC_Reset
+A_Guest --> UC_Register
+
+A_Auth --> UC_Refresh
+A_Auth --> UC_Logout
+A_Auth --> UC_ChangePwd
+A_Auth --> UC_Profile
+A_Auth --> UC_Me
+A_Auth --> UC_Restricted
+
+A_Admin --> UC_Restrict
+
+UC_Login ..> A_Email : <<notify>>
+UC_Reset ..> A_Email : <<notify>>
+
+@enduml

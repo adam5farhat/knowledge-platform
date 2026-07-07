@@ -1,0 +1,68 @@
+\babel@toc {french}{}\relax 
+\babel@toc {english}{}\relax 
+\babel@toc {english}{}\relax 
+\babel@toc {english}{}\relax 
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {2.1}{\ignorespaces Global use-case diagram of the Knowledge Platform}}{14}{figure.caption.8}%
+\contentsline {figure}{\numberline {2.2}{\ignorespaces Scrum sprint timeline — iterative delivery across five sprints}}{24}{figure.caption.13}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {3.1}{\ignorespaces Overall platform architecture}}{33}{figure.caption.25}%
+\contentsline {figure}{\numberline {3.2}{\ignorespaces Global domain class diagram (persisted entities and main relationships)}}{35}{figure.caption.27}%
+\contentsline {figure}{\numberline {3.3}{\ignorespaces Sprint 1 use-case diagram — Authentication and access control}}{38}{figure.caption.31}%
+\contentsline {figure}{\numberline {3.4}{\ignorespaces Sprint 1 domain class diagram — Authentication and access control}}{39}{figure.caption.33}%
+\contentsline {figure}{\numberline {3.5}{\ignorespaces User login}}{40}{figure.caption.35}%
+\contentsline {figure}{\numberline {3.6}{\ignorespaces Access token refresh and session rotation}}{42}{figure.caption.37}%
+\contentsline {figure}{\numberline {3.7}{\ignorespaces User logout}}{43}{figure.caption.39}%
+\contentsline {figure}{\numberline {3.8}{\ignorespaces Forgot and reset password}}{44}{figure.caption.41}%
+\contentsline {figure}{\numberline {3.9}{\ignorespaces Change password with session invalidation}}{45}{figure.caption.43}%
+\contentsline {figure}{\numberline {3.10}{\ignorespaces Profile update}}{46}{figure.caption.45}%
+\contentsline {figure}{\numberline {3.11}{\ignorespaces Feature restriction enforcement}}{47}{figure.caption.47}%
+\contentsline {figure}{\numberline {3.12}{\ignorespaces Current user session payload}}{48}{figure.caption.49}%
+\contentsline {figure}{\numberline {3.13}{\ignorespaces Register information page (no self-service signup)}}{49}{figure.caption.51}%
+\contentsline {figure}{\numberline {3.14}{\ignorespaces Restricted feature explanation page}}{49}{figure.caption.53}%
+\contentsline {figure}{\numberline {3.15}{\ignorespaces Sprint 2 use-case diagram — Document library and ingest}}{50}{figure.caption.55}%
+\contentsline {figure}{\numberline {3.16}{\ignorespaces Sprint 2 domain class diagram — Document library and ingest}}{51}{figure.caption.57}%
+\contentsline {figure}{\numberline {3.17}{\ignorespaces Document upload}}{52}{figure.caption.59}%
+\contentsline {figure}{\numberline {3.18}{\ignorespaces Asynchronous ingest worker}}{53}{figure.caption.61}%
+\contentsline {figure}{\numberline {3.19}{\ignorespaces Reprocess document version}}{54}{figure.caption.63}%
+\contentsline {figure}{\numberline {3.20}{\ignorespaces Document file download}}{55}{figure.caption.65}%
+\contentsline {figure}{\numberline {3.21}{\ignorespaces Document list}}{56}{figure.caption.67}%
+\contentsline {figure}{\numberline {3.22}{\ignorespaces Document detail}}{57}{figure.caption.69}%
+\contentsline {figure}{\numberline {3.23}{\ignorespaces Favorites and recents}}{58}{figure.caption.71}%
+\contentsline {figure}{\numberline {3.24}{\ignorespaces Document metadata update}}{59}{figure.caption.73}%
+\contentsline {figure}{\numberline {3.25}{\ignorespaces New document version}}{60}{figure.caption.75}%
+\contentsline {figure}{\numberline {3.26}{\ignorespaces Sprint 3 use-case diagram — Search, RAG and conversations}}{61}{figure.caption.77}%
+\contentsline {figure}{\numberline {3.27}{\ignorespaces Sprint 3 domain class diagram — Search, RAG and conversations}}{62}{figure.caption.79}%
+\contentsline {figure}{\numberline {3.28}{\ignorespaces Semantic vector search}}{63}{figure.caption.81}%
+\contentsline {figure}{\numberline {3.29}{\ignorespaces Hybrid RAG Ask with SSE streaming}}{64}{figure.caption.83}%
+\contentsline {figure}{\numberline {3.30}{\ignorespaces Conversation and messages}}{65}{figure.caption.85}%
+\contentsline {figure}{\numberline {3.31}{\ignorespaces Answer feedback}}{66}{figure.caption.87}%
+\contentsline {figure}{\numberline {3.32}{\ignorespaces Conversation CRUD supplement}}{67}{figure.caption.89}%
+\contentsline {figure}{\numberline {3.33}{\ignorespaces Admin feedback statistics}}{68}{figure.caption.91}%
+\contentsline {figure}{\numberline {3.34}{\ignorespaces Sprint 4 use-case diagram — Governance and notifications}}{69}{figure.caption.93}%
+\contentsline {figure}{\numberline {3.35}{\ignorespaces Sprint 4 domain class diagram — Governance and notifications}}{70}{figure.caption.95}%
+\contentsline {figure}{\numberline {3.36}{\ignorespaces Automatic notification on document events}}{71}{figure.caption.97}%
+\contentsline {figure}{\numberline {3.37}{\ignorespaces Manual announcement}}{72}{figure.caption.99}%
+\contentsline {figure}{\numberline {3.38}{\ignorespaces Notification inbox}}{73}{figure.caption.101}%
+\contentsline {figure}{\numberline {3.39}{\ignorespaces Manager department overview}}{74}{figure.caption.103}%
+\contentsline {figure}{\numberline {3.40}{\ignorespaces Admin create user}}{75}{figure.caption.105}%
+\contentsline {figure}{\numberline {3.41}{\ignorespaces Admin merge departments}}{76}{figure.caption.107}%
+\contentsline {figure}{\numberline {3.42}{\ignorespaces Bulk department access}}{76}{figure.caption.109}%
+\contentsline {figure}{\numberline {3.43}{\ignorespaces Admin create department}}{77}{figure.caption.111}%
+\contentsline {figure}{\numberline {3.44}{\ignorespaces Single department access grant/revoke}}{78}{figure.caption.113}%
+\contentsline {figure}{\numberline {3.45}{\ignorespaces Admin KPI statistics}}{79}{figure.caption.115}%
+\contentsline {figure}{\numberline {3.46}{\ignorespaces Admin activity log and CSV export}}{80}{figure.caption.117}%
+\contentsline {figure}{\numberline {3.47}{\ignorespaces Document audit trail}}{81}{figure.caption.119}%
+\contentsline {figure}{\numberline {3.48}{\ignorespaces Documents CSV export}}{82}{figure.caption.121}%
+\contentsline {figure}{\numberline {3.49}{\ignorespaces Bulk document delete}}{83}{figure.caption.123}%
+\contentsline {figure}{\numberline {3.50}{\ignorespaces Admin user patch and lock}}{84}{figure.caption.125}%
+\contentsline {figure}{\numberline {3.51}{\ignorespaces Sprint 5 use-case diagram — Operations, testing and deployment}}{85}{figure.caption.127}%
+\contentsline {figure}{\numberline {3.52}{\ignorespaces Sprint 5 domain class diagram — Operations, testing and deployment}}{85}{figure.caption.129}%
+\contentsline {figure}{\numberline {3.53}{\ignorespaces API health probe}}{86}{figure.caption.131}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {A.1}{\ignorespaces Overall system architecture}}{103}{figure.caption.142}%
+\contentsline {figure}{\numberline {A.2}{\ignorespaces Global use-case diagram}}{104}{figure.caption.143}%
+\contentsline {figure}{\numberline {A.3}{\ignorespaces Domain class diagram}}{105}{figure.caption.144}%

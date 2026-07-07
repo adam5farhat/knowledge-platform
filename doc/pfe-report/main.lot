@@ -1,0 +1,32 @@
+\babel@toc {french}{}\relax 
+\babel@toc {english}{}\relax 
+\babel@toc {english}{}\relax 
+\babel@toc {english}{}\relax 
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {1.1}{\ignorespaces Comparative analysis of enterprise knowledge management solutions}}{10}{table.caption.6}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {2.1}{\ignorespaces System actors and their primary capabilities}}{13}{table.caption.7}%
+\contentsline {table}{\numberline {2.2}{\ignorespaces Functional requirements with acceptance criteria}}{15}{table.2.2}%
+\contentsline {table}{\numberline {2.3}{\ignorespaces Functional requirements traceability summary}}{18}{table.caption.9}%
+\contentsline {table}{\numberline {2.4}{\ignorespaces Non-functional requirements}}{19}{table.caption.10}%
+\contentsline {table}{\numberline {2.5}{\ignorespaces Key performance indicators}}{21}{table.caption.11}%
+\contentsline {table}{\numberline {2.6}{\ignorespaces Agile Scrum sprint plan}}{23}{table.caption.12}%
+\contentsline {table}{\numberline {2.7}{\ignorespaces Sprint 1 backlog: authentication and access control}}{25}{table.caption.15}%
+\contentsline {table}{\numberline {2.8}{\ignorespaces Sprint 2 backlog: document library and ingest}}{26}{table.caption.17}%
+\contentsline {table}{\numberline {2.9}{\ignorespaces Sprint 3 backlog: search, RAG and conversations}}{27}{table.caption.19}%
+\contentsline {table}{\numberline {2.10}{\ignorespaces Sprint 4 backlog: governance and notifications}}{28}{table.caption.21}%
+\contentsline {table}{\numberline {2.11}{\ignorespaces Sprint 5 backlog: operations, testing and deployment}}{29}{table.caption.23}%
+\contentsline {table}{\numberline {2.12}{\ignorespaces Development and modelling tools}}{30}{table.caption.24}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {3.1}{\ignorespaces Subsystem responsibilities}}{34}{table.caption.26}%
+\contentsline {table}{\numberline {3.2}{\ignorespaces Decision-support matrix for platform architecture (scores: 1 = weak, 3 = strong)}}{35}{table.caption.28}%
+\contentsline {table}{\numberline {3.3}{\ignorespaces Requirements-to-design traceability (excerpt)}}{36}{table.caption.29}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {4.1}{\ignorespaces Development and deployment stack}}{88}{table.caption.135}%
+\contentsline {table}{\numberline {4.2}{\ignorespaces Index of implementation sequence diagrams (Chapter~\ref {ch:architecture}, \S \ref {sec:sprint-design})}}{91}{table.caption.136}%
+\contentsline {table}{\numberline {4.3}{\ignorespaces Implementation challenges and resolutions}}{92}{table.caption.137}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {5.1}{\ignorespaces KPI validation results}}{95}{table.caption.138}%
+\contentsline {table}{\numberline {5.2}{\ignorespaces Validation test summary}}{96}{table.caption.139}%
+\addvspace {10\p@ }
+\contentsline {table}{\numberline {A.1}{\ignorespaces Sequence diagram catalog indexed by sprint}}{106}{table.caption.145}%

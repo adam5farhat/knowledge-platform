@@ -1,0 +1,127 @@
+@startuml sprint-2-class-knowledge-platform
+title Sprint 2 domain class diagram — Document library and ingest
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam dpi 180
+
+enum DocumentVisibility {
+  ALL
+  DEPARTMENT
+  PRIVATE
+}
+
+enum DocumentProcessingStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum DocumentAuditAction {
+  CREATED
+  VERSION_UPLOADED
+  UPDATED
+  DELETED
+  FAVORITED
+  VIEWED
+  REPROCESS_REQUESTED
+}
+
+class User <<entity>> {
+  +id : UUID
+  +departmentId : UUID
+}
+
+class Department <<entity>> {
+  +id : UUID
+  +name : string
+}
+
+package "Document library (FR-03–FR-05)" {
+  class Document <<entity>> {
+    +id : UUID
+    +title : string
+    +createdById : UUID
+    +departmentId : UUID?
+    +visibility : DocumentVisibility
+    +isArchived : boolean
+  }
+
+  class DocumentVersion <<entity>> {
+    +id : UUID
+    +documentId : UUID
+    +versionNumber : int
+    +fileName : string
+    +storageKey : string
+    +processingStatus : DocumentProcessingStatus
+    +processingError : string?
+  }
+
+  class DocumentChunk <<entity>> {
+    +documentVersionId : UUID
+    +chunkIndex : int
+    +content : string
+    +embedding : vector(768)
+    +searchVector : tsvector
+  }
+
+  class DocumentTag <<entity>> {
+    +id : UUID
+    +name : string
+  }
+
+  class DocumentUserFavorite <<entity>> {
+    +userId : UUID
+    +documentId : UUID
+  }
+
+  class DocumentUserRecent <<entity>> {
+    +userId : UUID
+    +documentId : UUID
+    +lastViewedAt : DateTime
+  }
+
+  class DocumentAuditLog <<entity>> {
+    +documentId : UUID?
+    +userId : UUID?
+    +action : DocumentAuditAction
+    +metadata : Json?
+  }
+}
+
+class IngestJob <<service>> {
+  +versionId : UUID
+  +status : queue state
+  ..
+  BullMQ worker:
+  extract → chunk → embed
+}
+
+User "1" <-- "0..*" Document : createdBy
+Department "0..1" <-- "0..*" Document
+Document "1" *-- "0..*" DocumentVersion
+DocumentVersion "1" *-- "0..*" DocumentChunk
+Document }o--o{ DocumentTag
+User "1" *-- "0..*" DocumentUserFavorite
+Document "1" *-- "0..*" DocumentUserFavorite
+User "1" *-- "0..*" DocumentUserRecent
+Document "1" *-- "0..*" DocumentUserRecent
+Document "0..1" <-- "0..*" DocumentAuditLog
+User "0..1" <-- "0..*" DocumentAuditLog
+DocumentVersion ..> IngestJob : enqueued on upload
+
+Document ..> DocumentVisibility
+DocumentVersion ..> DocumentProcessingStatus
+DocumentAuditLog ..> DocumentAuditAction
+
+note bottom of DocumentChunk
+  **Sprint 2 ingest output**
+  Chunks are produced asynchronously
+  after upload; \`READY\` status on
+  \`DocumentVersion\` gates search/RAG.
+end note
+
+@enduml

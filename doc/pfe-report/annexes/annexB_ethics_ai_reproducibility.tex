@@ -1,0 +1,34 @@
+\chapter[AI Ethics]{Scientific integrity, generative AI and reproducibility}
+
+\section{Declaration of generative AI usage}
+
+Generative AI tools (including Cursor and large language model assistants) were used during this project to support:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item drafting and restructuring sections of this report outline;
+  \item suggesting LaTeX table structures aligned with the ESPRIM template;
+  \item implementing and debugging application code (e.g., avatar CORP header fix);
+  \item summarizing technical documentation already present in the repository README.
+\end{itemize}
+
+All technical claims, test results, and architectural descriptions were verified against the actual codebase, automated test output, and manual execution. The author assumes full scientific and academic responsibility for the final submitted report.
+
+\section{Minimum reproducibility expectations}
+
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item \textbf{Repository:} \texttt{c:\textbackslash dev\textbackslash finalproject} (monorepo);
+  \item \textbf{Database:} PostgreSQL 16 + pgvector; migrations via \texttt{npm run db:migrate}; seed via \texttt{npm run db:seed};
+  \item \textbf{Services:} \texttt{npm run docker:up} for PostgreSQL and Redis;
+  \item \textbf{Environment:} \tcode{apps/api/.env} (\tcode{JWT\_SECRET}, \tcode{GEMINI\_API\_KEY}, \tcode{DATABASE\_URL}); \tcode{apps/web/.env.local} (\tcode{NEXT\_PUBLIC\_API\_URL});
+  \item \textbf{Run:} \texttt{npm run dev} from repository root;
+  \item \textbf{Tests:} \texttt{npm run test:api}; RAG eval: \texttt{npm run eval:rag:quick} or \texttt{npm run eval:rag};
+  \item \textbf{Prompt versioning:} \texttt{RAG\_PROMPT\_VERSION} environment variable invalidates answer cache.
+\end{itemize}
+
+\section{Compliance reminders}
+
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item \okitem{} Every borrowed figure, table, or idea is cited in the bibliography.
+  \item \okitem{} Results are interpreted critically (limitations section in Chapter~\ref{ch:validation}).
+  \item \warnitem{} Similarity checking target: \SimilarityTarget{} (institutional plagiarism tool).
+  \item \warnitem{} Fluent prose is not a substitute for verifiable tests and reproducible commands.
+\end{itemize}

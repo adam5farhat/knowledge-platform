@@ -1,0 +1,118 @@
+@startuml sprint-4-class-knowledge-platform
+title Sprint 4 domain class diagram — Governance and notifications
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam dpi 180
+
+enum NotificationType {
+  DOCUMENT_CREATED
+  DOCUMENT_UPDATED
+  DOCUMENT_DELETED
+  MANUAL
+}
+
+enum NotificationTarget {
+  ALL_USERS
+  DEPARTMENT
+  ROLE
+}
+
+class Role <<entity>> {
+  +id : UUID
+  +name : enum
+}
+
+class Department <<entity>> {
+  +id : UUID
+  +name : string
+  +parentDepartmentId : UUID?
+}
+
+class User <<entity>> {
+  +id : UUID
+  +email : string
+  +roleId : UUID
+  +departmentId : UUID
+  +isActive : boolean
+}
+
+class UserDepartmentAccess <<entity>> {
+  +userId : UUID
+  +departmentId : UUID
+  +accessLevel : enum
+}
+
+class Document <<entity>> {
+  +id : UUID
+  +title : string
+  +departmentId : UUID?
+}
+
+class DocumentAuditLog <<entity>> {
+  +documentId : UUID?
+  +userId : UUID?
+  +action : enum
+  +metadata : Json?
+}
+
+package "Notifications (FR-09)" {
+  class Notification <<entity>> {
+    +id : UUID
+    +type : NotificationType
+    +title : string
+    +body : string?
+    +actorId : UUID?
+    +documentId : UUID?
+    +departmentId : UUID?
+    +targetType : NotificationTarget?
+    +attachmentKey : string?
+  }
+
+  class UserNotification <<entity>> {
+    +userId : UUID
+    +notificationId : UUID
+    +read : boolean
+    +readAt : DateTime?
+  }
+}
+
+package "Admin & manager (FR-10, FR-11)" {
+  class AdminDashboardStats <<view>> {
+    +userCount : int
+    +documentCount : int
+    +conversationCount : int
+  }
+
+  class ManagerDepartmentView <<view>> {
+    +manageableDepartmentIds : UUID[]
+    +memberCount : int
+    +documentCount : int
+  }
+}
+
+Role "1" <-- "0..*" User
+Department "1" <-- "0..*" User
+User "1" o-- "0..*" UserDepartmentAccess
+Department "1" o-- "0..*" UserDepartmentAccess
+
+User "0..1" <-- "0..*" Notification : actor
+Document "0..1" <-- "0..*" Notification
+Department "0..1" <-- "0..*" Notification
+Notification "1" *-- "0..*" UserNotification
+User "1" *-- "0..*" UserNotification
+
+Document "0..1" <-- "0..*" DocumentAuditLog
+User "0..1" <-- "0..*" DocumentAuditLog
+
+AdminDashboardStats ..> User
+AdminDashboardStats ..> Document
+ManagerDepartmentView ..> Department
+ManagerDepartmentView ..> UserDepartmentAccess
+
+Notification ..> NotificationType
+Notification ..> NotificationTarget
+
+@enduml

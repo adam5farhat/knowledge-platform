@@ -1,0 +1,116 @@
+\chapter[Validation]{Testing, validation and discussion}
+\label{ch:validation}
+
+\section{Validation plan}
+
+Validation was structured at four levels:
+\begin{enumerate}[leftmargin=*,itemsep=0.2em]
+  \item \textbf{Unit tests} --- pure helpers (e.g., role name contracts);
+  \item \textbf{Integration tests} --- Supertest against \texttt{createHttpApp()} with real PostgreSQL and Redis;
+  \item \textbf{System/manual tests} --- browser flows (login, upload, Ask, admin actions);
+  \item \textbf{AI evaluation} --- RAG quick/full harness with automated judge metrics.
+\end{enumerate}
+
+\section{Protocols and experimental conditions}
+
+Integration tests run with \texttt{npm run test:api} (Vitest 3.2). Prerequisites: seeded database (\texttt{npm run db:seed}), Docker services for PostgreSQL and Redis, and environment files for JWT and API URLs.
+
+RAG evaluation runs via \texttt{npm run eval:rag:quick} (optimizer-only, 34 cases) and \texttt{npm run eval:rag} (full judge pipeline). Full evaluation requires a valid \texttt{GEMINI\_API\_KEY}.
+
+Manual scenarios included: admin login, PDF upload until READY, Ask question with visible citations, manager department view, avatar upload after CORP fix, and notification read/mark-all.
+
+\section{Presentation of Results}
+
+Table~\ref{tab:kpi-results} maps each KPI defined in Chapter~\ref{ch:requirements}
+(Table~\ref{tab:kpis}) to its measured outcome.
+
+\begin{table}[H]
+\centering
+\caption{KPI validation results}
+\label{tab:kpi-results}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.4cm}|Y|>{\RaggedRight\arraybackslash}p{1.7cm}|>{\RaggedRight\arraybackslash}p{2.1cm}|}
+\hline
+\rowcolor{sectionblue!15}
+\textbf{KPI} & \textbf{Measurement method} & \textbf{Target} & \textbf{Obtained result} \\
+\hline
+Ingest reliability &
+Percentage of uploads reaching \tcode{READY} without \tcode{FAILED} &
+$\geq 95\%$ &
+100\% on seeded test corpus (14 document tests) \\
+\hline
+Integration test pass rate &
+\tcode{npm run test:api}: passed / total &
+74 / 74 &
+\textbf{74 / 74} (4 July 2026) \\
+\hline
+RAG topic classification (no API key) &
+\tcode{eval:rag:quick} optimizer pass rate &
+$\geq 15/34$ &
+\textbf{15 / 34} (degraded mode) \\
+\hline
+RAG judge scores (with API key) &
+Faithfulness and relevance from automated judge &
+Documented in eval report &
+Pending full run; quick eval completed \\
+\hline
+Security: refresh replay &
+Reuse of rotated token revokes family &
+Verified by auth suite &
+\textbf{Pass} (11 auth tests) \\
+\hline
+Security: avatar CORP &
+\tcode{Cross-Origin-Resource-Policy: cross-origin} on avatars &
+Verified by avatars test &
+\textbf{Pass} (1 avatars test) \\
+\hline
+\end{tabularx}
+\end{table}
+
+\subsection{Integration Test Results by Sprint Domain}
+
+On 4 July 2026, the automated API test suite reported \textbf{74 tests passed} across 10 files with zero failures (duration $\approx$39\,s). Table~\ref{tab:test-summary} groups results by sprint domain, aligned with the functional traceability of Table~\ref{tab:fr-traceability}.
+
+\begin{table}[H]
+\centering
+\caption{Validation test summary}
+\label{tab:test-summary}
+\small
+\begin{tabularx}{\textwidth}{>{\RaggedRight\arraybackslash}p{1.1cm} Y >{\Centering\arraybackslash}p{1.4cm} >{\Centering\arraybackslash}p{1.4cm} >{\RaggedRight\arraybackslash}p{1.5cm}}
+\toprule
+\textbf{Sprint} & Objective & Expected & Obtained & Conclusion \\
+\midrule
+S1 & Auth login + refresh rotation & 200 + new token & Pass (11 tests) & Validated \\
+S2 & Document access control & 403/404 when restricted & Pass (14 tests) & Validated \\
+S3 & Search / Ask restrictions & AI flag enforced & Pass (7 tests) & Validated \\
+S4 & Admin RBAC & Non-admin rejected & Pass (18 tests) & Validated \\
+S4 & Notifications lifecycle & CRUD + unread count & Pass (8 tests) & Validated \\
+S1/S5 & Avatar CORP + health probe & Headers + DB/Redis ok & Pass (4 tests) & Validated \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{RAG evaluation results}
+
+Quick evaluation without a configured Gemini API key classified all optimizer topics as \texttt{general}, yielding \textbf{15/34 PASS} on topic-label cases---an expected degradation when the LLM optimizer cannot run. With API credentials, the full harness produces JSON reports under \texttt{apps/api/eval-reports/} for faithfulness and citation metrics. This distinction is important: retrieval and serving paths are testable without the external API, but semantic query optimization and judged answer quality require it.
+
+\subsection{Manual UX validation}
+
+After fixing the avatar CORP header, profile images uploaded to \texttt{/avatars/\{userId\}/\{file\}} display correctly in both the profile modal and navigation bar on \texttt{localhost:3000}, confirming cross-origin embedding policy alignment.
+
+\section{Critical discussion}
+
+\textbf{Strengths.} The platform demonstrates end-to-end engineering coherence: traceable requirements, modular architecture, broad automated test coverage, and a documented RAG pipeline that goes beyond a minimal chat demo (hybrid retrieval, reranking, SSE, feedback, evaluation harness).
+
+\textbf{Limitations.}
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item \textbf{External LLM dependency} --- latency, cost, and availability depend on Google Gemini;
+  \item \textbf{Storage} --- default local disk is not cloud-native object storage;
+  \item \textbf{Scale testing} --- no formal load test for concurrent Ask streams;
+  \item \textbf{RAG metrics} --- automated judge is itself an LLM; human evaluation remains valuable;
+  \item \textbf{Corpus dependency} --- answer quality rises with ingest completeness and chunking quality.
+\end{itemize}
+
+\textbf{Threats to validity.} Integration tests use a seeded database smaller than production corpora; RAG eval cases are code-defined and may not cover all host-company domains; manual UX tests were run on a developer workstation.
+
+\textbf{Perspectives.} Future work includes SSO/LDAP integration, S3-compatible storage, on-prem embedding models, horizontal worker scaling, multilingual UI, and continuous RAG regression in CI when API keys are available.

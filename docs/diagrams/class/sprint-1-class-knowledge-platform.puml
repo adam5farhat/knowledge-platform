@@ -1,0 +1,107 @@
+@startuml sprint-1-class-knowledge-platform
+title Sprint 1 domain class diagram — Authentication and access control
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam dpi 180
+
+enum RoleName {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum DepartmentAccessLevel {
+  MEMBER
+  MANAGER
+  VIEWER
+}
+
+enum AuthEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  REFRESH_SUCCESS
+  LOGOUT
+  PASSWORD_RESET_COMPLETED
+}
+
+package "Identity & access (FR-01, FR-12)" {
+  class Role <<entity>> {
+    +id : UUID
+    +name : RoleName
+  }
+
+  class Department <<entity>> {
+    +id : UUID
+    +name : string
+    +parentDepartmentId : UUID?
+  }
+
+  class User <<entity>> {
+    +id : UUID
+    +email : string
+    +passwordHash : string
+    +roleId : UUID
+    +departmentId : UUID
+    +loginAllowed : boolean
+    +accessDocumentsAllowed : boolean
+    +useAiQueriesAllowed : boolean
+    +authVersion : int
+    +failedLoginAttempts : int
+    +profilePictureUrl : string?
+  }
+
+  class UserDepartmentAccess <<entity>> {
+    +userId : UUID
+    +departmentId : UUID
+    +accessLevel : DepartmentAccessLevel
+  }
+}
+
+package "Authentication sessions (FR-01, FR-02)" {
+  class PasswordResetToken <<entity>> {
+    +userId : UUID
+    +tokenHash : string
+    +expiresAt : DateTime
+  }
+
+  class RefreshSession <<entity>> {
+    +userId : UUID
+    +tokenHash : string
+    +authVersion : int
+    +expiresAt : DateTime
+    +revokedAt : DateTime?
+    +replacedById : string?
+  }
+
+  class AuthEvent <<entity>> {
+    +userId : UUID?
+    +eventType : AuthEventType
+    +ipAddress : string?
+    +createdAt : DateTime
+  }
+}
+
+Role "1" <-- "0..*" User
+Department "1" <-- "0..*" User
+User "1" o-- "0..*" UserDepartmentAccess
+Department "1" o-- "0..*" UserDepartmentAccess
+User "1" *-- "0..*" PasswordResetToken
+User "1" *-- "0..*" RefreshSession
+User "0..1" <-- "0..*" AuthEvent
+
+Role ..> RoleName
+UserDepartmentAccess ..> DepartmentAccessLevel
+AuthEvent ..> AuthEventType
+
+note bottom of User
+  **Sprint 1 scope**
+  Per-user restriction flags (FR-12) and
+  avatar URL (FR-02) live on \`User\`.
+  JWT access tokens are stateless; refresh
+  state is persisted in \`RefreshSession\`.
+end note
+
+@enduml

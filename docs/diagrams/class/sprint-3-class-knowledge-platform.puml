@@ -1,0 +1,100 @@
+@startuml sprint-3-class-knowledge-platform
+title Sprint 3 domain class diagram — Search, RAG and conversations
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam dpi 180
+
+class User <<entity>> {
+  +id : UUID
+  +departmentId : UUID
+  +useAiQueriesAllowed : boolean
+}
+
+class Department <<entity>> {
+  +id : UUID
+}
+
+class Document <<entity>> {
+  +id : UUID
+  +departmentId : UUID?
+  +visibility : enum
+}
+
+class DocumentChunk <<entity>> {
+  +id : UUID
+  +documentVersionId : UUID
+  +content : string
+  +embedding : vector(768)
+  +searchVector : tsvector
+}
+
+package "Retrieval & RAG (FR-06, FR-07)" {
+  class HybridSearchService <<service>> {
+    +semanticSearch(query)
+    +hybridAsk(query, deptScope)
+    ..
+    pgvector + FTS + RRF
+    + Gemini rerank + SSE stream
+  }
+
+  class RagAnswerCache <<service>> {
+    +promptVersion : string
+    +cachedResponse : Json
+  }
+}
+
+package "Conversations (FR-08)" {
+  class Conversation <<entity>> {
+    +id : UUID
+    +userId : UUID
+    +title : string
+    +updatedAt : DateTime
+  }
+
+  class ConversationMessage <<entity>> {
+    +id : UUID
+    +conversationId : UUID
+    +role : string
+    +content : string
+    +sources : Json?
+    +confidence : string?
+  }
+
+  class AnswerFeedback <<entity>> {
+    +messageId : UUID
+    +userId : UUID
+    +rating : string
+    +comment : string?
+  }
+}
+
+class RagEvalReport <<artifact>> {
+  +runId : string
+  +faithfulness : float
+  +relevance : float
+  +outputPath : string
+}
+
+User "1" *-- "0..*" Conversation
+Conversation "1" *-- "0..*" ConversationMessage
+ConversationMessage "1" o-- "0..1" AnswerFeedback
+User "1" *-- "0..*" AnswerFeedback
+
+HybridSearchService ..> DocumentChunk : retrieves
+HybridSearchService ..> User : dept scope
+HybridSearchService ..> Department : filters
+HybridSearchService ..> ConversationMessage : persists answer
+HybridSearchService ..> RagAnswerCache
+RagEvalReport ..> HybridSearchService : NFR-06 eval
+
+note bottom of HybridSearchService
+  **Sprint 3 scope**
+  Department-scoped retrieval enforces
+  FR-04 visibility before chunks reach
+  the LLM context window.
+end note
+
+@enduml

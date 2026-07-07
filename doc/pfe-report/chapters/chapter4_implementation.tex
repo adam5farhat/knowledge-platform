@@ -1,0 +1,199 @@
+\chapter[Implementation]{Realization, implementation or experimentation}
+\label{ch:implementation}
+
+This chapter describes how the sprint-aligned design of
+Section~\ref{sec:sprint-design} (Chapter~\ref{ch:architecture}) was realized in
+code. Implementation follows the five-sprint plan of Table~\ref{tab:sprints},
+with each subsection summarising the principal modules, technical choices, and
+sequence flows validated for that increment.
+
+\section{Hardware and Software Environment}
+
+\begin{table}[H]
+\centering
+\caption{Development and deployment stack}
+\label{tab:stack}
+\begin{tabularx}{\textwidth}{>{\RaggedRight\arraybackslash}p{2.8cm} Y}
+\toprule
+Layer & Technology (versions) \\
+\midrule
+Workstation & Windows 10/11; Node.js 20+ \\
+API & Express 4, TypeScript, Prisma 5, Vitest 3 \\
+Web & Next.js 15, React 19, CSS Modules \\
+Database & PostgreSQL 16 with pgvector extension \\
+Queue & Redis 7, BullMQ 5 \\
+AI services & Google Gemini (\tcode{gemini-2.5-flash}, \tcode{gemini-embedding-001}) \\
+Containers & Docker Compose (dev and prod compose files) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The monorepo root orchestrates \texttt{npm run dev} (API on port 3001, web on 3000), database migrations, seeding, linting, and RAG evaluation scripts.
+
+\section{Implementation Steps by Sprint}
+
+\subsection{Sprint 1: Authentication and access control}
+\label{subsec:impl-sprint1}
+
+Sprint~1 implements the security perimeter defined in
+Subsection~\ref{subsec:sprint1-design} (FR-01, FR-02, FR-12; NFR-02, NFR-03).
+Access tokens are short-lived JWTs stored \textbf{in memory} on the web client---never
+in \texttt{localStorage}---to reduce XSS exfiltration risk. Refresh tokens live in
+HttpOnly cookies (\texttt{kp\_rt}). The client uses a \textbf{single in-flight}
+refresh promise to prevent parallel rotations from invalidating each other~\cite{ietf-jwt-bcp}.
+Role middleware and per-user restriction flags (\tcode{requireDocLibraryAccess},
+\tcode{requireUseAiQueries}) enforce the hybrid authorization model of
+Subsection~\ref{subsec:access-control-model}. Profile avatars are served from a
+CORP-aware public route (\tcode{avatarsPublic.ts}). Flows
+\ref{fig:seq-01}--\ref{fig:seq-07}, \ref{fig:seq-23}, \ref{fig:seq-32}, and
+\ref{fig:seq-33} were validated against integration tests in
+\tcode{auth.integration.test} and \tcode{avatars.integration.test}.
+
+\subsection{Sprint 2: Document library and ingest pipeline}
+\label{subsec:impl-sprint2}
+
+Sprint~2 delivers the document lifecycle of Subsection~\ref{subsec:sprint2-design}
+(FR-03 to FR-05). Uploads are validated (MIME allowlist, size limits), stored on
+disk, and enqueued in BullMQ. The worker extracts text per format (PDF, Office,
+HTML, etc.), chunks content with sentence-aware splitting and table preservation,
+computes 768-dimensional embeddings, and persists \texttt{Chunk} rows with vector
+indexes. Visibility rules (\texttt{ALL}, \texttt{DEPARTMENT}, \texttt{PRIVATE}) are
+enforced through \tcode{canReadDocument} in \tcode{documentAccess.ts}, returning
+404 on unauthorised access to prevent enumeration. Tags, favorites, recents, and
+versioning are handled in \tcode{documents.ts}. Flows
+\ref{fig:seq-08}--\ref{fig:seq-10} and \ref{fig:seq-24}--\ref{fig:seq-29} are
+covered by \tcode{documents.integration.test}.
+
+\subsection{Sprint 3: Search, RAG and conversations}
+\label{subsec:impl-sprint3}
+
+Sprint~3 implements the hybrid retrieval and AI assistant of
+Subsection~\ref{subsec:sprint3-design} (FR-06 to FR-08; NFR-06).
+Algorithm~\ref{alg:rag} summarizes the Ask endpoint logic in
+\tcode{search.ts} and \tcode{ragCompletion.ts}.
+
+\begin{algorithm}[H]
+\caption{Hybrid RAG Ask pipeline (simplified)}
+\label{alg:rag}
+\begin{algorithmic}[1]
+\State Authenticate user and resolve \texttt{readableDepartmentIds}
+\State Optimize query (type, topic, rewrite, optional multi-hop)
+\State Retrieve dense vectors (pgvector) and sparse FTS (BM25-style)
+\State Fuse rankings with weighted reciprocal rank fusion (RRF)
+\State Rerank top chunks with Gemini; optionally expand neighbor chunks
+\State Stream SSE events: \texttt{sources}, \texttt{token}, optional \texttt{correction}
+\State Persist conversation message with citations and confidence
+\State Optionally cache answer keyed by prompt version and filters
+\end{algorithmic}
+\end{algorithm}
+
+The Ask UI consumes SSE streams and renders markdown with sanitized links.
+Conversation threads, message persistence, and thumbs-up/down feedback are
+implemented in \tcode{conversations.ts}. Semantic search and Ask flows
+(\ref{fig:seq-11}, \ref{fig:seq-12}) plus conversation sequences
+(\ref{fig:seq-13}, \ref{fig:seq-14}, \ref{fig:seq-30}, \ref{fig:seq-31}) are
+validated in \tcode{search.integration.test} and
+\tcode{conversations.integration.test}.
+
+\subsection{Sprint 4: Governance and notifications}
+\label{subsec:impl-sprint4}
+
+Sprint~4 covers administration, manager dashboards, and notifications per
+Subsection~\ref{subsec:sprint4-design} (FR-09 to FR-11).
+\texttt{departmentAccess.ts} computes readable and manageable department sets
+including inherited manager/viewer scopes. Administrators manage users, bulk
+restrictions, CSV import (with formula-injection escaping), department merge, KPI
+exports, and document audit views in \tcode{admin.ts}. Managers access
+department-scoped dashboards through \tcode{manager.ts}. The notification service
+emits automatic events on document lifecycle changes and supports manual
+announcements with attachments. Document previews use blob URLs for PDF/images;
+notifications use polling with unread badges. Admin, manager, and notification
+flows (\ref{fig:seq-15}--\ref{fig:seq-21}, \ref{fig:seq-34}--\ref{fig:seq-41})
+are covered by \tcode{admin.integration.test}, \tcode{manager.integration.test},
+and \tcode{notifications.integration.test}.
+
+\subsection{Sprint 5: Operations, testing and deployment}
+\label{subsec:impl-sprint5}
+
+Sprint~5 consolidates operational readiness per
+Subsection~\ref{subsec:sprint5-design} (NFR-01, NFR-04 to NFR-06). The health
+probe (\ref{fig:seq-22}) reports PostgreSQL and Redis status via
+\tcode{GET /health}. A 74-test Vitest/Supertest suite runs against real database
+and Redis instances (\texttt{npm run test:api}). Docker Compose files provide
+reproducible dev and production stacks with automatic migrations. The RAG
+evaluation CLI (\texttt{npm run eval:rag:quick}, \texttt{npm run eval:rag})
+writes JSON reports under \texttt{eval-reports/}. Table~\ref{tab:seq-index}
+summarises all sprint sequence flows; the complete catalog appears in
+Appendix~\ref{annex:diagrams} (Table~\ref{tab:annex-seq-index}).
+
+\begin{table}[H]
+\centering
+\caption{Index of implementation sequence diagrams (Chapter~\ref{ch:architecture}, \S\ref{sec:sprint-design})}
+\label{tab:seq-index}
+\scriptsize
+\begin{tabularx}{\textwidth}{|>{\Centering\arraybackslash}p{0.8cm}|>{\RaggedRight\arraybackslash}p{2.3cm}|>{\Centering\arraybackslash}p{1.0cm}|Y|}
+\hline
+\rowcolor{sectionblue!15}
+\textbf{Sprint} & \textbf{Area} & \textbf{Fig.} & \textbf{Flow} \\
+\hline
+S1 & Auth & \ref{fig:seq-01}--\ref{fig:seq-07}, \ref{fig:seq-23}, \ref{fig:seq-32}, \ref{fig:seq-33} & Login, refresh, logout, password reset/change, profile, restrictions, /me, register info, restricted UX \\
+\hline
+S2 & Documents & \ref{fig:seq-08}--\ref{fig:seq-10}, \ref{fig:seq-24}--\ref{fig:seq-29} & Upload, ingest worker, download, list, detail, favorites, metadata, versions, reprocess \\
+\hline
+S3 & Search / RAG & \ref{fig:seq-11}, \ref{fig:seq-12} & Semantic search, hybrid Ask SSE \\
+\hline
+S3 & Conversations & \ref{fig:seq-13}, \ref{fig:seq-14}, \ref{fig:seq-30}, \ref{fig:seq-31} & Threads, messages, feedback, CRUD supplement, admin stats \\
+\hline
+S4 & Notifications & \ref{fig:seq-15}--\ref{fig:seq-17} & Automatic events, manual send, inbox \\
+\hline
+S4 & Manager & \ref{fig:seq-18} & Department dashboard \\
+\hline
+S4 & Admin & \ref{fig:seq-19}--\ref{fig:seq-21}, \ref{fig:seq-34}--\ref{fig:seq-41} & Users, departments, access, stats, audit, exports, bulk delete, lock \\
+\hline
+S5 & Operations & \ref{fig:seq-22} & Health check (tests, deploy, RAG eval: see \S\ref{subsec:impl-sprint5}) \\
+\hline
+\end{tabularx}
+\end{table}
+
+\section{Difficulties Encountered and Solutions}
+
+\begin{table}[H]
+\centering
+\caption{Implementation challenges and resolutions}
+\label{tab:difficulties}
+\begin{tabularx}{\textwidth}{>{\RaggedRight\arraybackslash}p{2.8cm} >{\RaggedRight\arraybackslash}p{0.30\linewidth} Y}
+\toprule
+Difficulty & Analysis & Solution adopted \\
+\midrule
+Avatar not displayed & Browser blocked cross-origin image (CORP) & Set \tcode{Cross-Origin-Resource-Policy: cross-origin} on \tcode{/avatars} \\
+Random logout on navigation & Parallel refresh requests rotated tokens twice & Single in-flight refresh in \tcode{authClient.ts} \\
+Next.js dev webpack errors with avatars & \tcode{next/image} correlated with RSC issues & \tcode{ProfileAvatarImage} uses native \tcode{<img>} \\
+Gemini rate limits & External API throttling under load & TTL cache + exponential backoff retry \\
+Spreadsheet chunking & Tables split mid-row lost semantics & Table-aware markdown chunking \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Produced Technical Deliverables}
+
+The project deliverables include:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item \textbf{Source code} --- monorepo at \texttt{c:\textbackslash dev\textbackslash finalproject} with \texttt{apps/api} and \texttt{apps/web};
+  \item \textbf{Database} --- 29 Prisma migrations, seed script with admin/manager/employee personas;
+  \item \textbf{Documentation} --- README, architecture guide, \textbf{54 PlantUML diagrams} (sequence, use-case, and sprint class flows in Chapter~\ref{ch:architecture}, full index in Appendix~\ref{annex:diagrams});
+  \item \textbf{Tests} --- 10 Vitest integration suites (74 tests);
+  \item \textbf{Operations} --- Docker Compose, RAG eval CLI, reindex and feedback export scripts;
+  \item \textbf{UI} --- dashboard, document library, Ask interface, admin and manager consoles.
+\end{itemize}
+
+Screenshots of the running application (dashboard, Ask with sources, profile photo, admin users) should be inserted in the oral defense slide deck; the report references interfaces analytically rather than through exhaustive screenshot dumps, per ESPRIM guidance.
+
+\section{Chapter Conclusion}
+
+This chapter described the concrete realization of the platform across five
+sprint increments, from authentication and document ingest through hybrid RAG,
+governance, and operational readiness. It documented implementation constraints
+and technical resolutions, showing how architectural choices were translated into
+operational code, testable workflows, and reproducible deliverables.
+Chapter~\ref{ch:validation} presents the validation results against the KPIs
+defined in Table~\ref{tab:kpis}.

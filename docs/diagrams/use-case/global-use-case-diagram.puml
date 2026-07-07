@@ -1,9 +1,19 @@
 @startuml global-use-case-knowledge-platform
+' Classic academic UML use-case layout for A4 report pages.
 !theme plain
-title Global use case diagram — Knowledge Platform
-
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam dpi 180
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+skinparam actorFontSize 10
+skinparam usecaseFontSize 9
+skinparam packageFontSize 10
+skinparam nodesep 16
+skinparam ranksep 18
+skinparam packageStyle rectangle
 skinparam rectangle {
-  BackgroundColor #F8F8F8
+  BackgroundColor #FAFAFA
   BorderColor #333333
 }
 skinparam usecase {
@@ -13,161 +23,108 @@ skinparam usecase {
 skinparam actor {
   BorderColor #333333
 }
-
-left to right direction
-
-actor Guest <<human>>
-
-actor "Authenticated user" as Auth <<abstract>>
-actor Administrator <<human>>
-actor Manager <<human>>
-actor Employee <<human>>
-
-Administrator -|> Auth
-Manager -|> Auth
-Employee -|> Auth
-
-actor "Email (SMTP)" as Email <<secondary>>
-actor "AI provider\n(Gemini)" as AI <<secondary>>
-actor "Document processing\n(BullMQ worker)" as Worker <<secondary>>
-
-rectangle "Knowledge Platform" {
-
-  package "Authentication and account" as P_Auth {
-    usecase "Sign in" as UC_A1
-    usecase "Refresh session" as UC_A2
-    usecase "Sign out" as UC_A3
-    usecase "View / update profile" as UC_A4
-    usecase "Change password" as UC_A5
-    usecase "Request password reset" as UC_A6
-    usecase "Complete password reset" as UC_A7
-    usecase "Read account provisioning info\n(no self-registration)" as UC_A8
-  }
-
-  package "Document library" as P_Docs {
-    usecase "Browse and search library" as UC_D1
-    usecase "View / download document" as UC_D2
-    usecase "Manage favorites and recents" as UC_D3
-    usecase "Manage tags and metadata" as UC_D4
-    usecase "Upload / new version" as UC_D5
-    usecase "Admin document maintenance" as UC_D6
-  }
-
-  package "Search and AI" as P_AI {
-    usecase "Semantic search" as UC_S1
-    usecase "Ask (RAG stream)" as UC_S2
-    usecase "Manage conversations" as UC_S3
-    usecase "Submit answer feedback" as UC_S4
-    usecase "View AI feedback analytics" as UC_S5
-  }
-
-  package "Notifications" as P_Notif {
-    usecase "Browse notifications" as UC_N1
-    usecase "Mark read / delete" as UC_N2
-    usecase "Download attachment" as UC_N3
-    usecase "Send manual notification" as UC_N4
-  }
-
-  package "Manager dashboard" as P_Mgr {
-    usecase "List manageable departments" as UC_G1
-    usecase "View department and members" as UC_G2
-  }
-
-  package "Administration" as P_Admin {
-    usecase "Manage users and restrictions" as UC_P1
-    usecase "Manage departments" as UC_P2
-    usecase "Manage department access" as UC_P3
-    usecase "Stats, audit, exports" as UC_P4
-  }
-
-  package "Cross-cutting" as P_X {
-    usecase "View restricted-feature page" as UC_X1
-  }
+skinparam arrow {
+  Color #444444
 }
 
-' --- Guest ---
-Guest --> UC_A1
-Guest --> UC_A6
-Guest --> UC_A7
-Guest --> UC_A8
+left to right direction
+title Global use-case diagram — Knowledge Platform
 
-' --- Shared authenticated (via abstract actor) ---
-Auth --> UC_A2
-Auth --> UC_A3
-Auth --> UC_A4
-Auth --> UC_A5
-Auth --> UC_D1
-Auth --> UC_D2
-Auth --> UC_D3
-Auth --> UC_D4
-Auth --> UC_S1
-Auth --> UC_S2
-Auth --> UC_S3
-Auth --> UC_S4
-Auth --> UC_N1
-Auth --> UC_N2
-Auth --> UC_N3
-Auth --> UC_X1
+' Primary actors (left)
+actor Guest <<human>> as A_Guest
+actor "Authenticated user" as A_Auth <<abstract>>
+actor Employee <<human>> as A_Emp
+actor Manager <<human>> as A_Mgr
+actor Administrator <<human>> as A_Admin
 
-' --- Role-specific (also inherit Auth associations in UML semantics) ---
-Administrator --> UC_D6
-Administrator --> UC_S5
-Administrator --> UC_N4
-Administrator --> UC_G1
-Administrator --> UC_G2
-Administrator --> UC_P1
-Administrator --> UC_P2
-Administrator --> UC_P3
-Administrator --> UC_P4
+A_Emp -up-|> A_Auth
+A_Mgr -up-|> A_Auth
+A_Admin -up-|> A_Auth
 
-Administrator --> UC_D5
-Manager --> UC_D5
-Manager --> UC_N4
-Manager --> UC_G1
-Manager --> UC_G2
+A_Guest -[hidden]down-> A_Emp
+A_Emp -[hidden]down-> A_Mgr
+A_Mgr -[hidden]down-> A_Admin
 
-Employee --> UC_G1
-Employee --> UC_G2
+' Secondary actors (right)
+actor "Email (SMTP)" <<secondary>> as A_Email
+actor "AI provider (Gemini)" <<secondary>> as A_AI
+actor "Document processing\n(BullMQ worker)" <<secondary>> as A_Worker
 
-' --- Secondary actors ---
-UC_A6 ..> Email : <<notify>>
-UC_A7 ..> Email : <<notify>>
-UC_S1 ..> AI : <<invoke>>
-UC_S2 ..> AI : <<invoke>>
-UC_S3 ..> AI : <<invoke>>
-UC_D5 ..> Worker : <<enqueue>>
+A_Email -[hidden]down-> A_AI
+A_AI -[hidden]down-> A_Worker
 
-note bottom of UC_N4
-  **Platform roles only:** ADMIN, MANAGER.
-  Employees with department-level
-  manager access are **not** included.
-end note
+rectangle "Knowledge Platform" as SYS {
+  package "Authentication and account" as P_Auth {
+    usecase "Authenticate user" as UC_Login
+    usecase "Refresh session" as UC_Refresh
+    usecase "Manage profile and avatar" as UC_Profile
+    usecase "Reset password" as UC_Reset
+  }
 
-note bottom of UC_G1
-  **Eligibility:** ADMIN, MANAGER,
-  or Employee with **manageableDepartmentIds**
-  (department MANAGER access / hierarchy).
-  Requires **accessDashboardAllowed**.
-end note
+  package "Document library and access control" as P_Doc {
+    usecase "Browse and filter documents" as UC_Browse
+    usecase "View / download document" as UC_Read
+    usecase "Manage metadata,\nfavorites and recents" as UC_Meta
+    usecase "Upload / new version\nand reprocess document" as UC_Upload
+  }
 
-note bottom of UC_D5
-  **Not available** to platform EMPLOYEE:
-  `requireManageDocumentsCapability`
-  rejects Employee role regardless of flags.
-end note
+  package "Search, AI and collaboration" as P_AI {
+    usecase "Semantic search" as UC_Semantic
+    usecase "Ask assistant (RAG stream)" as UC_Ask
+    usecase "Manage conversations" as UC_Conv
+    usecase "Submit answer feedback" as UC_Feedback
+  }
 
-note right of Auth
-  **Abstract actor** for shared authenticated
-  use cases. **Not** privilege inheritance
-  between ADMIN / MANAGER / EMPLOYEE.
-end note
+  package "Notifications and governance" as P_Gov {
+    usecase "Browse notifications" as UC_NotifInbox
+    usecase "Send manual notification" as UC_NotifSend
+    usecase "Manager dashboard" as UC_MgrDash
+    usecase "Admin users/departments,\nstats and audit" as UC_Admin
+  }
 
-legend bottom
-  |= Line from **Authenticated user** |
-  | In UML, **Administrator**, **Manager**, and **Employee** |
-  | **generalize** this actor and therefore participate |
-  | in the same use cases, subject to notes and |
-  | server-side **role / restriction** checks. |
-endlegend
+  usecase "View restricted-feature page" as UC_Restricted
+}
+
+' Guest (unauthenticated)
+A_Guest --> UC_Login
+A_Guest --> UC_Reset
+
+' Shared authenticated use cases (inherited by Employee, Manager, Administrator)
+A_Auth --> UC_Refresh
+A_Auth --> UC_Profile
+A_Auth --> UC_Browse
+A_Auth --> UC_Read
+A_Auth --> UC_Meta
+A_Auth --> UC_Semantic
+A_Auth --> UC_Ask
+A_Auth --> UC_Conv
+A_Auth --> UC_Feedback
+A_Auth --> UC_NotifInbox
+A_Auth --> UC_Restricted
+A_Auth --> UC_MgrDash
+
+' Role-specific additions
+A_Mgr --> UC_Upload
+A_Mgr --> UC_NotifSend
+
+A_Admin --> UC_Upload
+A_Admin --> UC_NotifSend
+A_Admin --> UC_Admin
+
+' Include / extend relations (classic UML style)
+UC_Ask .> UC_Semantic : <<include>>
+UC_Conv .> UC_Ask : <<include>>
+UC_Read .> UC_Browse : <<include>>
+UC_Upload .> UC_Meta : <<include>>
+UC_NotifSend .> UC_NotifInbox : <<extend>>
+UC_Restricted .> UC_Browse : <<extend>>
+UC_Restricted .> UC_Ask : <<extend>>
+
+' External system interactions
+UC_Reset ..> A_Email : <<notify>>
+UC_Login ..> A_Email : <<notify>>
+UC_Semantic ..> A_AI : <<invoke>>
+UC_Ask ..> A_AI : <<invoke>>
+UC_Upload ..> A_Worker : <<enqueue>>
 
 @enduml

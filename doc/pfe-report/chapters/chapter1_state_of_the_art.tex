@@ -1,0 +1,315 @@
+% ============================================================
+%  chapter1_state_of_the_art.tex
+% ============================================================
+\chapter[State of the Art]{State of the Art and Project Positioning}
+\label{ch:state-of-the-art}
+
+This chapter surveys the scientific and industrial landscape relevant to enterprise
+knowledge management, information retrieval, and Retrieval-Augmented Generation.
+It analyses existing solutions comparatively and positions the Knowledge Platform
+within this context. Implementation details, requirements, and validation are
+deliberately out of scope here; they are addressed in subsequent chapters.
+
+\section{Scientific and Technical Context}
+\label{sec:context}
+
+\subsection{The Enterprise Knowledge Lifecycle Problem}
+
+Modern organisations face a fundamental challenge in managing knowledge at scale. On one hand, they continuously generate large volumes of heterogeneous digital assets, including technical documentation, procedures, contracts, internal reports, spreadsheets, emails, and operational guidelines. On the other hand, these assets are distributed across multiple disconnected systems such as shared drives, email platforms, messaging tools, and departmental repositories.
+
+This fragmentation creates a structural inefficiency that goes beyond retrieval. Enterprise knowledge is difficult not only to find, but also to:
+
+\begin{itemize}
+    \item collect in a structured and consistent manner;
+    \item centralize across heterogeneous tools and departments;
+    \item organize according to business logic and ownership;
+    \item govern through access control policies;
+    \item retrieve in a meaningful and context-aware way.
+\end{itemize}
+
+As a result, employees often rely on informal communication or personal experience instead of documented knowledge. Studies show that knowledge workers spend a significant portion of their time searching for information rather than performing productive tasks \cite{gao2024rag-survey}.
+
+\subsection{Limitations of Traditional Document Systems}
+
+Traditional enterprise tools such as Google Drive, OneDrive, and Microsoft SharePoint were primarily designed for storage and collaboration rather than intelligent knowledge management.
+
+While they provide reliable file storage and basic access control, they suffer from key limitations:
+
+\begin{itemize}
+    \item lack of semantic understanding of content;
+    \item keyword-based search that ignores meaning and context;
+    \item weak knowledge structuring and duplication of information;
+    \item limited ability to answer questions directly;
+    \item coarse-grained permission models not aligned with organizational logic.
+\end{itemize}
+
+These systems function as passive repositories rather than active knowledge systems.
+
+\section{Information Retrieval: From Keywords to Semantics}
+
+\subsection{Classical Retrieval Models}
+
+Traditional information retrieval relies on lexical matching approaches such as TF-IDF and BM25 \cite{robertson2009bm25}. These methods rank documents based on term frequency and inverse document frequency, making them effective for exact keyword matching.
+
+However, they fail to capture semantic similarity. Two expressions with identical meaning but different wording may not match, which limits their effectiveness in enterprise contexts.
+
+\subsection{Dense Retrieval and Semantic Search}
+
+Dense retrieval methods address this limitation by encoding queries and documents into continuous vector representations \cite{karpukhin2020dpr, reimers2019sentence}. This enables semantic matching between conceptually similar texts even when lexical overlap is low.
+
+Despite their advantages, dense retrieval models also have limitations:
+
+\begin{itemize}
+    \item weaker performance on rare or technical terms;
+    \item sensitivity to embedding model quality;
+    \item reduced interpretability of ranking decisions.
+\end{itemize}
+
+\subsection{Hybrid Retrieval Systems}
+
+To overcome these limitations, modern systems adopt hybrid retrieval strategies that combine lexical and semantic approaches \cite{ram2023hybrid, lin2021unicoil}. Results are typically merged using ranking fusion techniques such as Reciprocal Rank Fusion (RRF), which balances precision and recall.
+
+This hybrid approach is now widely considered the standard for enterprise search systems.
+
+\section{Retrieval-Augmented Generation (RAG)}
+
+\subsection{Concept and Architecture}
+
+Retrieval-Augmented Generation (RAG) \cite{lewis2020rag} enhances traditional retrieval systems by integrating Large Language Models (LLMs). Instead of returning documents, the system retrieves relevant passages and uses them as context for answer generation.
+
+A typical RAG pipeline consists of:
+\begin{enumerate}
+    \item a retriever that selects relevant document chunks;
+    \item an optional reranker that refines retrieval quality;
+    \item a generator that produces a grounded natural language response.
+\end{enumerate}
+
+\subsection{Advantages of RAG}
+
+RAG systems provide several advantages over standalone LLMs:
+
+\begin{itemize}
+    \item factual grounding in external documents;
+    \item reduced hallucination through retrieval constraints;
+    \item ability to update knowledge without retraining models;
+    \item improved traceability through source citations.
+\end{itemize}
+
+\subsection{Limitations in Enterprise Context}
+
+Despite their advantages, RAG systems introduce new challenges:
+
+\begin{itemize}
+    \item strong dependency on retrieval quality;
+    \item sensitivity to chunking and indexing strategies;
+    \item difficulty in systematic evaluation;
+    \item lack of native access control mechanisms;
+    \item complexity of production deployment.
+\end{itemize}
+
+\subsection{Evaluation of RAG Systems}
+
+Evaluating RAG systems remains a complex task, as classical IR metrics do not capture answer quality or factual grounding. Recent research proposes LLM-based evaluation frameworks that assess faithfulness, relevance, and completeness of generated answers \cite{es2024rag-eval}. These methods enable automated detection of hallucinations and quality regressions in production systems.
+
+\section{Access Control and Knowledge Governance}
+
+\subsection{Role-Based Access Control (RBAC)}
+
+Role-Based Access Control (RBAC) \cite{sandhu1996rbac, ferraiolo2001rbac} is the standard model for managing permissions in enterprise systems. Users are assigned to roles, and roles are associated with permissions over resources.
+
+This model simplifies administration and supports organizational scalability.
+
+\subsection{Challenges in Knowledge Systems}
+
+In knowledge platforms, access control must be enforced beyond simple document visibility. It must govern:
+
+\begin{itemize}
+    \item which documents can be retrieved during search;
+    \item which sources can influence generated answers;
+    \item cross-department boundaries and hierarchical structures;
+    \item auditability of access and usage history.
+\end{itemize}
+
+A critical requirement is that access control must be applied at the retrieval layer to prevent information leakage in generated responses.
+
+\section{Enterprise Knowledge Systems and Existing Solutions}
+
+\subsection{Shared Drives and Document Management Systems}
+
+Systems such as Google Drive, OneDrive, and Microsoft SharePoint \cite{microsoft-sharepoint} provide foundational document storage and collaboration capabilities.
+
+\textbf{Strengths:}
+\begin{itemize}
+    \item reliable storage and synchronization;
+    \item basic access control mechanisms;
+    \item widespread enterprise adoption.
+\end{itemize}
+
+\textbf{Limitations:}
+\begin{itemize}
+    \item lack of semantic search;
+    \item no question-answering capabilities;
+    \item weak knowledge structuring;
+    \item folder-based organization not aligned with knowledge flows.
+\end{itemize}
+
+\subsection{Vector Databases and RAG Frameworks}
+
+Tools such as Pinecone, Weaviate, LangChain, and LlamaIndex \cite{pinecone-docs, langchain-docs, llamaindex-docs} provide infrastructure for building retrieval systems.
+
+\textbf{Strengths:}
+\begin{itemize}
+    \item scalable semantic retrieval;
+    \item modular RAG pipeline construction;
+    \item flexible architecture for developers.
+\end{itemize}
+
+\textbf{Limitations:}
+\begin{itemize}
+    \item no complete end-user system;
+    \item no document lifecycle management;
+    \item no access control or governance layer;
+    \item significant engineering effort required for production use.
+\end{itemize}
+
+\subsection{Commercial AI Copilots}
+
+Solutions such as Microsoft Copilot and ChatGPT Enterprise \cite{microsoft-copilot} provide conversational interfaces over enterprise data.
+
+\textbf{Strengths:}
+\begin{itemize}
+    \item natural language interaction;
+    \item strong ecosystem integration;
+    \item low adoption barrier.
+\end{itemize}
+
+\textbf{Limitations:}
+\begin{itemize}
+    \item limited transparency in retrieval mechanisms;
+    \item restricted control over embedding and ranking strategies;
+    \item vendor lock-in;
+    \item limited customization of access control logic.
+\end{itemize}
+
+\subsection{Knowledge Base Platforms}
+
+Tools such as Guru and Tettra focus on structured knowledge management.
+
+\textbf{Strengths:}
+\begin{itemize}
+    \item organized documentation workflows;
+    \item curated and validated content;
+    \item team-oriented knowledge sharing.
+\end{itemize}
+
+\textbf{Limitations:}
+\begin{itemize}
+    \item manual content creation required;
+    \item no automated ingestion pipelines;
+    \item limited or no AI-based retrieval;
+    \item not suitable for large unstructured corpora.
+\end{itemize}
+
+\subsection{Enterprise AI Search Systems (Glean)}
+
+Enterprise solutions such as Glean represent the most advanced commercial attempt at unified knowledge search.
+
+\textbf{Strengths:}
+\begin{itemize}
+    \item unified search across multiple enterprise data sources;
+    \item natural language question answering with citations;
+    \item strong user experience and integration capabilities.
+\end{itemize}
+
+\textbf{Limitations:}
+\begin{itemize}
+    \item proprietary and closed architecture;
+    \item no transparency in retrieval pipeline;
+    \item no self-hosting or full customization;
+    \item limited support for feedback-driven optimization.
+\end{itemize}
+
+\section{Comparative Analysis}
+
+\begin{table}[htbp]
+\centering
+\caption{Comparative analysis of enterprise knowledge management solutions}
+\label{tab:state-of-art}
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.3cm}|>{\RaggedRight\arraybackslash}p{0.27\linewidth}|>{\RaggedRight\arraybackslash}p{0.27\linewidth}|Y|}
+\hline
+\textbf{Solution} & \textbf{Strengths} & \textbf{Limitations} & \textbf{Relevance to this work} \\
+\hline
+Shared Drives (Drive, SharePoint) &
+Reliable storage and basic access control &
+No semantic search, no QA, weak structuring &
+Baseline storage layer only \\
+\hline
+Vector DB + RAG frameworks &
+Strong retrieval and modular pipelines &
+No full system or governance layer &
+Core retrieval component only \\
+\hline
+Commercial Copilots &
+Ease of use and enterprise integration &
+Black-box systems, limited control &
+Demonstrates demand but lacks transparency \\
+\hline
+Knowledge Base Tools &
+Structured documentation workflows &
+Manual maintenance, no scalable ingestion &
+Not suitable for large corpora \\
+\hline
+Glean &
+Unified enterprise AI search with citations &
+Closed system, no customization or transparency &
+Closest industrial solution but not open \\
+\hline
+\textbf{Proposed System} &
+Hybrid RAG + RBAC + full lifecycle + feedback loop &
+External LLM dependency &
+Full enterprise knowledge lifecycle solution \\
+\hline
+\end{tabularx}
+\end{table}
+
+\section{Project Positioning}
+
+The analysis reveals a structural gap in existing solutions: no system simultaneously addresses document lifecycle management, centralized governance, semantic retrieval, and controlled AI-based question answering in a unified and transparent architecture.
+
+The \textbf{Knowledge Platform} addresses this gap through:
+
+\begin{itemize}
+    \item centralized document ingestion and organization;
+    \item role-based and department-scoped access control;
+    \item hybrid lexical and semantic retrieval;
+    \item Retrieval-Augmented Generation with source grounding;
+    \item feedback-driven improvement mechanisms;
+    \item full production-grade system architecture.
+\end{itemize}
+
+Unlike existing tools that focus on isolated components, this work proposes a complete and integrated enterprise knowledge lifecycle system.
+
+\subsection{Key Contribution}
+
+This work contributes a unified approach that ensures:
+
+\begin{itemize}
+    \item knowledge is properly collected and centralized;
+    \item access is securely governed and auditable;
+    \item retrieval is hybrid and semantically aware;
+    \item answers are grounded and traceable;
+    \item the system is fully reproducible and production-ready.
+\end{itemize}
+
+\section{Chapter Conclusion}
+
+The state-of-the-art analysis highlighted the limits of traditional document
+platforms and motivated a hybrid retrieval and RAG-based approach adapted to
+enterprise governance constraints. By comparing existing solutions and defining
+the project positioning, this chapter justified the need for an integrated
+knowledge platform combining lifecycle management, controlled access, semantic
+search, and grounded AI assistance. Chapter~\ref{ch:requirements} translates
+these insights into functional and non-functional requirements and defines the
+Agile Scrum methodology adopted for delivery.
