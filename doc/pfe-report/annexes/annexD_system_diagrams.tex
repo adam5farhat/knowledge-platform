@@ -23,7 +23,8 @@ indexes them for oral defense and traceability.
 \section{Sequence diagram index (by sprint)}
 
 Table~\ref{tab:annex-seq-index} lists every sequence diagram with its sprint,
-functional area, API flow, and figure reference in Chapter~\ref{ch:architecture}.
+functional area, user-facing capability, and figure reference in
+Chapter~\ref{ch:architecture}.
 
 \begin{table}[H]
 \centering
@@ -32,92 +33,91 @@ functional area, API flow, and figure reference in Chapter~\ref{ch:architecture}
 \scriptsize
 \renewcommand{\arraystretch}{1.25}
 \setlength{\tabcolsep}{3pt}
-\begin{tabularx}{\textwidth}{|>{\Centering\arraybackslash}p{0.65cm}|>{\RaggedRight\arraybackslash}p{1.85cm}|Y|>{\RaggedRight\arraybackslash}p{0.24\linewidth}|>{\Centering\arraybackslash}p{0.85cm}|}
+\begin{tabularx}{\textwidth}{|>{\Centering\arraybackslash}p{0.65cm}|>{\RaggedRight\arraybackslash}p{1.85cm}|Y|>{\RaggedRight\arraybackslash}p{0.28\linewidth}|>{\Centering\arraybackslash}p{0.85cm}|}
 \hline
-\rowcolor{sectionblue!15}
-\textbf{Sprint} & \textbf{Area} & \textbf{Functionality} & \textbf{API / flow} & \textbf{Fig.} \\
+\textbf{Sprint} & \textbf{Area} & \textbf{Functionality} & \textbf{User capability} & \textbf{Fig.} \\
 \hline
-S1 & Authentication & User login & \apicode{POST /auth/login} & \ref{fig:seq-01} \\
+S1 & Authentication & User login & Sign in with email and password & \ref{fig:seq-01} \\
 \hline
-S1 & Authentication & Token refresh & \apicode{POST /auth/refresh} & \ref{fig:seq-02} \\
+S1 & Authentication & Token refresh & Stay signed in without re-entering credentials & \ref{fig:seq-02} \\
 \hline
-S1 & Authentication & Logout & \apicode{POST /auth/logout} & \ref{fig:seq-03} \\
+S1 & Authentication & Logout & End session and clear tokens & \ref{fig:seq-03} \\
 \hline
-S1 & Authentication & Password reset & \apicode{POST /auth/forgot-password} & \ref{fig:seq-04} \\
+S1 & Authentication & Password reset & Request a password reset link by email & \ref{fig:seq-04} \\
 \hline
-S1 & Authentication & Change password & \apicode{POST /auth/change-password} & \ref{fig:seq-05} \\
+S1 & Authentication & Change password & Update password while authenticated & \ref{fig:seq-05} \\
 \hline
-S1 & Authentication & Profile update & \apicode{PATCH /auth/profile} & \ref{fig:seq-06} \\
+S1 & Authentication & Profile update & Edit profile fields and upload avatar & \ref{fig:seq-06} \\
 \hline
-S1 & Authentication & Feature restriction & \tcode{403 FEATURE\_RESTRICTED} & \ref{fig:seq-07} \\
+S1 & Authentication & Feature restriction & Block access when a feature flag is disabled & \ref{fig:seq-07} \\
 \hline
-S1 & Authentication & Current user & \apicode{GET /auth/me} & \ref{fig:seq-23} \\
+S1 & Authentication & Current user & Load signed-in user context for the UI & \ref{fig:seq-23} \\
 \hline
-S1 & Authentication & Register info page & \tcode{Next.js /register} & \ref{fig:seq-32} \\
+S1 & Authentication & Register info page & Display self-registration information page & \ref{fig:seq-32} \\
 \hline
-S1 & Authentication & Restricted page UX & \tcode{/restricted UX} & \ref{fig:seq-33} \\
+S1 & Authentication & Restricted page UX & Show dedicated explanation when access is denied & \ref{fig:seq-33} \\
 \hline
-S2 & Documents & Upload & \apicode{POST /documents/upload} & \ref{fig:seq-08} \\
+S2 & Documents & Upload & Upload a new document with metadata & \ref{fig:seq-08} \\
 \hline
-S2 & Documents & Ingest worker & \tcode{BullMQ processIngest} & \ref{fig:seq-09} \\
+S2 & Documents & Ingest worker & Process uploaded file into searchable chunks & \ref{fig:seq-09} \\
 \hline
-S2 & Documents & Download & \apicode{GET .../file} & \ref{fig:seq-10} \\
+S2 & Documents & Download & Download an authorised document file & \ref{fig:seq-10} \\
 \hline
-S2 & Documents & List & \apicode{GET /documents} & \ref{fig:seq-24} \\
+S2 & Documents & List & Browse documents in the library & \ref{fig:seq-24} \\
 \hline
-S2 & Documents & Detail & \apicode{GET /documents/:id} & \ref{fig:seq-25} \\
+S2 & Documents & Detail & View document metadata and status & \ref{fig:seq-25} \\
 \hline
-S2 & Documents & Favorites / recents & \tcode{POST/DELETE favorite} & \ref{fig:seq-26} \\
+S2 & Documents & Favorites / recents & Star documents and revisit recent files & \ref{fig:seq-26} \\
 \hline
-S2 & Documents & Metadata patch & \apicode{PATCH /documents/:id} & \ref{fig:seq-27} \\
+S2 & Documents & Metadata patch & Edit title, tags, and visibility & \ref{fig:seq-27} \\
 \hline
-S2 & Documents & New version & \apicode{POST /documents/:id/versions} & \ref{fig:seq-28} \\
+S2 & Documents & New version & Upload a replacement version of a document & \ref{fig:seq-28} \\
 \hline
-S2 & Documents & Reprocess & \apicode{POST .../reprocess} & \ref{fig:seq-29} \\
+S2 & Documents & Reprocess & Re-run ingest on an existing document & \ref{fig:seq-29} \\
 \hline
-S3 & Search / RAG & Semantic search & \apicode{POST /search/semantic} & \ref{fig:seq-11} \\
+S3 & Search / RAG & Semantic search & Find documents by meaning, not just keywords & \ref{fig:seq-11} \\
 \hline
-S3 & Search / RAG & Ask (RAG SSE) & \apicode{POST /search/ask} & \ref{fig:seq-12} \\
+S3 & Search / RAG & Ask (RAG SSE) & Ask a question and receive a cited streaming answer & \ref{fig:seq-12} \\
 \hline
-S3 & Conversations & Threads and messages & \apicode{/conversations} & \ref{fig:seq-13} \\
+S3 & Conversations & Threads and messages & Continue a multi-turn Ask conversation & \ref{fig:seq-13} \\
 \hline
-S3 & Conversations & Answer feedback & \apicode{POST .../feedback} & \ref{fig:seq-14} \\
+S3 & Conversations & Answer feedback & Rate an answer and leave optional comments & \ref{fig:seq-14} \\
 \hline
-S3 & Conversations & Conversation CRUD & \tcode{list, patch, delete} & \ref{fig:seq-30} \\
+S3 & Conversations & Conversation CRUD & Rename, archive, or delete conversation threads & \ref{fig:seq-30} \\
 \hline
-S3 & Conversations & Feedback stats & \apicode{GET /conversations/feedback/stats} & \ref{fig:seq-31} \\
+S3 & Conversations & Feedback stats & Review aggregated answer feedback for admins & \ref{fig:seq-31} \\
 \hline
-S4 & Notifications & Automatic events & \tcode{notifyDocumentCreated} & \ref{fig:seq-15} \\
+S4 & Notifications & Automatic events & Receive alerts when documents change & \ref{fig:seq-15} \\
 \hline
-S4 & Notifications & Manual send & \apicode{POST /notifications/send} & \ref{fig:seq-16} \\
+S4 & Notifications & Manual send & Compose and send an announcement to a scope & \ref{fig:seq-16} \\
 \hline
-S4 & Notifications & Inbox & \tcode{list, unread, mark read} & \ref{fig:seq-17} \\
+S4 & Notifications & Inbox & Read notifications and mark them as read & \ref{fig:seq-17} \\
 \hline
-S4 & Manager & Department dashboard & \apicode{GET /manager/*} & \ref{fig:seq-18} \\
+S4 & Manager & Department dashboard & Oversee team members and department documents & \ref{fig:seq-18} \\
 \hline
-S4 & Administration & Create user & \apicode{POST /admin/users} & \ref{fig:seq-19} \\
+S4 & Administration & Create user & Add a new user account with role and department & \ref{fig:seq-19} \\
 \hline
-S4 & Administration & Merge departments & \apicode{POST /admin/departments/merge} & \ref{fig:seq-20} \\
+S4 & Administration & Merge departments & Combine two departments into one & \ref{fig:seq-20} \\
 \hline
-S4 & Administration & Bulk dept access & \apicode{PUT .../department-access} & \ref{fig:seq-21} \\
+S4 & Administration & Bulk dept access & Grant or revoke department access in bulk & \ref{fig:seq-21} \\
 \hline
-S4 & Administration & Create department & \apicode{POST /admin/departments} & \ref{fig:seq-34} \\
+S4 & Administration & Create department & Create a new department in the hierarchy & \ref{fig:seq-34} \\
 \hline
-S4 & Administration & Single dept access & \apicode{POST/DELETE access} & \ref{fig:seq-35} \\
+S4 & Administration & Single dept access & Grant or revoke access for one user--department pair & \ref{fig:seq-35} \\
 \hline
-S4 & Administration & KPI statistics & \apicode{GET /admin/stats} & \ref{fig:seq-36} \\
+S4 & Administration & KPI statistics & View platform usage and growth metrics & \ref{fig:seq-36} \\
 \hline
-S4 & Administration & Activity export & \apicode{GET /admin/activity} & \ref{fig:seq-37} \\
+S4 & Administration & Activity export & Export authentication and security activity log & \ref{fig:seq-37} \\
 \hline
-S4 & Administration & Document audit & \apicode{GET /admin/document-audit} & \ref{fig:seq-38} \\
+S4 & Administration & Document audit & Review library-wide document change history & \ref{fig:seq-38} \\
 \hline
-S4 & Administration & Documents CSV export & \apicode{GET /documents/export} & \ref{fig:seq-39} \\
+S4 & Administration & Documents CSV export & Export document inventory as a spreadsheet & \ref{fig:seq-39} \\
 \hline
-S4 & Administration & Bulk document delete & \apicode{POST /documents/bulk-delete} & \ref{fig:seq-40} \\
+S4 & Administration & Bulk document delete & Remove multiple documents in one operation & \ref{fig:seq-40} \\
 \hline
-S4 & Administration & User patch / lock & \apicode{PATCH/lock user} & \ref{fig:seq-41} \\
+S4 & Administration & User patch / lock & Update user details or lock an account & \ref{fig:seq-41} \\
 \hline
-S5 & Operations & Health probe & \apicode{GET /health} & \ref{fig:seq-22} \\
+S5 & Operations & Health probe & Verify database and queue connectivity & \ref{fig:seq-22} \\
 \hline
 \end{tabularx}
 \end{table}

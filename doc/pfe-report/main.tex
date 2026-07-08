@@ -74,25 +74,25 @@
 \definecolor{sectionblue}{RGB}{74,122,178}
 
 \titleformat{\chapter}[display]
-  {\normalfont\bfseries\Huge\color{EsprimDark}}
+  {\normalfont\bfseries\Huge\color{black}}
   {\filleft\MakeUppercase{Chapter \thechapter}}
   {0.8ex}
   {\titlerule[0.8pt]\vspace{1ex}\filright}
 
 \titleformat{\section}
-  {\normalfont\bfseries\Large\color{EsprimDark}}
+  {\normalfont\bfseries\Large\color{black}}
   {\thesection}{0.8em}{}
 
 \titleformat{\subsection}
-  {\normalfont\bfseries\large\color{EsprimDark}}
+  {\normalfont\bfseries\large\color{black}}
   {\thesubsection}{0.8em}{}
 
 \titleformat{\subsubsection}
-  {\normalfont\bfseries\normalsize\color{EsprimDark}}
+  {\normalfont\bfseries\normalsize\color{black}}
   {\thesubsubsection}{0.8em}{}
 
 \titleformat{\paragraph}[block]
-  {\normalfont\bfseries\normalsize\color{EsprimDark}}
+  {\normalfont\bfseries\normalsize\color{black}}
   {}{0em}{}
 
 \captionsetup[figure]{labelfont=bf,textfont=small,position=below,justification=justified,singlelinecheck=false}
@@ -116,7 +116,7 @@
   \begin{figure}[H]
   \centering
   \includegraphics[width=0.98\textwidth,keepaspectratio]{assets/figures/#1.png}
-  \caption[#2]{#2 (\texttt{#3})}
+  \caption[#2]{#2 (#3)}
   \label{#4}
   \end{figure}%
 }
@@ -152,6 +152,18 @@
 \newcommand{\sprintflowgroup}[1]{%
   \par\vspace{0.6em}\noindent\textit{#1}\par\vspace{0.3em}%
 }
+\newcommand{\uiscreenshot}[4]{%
+  \begin{figure}[H]
+  \centering
+  \includegraphics[width=0.92\textwidth,keepaspectratio]{assets/ui-screenshots/#1}
+  \caption[#3]{#2}
+  \label{#4}
+  \end{figure}%
+}
+\newcommand{\techicon}[2][1.15em]{%
+  \raisebox{-0.28\height}{\includegraphics[height=#1]{assets/tech-icons/#2.png}}%
+}
+\newcommand{\techiconlabel}[2]{\techicon[1.05em]{#1}\\[-0.1em]{\scriptsize #2}}
 
 % Slightly tighter tables; consistent wrapping
 % tabularx allows only ONE X column per table — use p{0.xx\linewidth} for other flexible cols
@@ -183,9 +195,9 @@
 % ----------------------------------------------------------
 \hypersetup{
   colorlinks=true,
-  linkcolor=EsprimRed,
-  citecolor=EsprimRed,
-  urlcolor=blue,
+  linkcolor=black,
+  citecolor=black,
+  urlcolor=black,
   breaklinks=true,
   pdftitle={\ReportTitleEN},
   pdfauthor={\StudentName},
@@ -221,8 +233,8 @@
 
 \newcommand{\guided}[1]{\ifshowguide\begin{guidebox}#1\end{guidebox}\fi}
 \newcommand{\todo}[1]{\textcolor{EsprimRed}{\textbf{[To complete: #1]}}}
-\newcommand{\okitem}{\textcolor{GoodGreen}{\ding{51}}}
-\newcommand{\warnitem}{\textcolor{WarnOrange}{\ding{108}}}
+\newcommand{\okitem}{\textcolor{black}{\ding{51}}}
+\newcommand{\warnitem}{\textcolor{black}{\ding{108}}}
 
 % ----------------------------------------------------------
 % Discipline-specific reminders
@@ -297,7 +309,8 @@ Mechatronics-oriented project: explain system decomposition, mechanical-electron
 
 % ---------------- Appendices ----------------
 \begin{appendices}
-\input{annexes/annexD_system_diagrams}
+\input{annexes/annexA_validation_summary}
+\input{annexes/annexB_integrity_reproducibility}
 \end{appendices}
 
 \end{document}

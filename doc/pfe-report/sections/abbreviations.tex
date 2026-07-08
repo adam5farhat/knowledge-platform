@@ -1,10 +1,19 @@
-\chapter*{List of abbreviations and acronyms}
+\phantomsection
 \addcontentsline{toc}{chapter}{List of abbreviations and acronyms}
+\markboth{List of abbreviations and acronyms}{List of abbreviations and acronyms}
 
-\begin{tabularx}{\textwidth}{>{\RaggedRight\arraybackslash}p{2.0cm} Y}
-\toprule
-\textbf{Acronym} & \textbf{Definition} \\
-\midrule
+\noindent{\Large\bfseries List of abbreviations and acronyms\par}
+\vspace{0.4\baselineskip}
+
+\begingroup
+\setlength{\parskip}{0pt}
+\footnotesize
+\renewcommand{\arraystretch}{1.08}
+\noindent
+\begin{tabular}{@{}>{\bfseries}p{2.1cm}@{\hspace{0.6em}}p{12.3cm}@{}}
+\hline
+Acronym & Definition \\
+\hline
 AI & Artificial Intelligence \\
 API & Application Programming Interface \\
 BM25 & Best Matching 25 (lexical ranking function) \\
@@ -33,5 +42,6 @@ RRF & Reciprocal Rank Fusion \\
 SSE & Server-Sent Events \\
 TTL & Time To Live (cache expiration) \\
 UML & Unified Modeling Language \\
-\bottomrule
-\end{tabularx}
+\hline
+\end{tabular}
+\endgroup

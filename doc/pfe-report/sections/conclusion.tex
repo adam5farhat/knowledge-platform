@@ -1,28 +1,36 @@
 \chapter*{General conclusion and perspectives}
 \addcontentsline{toc}{chapter}{General conclusion and perspectives}
 
-This final-year project addressed the problem of fragmented enterprise knowledge: documents spread across departments, slow retrieval, weak governance, and unstructured AI chat that lacks citations. Conducted at \CompanyName{}, the work produced the Knowledge Platform---a full-stack system that unifies document management, access control, and hybrid Retrieval-Augmented Generation.
+This final-year project addressed a practical problem faced by many organisations:
+internal knowledge exists, but it is hard to find, hard to govern, and hard to use
+confidently in daily work. Conducted at \CompanyName{}, the project produced the
+Knowledge Platform---a system that brings together document management, controlled
+access, semantic search, and cited AI-assisted answers within a single coherent
+experience.
 
-The main results are:
-\begin{itemize}[leftmargin=*,itemsep=0.2em]
-  \item a production-style TypeScript monorepo (Next.js + Express + PostgreSQL/pgvector + Redis/BullMQ);
-  \item a hybrid retrieval pipeline (dense + full-text + RRF + Gemini reranking) with SSE streaming and citations;
-  \item role-based administration, manager dashboards, notifications, and conversation feedback;
-  \item \textbf{74 passing integration tests} and a RAG evaluation harness for regression analysis;
-  \item Docker-based reproducibility and extensive UML/sequence documentation.
-\end{itemize}
+The platform delivers a secure multi-role environment in which documents can be
+uploaded, indexed, searched, and discussed through persistent conversations.
+Retrieval combines semantic and keyword methods so that answers remain anchored
+in organisational sources. Administrative and managerial capabilities support user
+provisioning, department organisation, notifications, and activity review. From a
+validation standpoint, automated tests confirmed core behaviour across authentication,
+documents, search, conversations, and governance, while manual scenarios verified
+important user-facing flows such as sign-in, document readiness, hybrid Ask, and
+profile management.
 
-Relative to the objectives announced in the introduction:
-\begin{enumerate}[leftmargin=*,itemsep=0.2em]
-  \item multi-role secure platform --- \textbf{achieved};
-  \item hybrid retrieval implementation --- \textbf{achieved};
-  \item streaming cited answers with feedback --- \textbf{achieved};
-  \item automated validation --- \textbf{achieved} (integration tests; RAG eval partial without API key);
-  \item reproducible deployment --- \textbf{achieved}.
-\end{enumerate}
+Relative to the objectives stated in the introduction, the project achieved its
+main goals: a role-aware secure platform, improved retrieval over heterogeneous
+documents, intelligent assistance with source transparency, structured validation,
+and a reproducible deployment model. Remaining limitations include reliance on an
+external language-model provider, the absence of large-scale performance
+benchmarking, and evaluation sensitivity to corpus coverage and quality.
 
-Limitations remain: dependence on an external LLM provider, absence of large-scale performance benchmarking, and evaluation sensitivity to document corpus coverage.
+Beyond technical delivery, the project strengthened competencies in requirements
+engineering, system design, information retrieval, AI integration, security
+awareness, and critical evaluation of intelligent systems---skills directly
+relevant to enterprise software engineering and data-oriented practice.
 
-From an academic and professional standpoint, this project mobilized systems analysis, API design, data modeling, information retrieval, AI pipeline integration, security hardening, and critical validation---competencies expected of an engineering-degree graduate in Data Science.
-
-Future perspectives include cloud object storage, enterprise SSO, on-premise model options, CI-integrated RAG regression gates, mobile clients, and field deployment at the host organization with real corpus onboarding and user acceptance testing.
+Future work could extend the platform through cloud object storage, enterprise
+single sign-on, on-premise model options, tighter continuous-evaluation pipelines
+for answer quality, mobile access, and field deployment with real corpus
+onboarding and formal user acceptance testing at the host organisation.

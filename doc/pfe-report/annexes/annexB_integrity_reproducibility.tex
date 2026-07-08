@@ -1,0 +1,74 @@
+\chapter{Scientific Integrity and Reproducibility}
+\label{annex:integrity}
+
+\section{Declaration of AI Tool Usage}
+\label{sec:annex-b-ai-declaration}
+
+Artificial intelligence tools were used as auxiliary resources during the development
+of this project to support productivity and improve writing clarity. Their use was
+limited to assistance with drafting, refining technical content, and providing
+general programming guidance. All technical decisions, system design, implementation,
+experimental results, and conclusions were independently developed, verified, and
+validated by the author, who assumes full academic responsibility for the final
+submitted work.
+
+\section{Reproducibility Details}
+\label{sec:annex-b-reproducibility}
+
+The following parameters define the minimum environment needed to reproduce the
+reported results. Commands may be run from the repository root unless noted.
+
+\begin{table}[H]
+\centering
+\caption{Reproducibility parameters}
+\label{tab:reproducibility}
+\footnotesize
+\renewcommand{\arraystretch}{1.35}
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{3.2cm}|Y|}
+\hline
+\textbf{Parameter} & \textbf{Value} \\
+\hline
+Repository &
+Monorepo with API and web applications (\texttt{apps/api}, \texttt{apps/web}) \\
+\hline
+Database &
+PostgreSQL 16 + pgvector; migrations via \texttt{npm run db:migrate}; seed via \texttt{npm run db:seed} \\
+\hline
+Services &
+\texttt{npm run docker:up} for PostgreSQL and Redis \\
+\hline
+Environment &
+API \texttt{.env} (JWT secret, Gemini API key, database URL);\newline
+Web \texttt{.env.local} (public API URL) \\
+\hline
+Run &
+\texttt{npm run dev} from repository root (API port~3001, web port~3000) \\
+\hline
+Tests &
+\texttt{npm run test:api}; RAG eval: \texttt{npm run eval:rag:quick} or \texttt{npm run eval:rag} \\
+\hline
+Prompt versioning &
+\texttt{RAG\_PROMPT\_VERSION} environment variable invalidates answer cache \\
+\hline
+\end{tabularx}
+\end{table}
+
+\section{Integrity Checklist}
+\label{sec:annex-b-integrity-checklist}
+
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item \okitem{} Front matter complete (cover, dedication, acknowledgements, abstract, table of contents, lists, abbreviations).
+  \item \okitem{} Introduction announces problem statement, objectives, and report plan.
+  \item \okitem{} Each chapter follows need $\rightarrow$ design $\rightarrow$ implementation $\rightarrow$ validation logic.
+  \item \okitem{} Conclusion explicitly answers the stated objectives.
+  \item \okitem{} Design choices justified with comparison tables (Chapters~\ref{ch:state-of-the-art}--\ref{ch:architecture}).
+  \item \okitem{} Validation protocol documented with 74 integration tests (Chapter~\ref{ch:validation}).
+  \item \okitem{} Limitations and threats to validity discussed.
+  \item \okitem{} Every borrowed figure, table, or idea is cited in the bibliography.
+  \item \okitem{} Results are interpreted critically (limitations in Chapter~\ref{ch:validation}).
+  \item \okitem{} Figures and tables numbered and referenced in text.
+  \item \okitem{} Generative AI usage declared in Section~\ref{sec:annex-b-ai-declaration}.
+  \item \warnitem{} Similarity checking target: \SimilarityTarget{} (institutional plagiarism tool).
+  \item \warnitem{} Run institutional similarity check before final submission.
+\end{itemize}

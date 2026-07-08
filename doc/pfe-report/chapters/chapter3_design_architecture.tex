@@ -13,16 +13,22 @@ Chapters~\ref{ch:implementation} and~\ref{ch:validation}.
 \section{Overall Solution Architecture}
 \label{sec:overall-architecture}
 
-The Knowledge Platform follows a three-tier logical architecture: browser client, API layer, and data/AI services. Figure~\ref{fig:architecture} summarizes component responsibilities and data flows (see also Appendix~\ref{fig:annex-architecture} for the full exported diagram).
+The proposed Knowledge Platform adopts a three-tier logical architecture composed of a presentation layer, an application layer, and a data and artificial intelligence layer. This architectural approach promotes separation of concerns by isolating the user interface, business logic, and persistence mechanisms into independent yet collaborative components. Such an organization improves maintainability, scalability, security, and facilitates the future evolution of the platform. Figure~\ref{fig:overall-architecture} presents the overall architecture and the interactions between the main system components.
+
+At the presentation layer, users interact with the platform through a responsive web application that provides access to document management, semantic search, conversational AI, notifications, and administrative functionalities. Authentication relies on a secure session management strategy based on short-lived access tokens stored in memory and refresh tokens maintained as HttpOnly cookies, reducing the exposure of sensitive authentication credentials.
+
+The application layer is implemented as a RESTful API responsible for coordinating all business operations. It exposes dedicated services for authentication, document management, semantic search, conversational AI, notifications, administration, and manager-specific operations. Beyond processing client requests, this layer enforces authorization policies, validates user permissions, orchestrates document processing workflows, and coordinates interactions with the underlying storage and artificial intelligence services.
+
+The data and AI layer manages document persistence, metadata, vector embeddings, user information, notifications, and conversational history. Following each document upload or version update, an asynchronous ingestion pipeline extracts textual content, partitions it into semantic chunks, generates vector embeddings, and indexes the resulting representations to support efficient retrieval. This background processing is performed independently of user requests, thereby preserving application responsiveness while ensuring that newly uploaded documents become searchable once processing is complete.
+
+Together, these three layers establish a modular and extensible architecture capable of supporting enterprise-scale document management and Retrieval-Augmented Generation (RAG), while maintaining a clear separation between presentation, application logic, and data processing responsibilities.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.98\textwidth]{assets/figures/platform-architecture.png}
 \caption[Overall platform architecture]{Overall architecture of the Knowledge Platform (PlantUML source: \texttt{platform-architecture.puml})}
-\label{fig:architecture}
+\label{fig:overall-architecture}
 \end{figure}
-
-The web application (\texttt{apps/web}) keeps access tokens in memory and uses HttpOnly refresh cookies. The API (\texttt{apps/api}) mounts routers for \texttt{/auth}, \texttt{/documents}, \texttt{/search}, \texttt{/conversations}, \texttt{/admin}, \texttt{/manager}, \texttt{/notifications}, and public \texttt{/avatars}. A BullMQ consumer runs in the same Node process after the HTTP server starts.
 
 \section{Logical Subsystem Decomposition}
 \label{sec:subsystem-decomposition}
@@ -34,29 +40,33 @@ The web application (\texttt{apps/web}) keeps access tokens in memory and uses H
 \renewcommand{\arraystretch}{1.35}
 \begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.5cm}|Y|>{\RaggedRight\arraybackslash}p{3.1cm}|}
 \hline
-\rowcolor{sectionblue!15}
-\textbf{Subsystem} & \textbf{Responsibility} & \textbf{Key modules} \\
+\textbf{Subsystem} & \textbf{Responsibility} & \textbf{Key components} \\
 \hline
 Authentication & Login, refresh families, restrictions, password reset &
-\tcodelines{auth.ts}{authClient.ts} \\
+Authentication API\newline
+Web session client \\
 \hline
 Documents & CRUD, versions, visibility, audit, download &
-\tcodelines{documents.ts}{storage.ts} \\
+Document management service\newline
+File storage layer \\
 \hline
 Ingest worker & Extract, chunk, embed, persist chunks &
-\tcodelines{BullMQ worker}{index.ts} \\
+Background ingest worker\newline
+Indexing pipeline \\
 \hline
 Search / RAG & Hybrid retrieval, SSE answers, cache &
-\tcodelines{search.ts}{ragCompletion.ts} \\
+Hybrid search service\newline
+AI answer streaming \\
 \hline
 Conversations & Threads, messages, feedback &
-\tcode{conversations.ts} \\
+Conversation management service \\
 \hline
 Notifications & Auto events and manual announcements &
-\tcode{notifications.ts} \\
+Notification service \\
 \hline
 Admin / Manager & Governance dashboards &
-\tcodelines{admin.ts}{manager.ts} \\
+Administration API\newline
+Manager workspace API \\
 \hline
 \end{tabularx}
 \end{table}
@@ -64,13 +74,14 @@ Admin / Manager & Governance dashboards &
 \section{Domain Data Model}
 \label{sec:domain-model}
 
-The Prisma schema defines 20+ entities including \texttt{User}, \texttt{Department},
-\texttt{Document}, \texttt{DocumentVersion}, \texttt{Chunk} (768-d embedding),
-\texttt{Conversation}, \texttt{AnswerFeedback}, and \texttt{Notification}.
-Multi-department access is modeled through \texttt{UserDepartmentAccess}.
-Figure~\ref{fig:class-diagram} presents the principal persisted classes and their
-relationships across all sprints; sprint-scoped excerpts appear in
-Section~\ref{sec:sprint-design}.
+The persisted domain model centres on users and organisational departments,
+documents and their versioned content, searchable text chunks with
+768-dimensional vector embeddings, conversational threads with answer feedback,
+and notification records. Users may hold explicit access to several departments,
+which supports both role-based governance and department-scoped document
+visibility. Figure~\ref{fig:class-diagram} presents the principal persisted
+entities and their relationships across all sprints; sprint-scoped excerpts
+appear in Section~\ref{sec:sprint-design}.
 
 \begin{figure}[H]
 \centering
@@ -94,7 +105,6 @@ streaming RAG, operational simplicity, and alignment with project skills.
 \setlength{\tabcolsep}{5pt}
 \begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.6cm}|>{\Centering\arraybackslash}p{1.7cm}|>{\Centering\arraybackslash}p{1.3cm}|>{\Centering\arraybackslash}p{2.1cm}|Y|}
 \hline
-\rowcolor{sectionblue!15}
 \textbf{Criterion} &
 \textbf{Monorepo} &
 \textbf{Django} &
@@ -112,15 +122,22 @@ Operational complexity & 3 & 3 & 1 & Single API process + worker \\
 \end{tabularx}
 \end{table}
 
-\textbf{PostgreSQL + pgvector vs.\ dedicated vector DB:} colocating relational and vector data simplifies hybrid SQL+vector retrieval, transactional consistency, and department filters in one query layer~\cite{pgvector-docs}.
+\textbf{PostgreSQL with pgvector vs.\ dedicated vector database:} storing relational
+metadata and vector embeddings in the same database simplifies hybrid retrieval,
+transactional consistency, and department-scoped filtering within a single query
+layer~\cite{pgvector-docs}.
 
-\textbf{Gemini vs.\ open-weight models:} the embedding and chat APIs reduce operational burden while providing strong multilingual embeddings (768 dimensions in this deployment)~\cite{google-gemini-docs}.
+\textbf{Managed Gemini APIs vs.\ self-hosted open-weight models:} hosted embedding
+and chat services reduce operational overhead while delivering strong multilingual
+representations at the dimensionality required by this deployment~\cite{google-gemini-docs}.
 
-\textbf{In-process BullMQ worker vs.\ separate worker service:} embedding the consumer in the API process reduces deployment complexity for an academic/prototype-scale platform, at the cost of horizontal scaling coupling.
+\textbf{In-process background worker vs.\ separate worker service:} running the
+ingest consumer alongside the API reduces deployment complexity for a
+prototype-scale platform, at the cost of tighter coupling when scaling out
+horizontally.
 
 Table~\ref{tab:traceability-main} links representative requirements to the chosen
-design elements and validation artefacts (see also Table~\ref{tab:fr-traceability}
-in Chapter~\ref{ch:requirements}).
+design elements and validation artefacts (Chapter~\ref{ch:requirements}).
 
 \begin{table}[H]
 \centering
@@ -131,32 +148,31 @@ in Chapter~\ref{ch:requirements}).
 \setlength{\tabcolsep}{4pt}
 \begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{1.0cm}|>{\RaggedRight\arraybackslash}p{2.5cm}|Y|>{\RaggedRight\arraybackslash}p{2.6cm}|}
 \hline
-\rowcolor{sectionblue!15}
 \textbf{Req.} & \textbf{Design choice} & \textbf{Implemented element} & \textbf{Validation} \\
 \hline
-FR-01 & JWT + refresh rotation &
-\tcodelines{auth.ts}{authClient.ts} &
-\testfile{auth.integration.test} \\
+FR-01 & Short-lived tokens with refresh rotation &
+Authentication API and web session client &
+Integration tests for sign-in and session renewal \\
 \hline
-FR-02 & Avatar CORP header &
-\tcode{avatarsPublic.ts} &
-\testfile{avatars.integration.test} \\
+FR-02 & Profile images with CORP isolation &
+Public avatar delivery endpoint &
+Integration tests for avatar access \\
 \hline
-FR-03 & Async ingest queue &
-\tcode{BullMQ + Redis} &
-\testfile{documents.integration.test} \\
+FR-03 & Asynchronous document ingest &
+Background worker with Redis-backed job queue &
+Integration tests for upload and processing \\
 \hline
-FR-07 & Hybrid RAG + SSE &
-\tcodelines{search.ts}{ragCompletion.ts} &
-\testfile{search.integration.test} \\
+FR-07 & Hybrid retrieval with streamed answers &
+Search and AI completion services &
+Integration tests for semantic search and Ask \\
 \hline
-FR-10 & Admin RBAC &
-\tcode{admin.ts} &
-\testfile{admin.integration.test} \\
+FR-10 & Role-based administration &
+Administration service layer &
+Integration tests for governance endpoints \\
 \hline
-NFR-02 & Helmet + rate limits &
-\tcode{httpApp.ts} &
-manual + integration \\
+NFR-02 & HTTP hardening and rate limiting &
+API security middleware stack &
+Manual review and integration tests \\
 \hline
 \end{tabularx}
 \end{table}
@@ -165,28 +181,32 @@ manual + integration \\
 \label{sec:sprint-design}
 
 Sections~\ref{sec:overall-architecture}--\ref{sec:technology-justification} describe
-\textbf{what} the platform is made of (components, data, and technology). This section
-describes \textbf{how} actors and subsystems interact at runtime. For each sprint in
-Table~\ref{tab:sprints} of Chapter~\ref{ch:requirements}, the design is organised in
-three layers:
+\textbf{what} the platform is made of. This section describes \textbf{how} people,
+services, and background processes interact during real use. For each development
+sprint in Table~\ref{tab:sprints} of Chapter~\ref{ch:requirements}, the design is
+presented in three steps:
 \begin{enumerate}[leftmargin=*,itemsep=0.2em]
-  \item \textbf{Sprint scope} --- objectives and mapped functional requirements;
-  \item \textbf{Scoped structural views} --- sprint use-case model and sprint domain class model;
-  \item \textbf{Interaction sequence diagrams} --- request/response flows between client, API, workers, and external services.
+  \item \textbf{Sprint scope} --- the capabilities delivered in that iteration;
+  \item \textbf{Scoped structural views} --- the sprint use-case model and domain class model;
+  \item \textbf{Interaction sequence diagrams} --- step-by-step flows between the user interface, application services, background workers, and external systems.
 \end{enumerate}
-The full diagram catalog is indexed in Appendix~\ref{annex:diagrams}; implementation
-evidence appears in Chapter~\ref{ch:implementation} and validation in
+The full diagram catalog is presented in Section~\ref{sec:sprint-design}; implementation
+details appear in Chapter~\ref{ch:implementation} and validation in
 Chapter~\ref{ch:validation}.
 
 \input{chapters/chapter3_sprint_sequence_design}
 
 \section{Chapter Conclusion}
 
-This chapter defined the architectural foundation of the Knowledge Platform in two
-complementary views: static design (architecture, subsystems, domain model, and
-technology justification) and dynamic design (sprint-scoped structural views and
-interaction sequence diagrams). The decision matrix and requirements-to-design
-traceability established that each major functional and non-functional requirement
-is mapped to concrete modules, interaction flows, and validation evidence.
-Chapter~\ref{ch:implementation} describes how these design artefacts were realized
-in code.
+This chapter established how the Knowledge Platform is structured and how its
+parts interact at design time. The three-tier architecture separates user-facing
+workflows from business coordination and from persistence and AI processing,
+while subsystem boundaries clarify ownership of authentication, documents,
+search, conversations, and governance. Technology choices favour a pragmatic
+TypeScript stack that supports streaming answers, hybrid retrieval, and
+manageable deployment for a prototype-scale enterprise system. Sprint-scoped
+interaction diagrams complete the picture by showing how real user journeys
+unfold across the web application, API services, and background workers.
+Together, these design artefacts provide an implementable blueprint whose
+adequacy is verified in Chapters~\ref{ch:implementation}
+and~\ref{ch:validation}.

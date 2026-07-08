@@ -19,8 +19,8 @@ chapters.
 \textbf{\CompanyName} is a technology company whose teams produce and consume
 significant volumes of internal documentation: technical specifications, onboarding
 guides, project reports, API references, and operational procedures. Prior to this
-project, knowledge was distributed across disconnected tools — shared drives, email
-threads, and informal messaging channels — with no unified governance model and no
+project, knowledge was distributed across disconnected tools --- shared drives, email
+threads, and informal messaging channels --- with no unified governance model and no
 mechanism for intelligent retrieval.
 
 The key pain points identified through analysis of the existing situation were:
@@ -53,7 +53,6 @@ Table~\ref{tab:actors} and detailed in the global use-case diagram
 \renewcommand{\arraystretch}{1.4}
 \begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.8cm}|Y|}
 \hline
-\rowcolor{sectionblue!15}
 \textbf{Actor} & \textbf{Primary capabilities} \\
 \hline
 \textbf{Employee} &
@@ -72,9 +71,9 @@ per-user restrictions, bulk operations, audit log access, KPI dashboards,
 activity exports, and platform-wide notifications. \\
 \hline
 \textbf{System} &
-Autonomous actor: executes the BullMQ ingest worker (extract, chunk, embed),
-emits automatic notifications on document and role events, and runs the RAG
-evaluation harness. \\
+Autonomous actor: runs the background document ingestion pipeline (extract,
+chunk, embed), emits automatic notifications on document and role events, and
+executes the RAG evaluation harness. \\
 \hline
 \end{tabularx}
 \end{table}
@@ -88,7 +87,7 @@ Platform. It identifies primary actors (\textbf{Guest}, \textbf{Employee},
 generalizing an abstract \textbf{Authenticated user} actor. Use cases are grouped
 into authentication, document management, search and AI, notifications, and
 governance domains. Secondary actors (\textbf{Email}, \textbf{Gemini}, and
-\textbf{BullMQ worker}) model external interactions through
+\textbf{Background worker}) model external interactions through
 \texttt{<<notify>>}, \texttt{<<invoke>>}, and \texttt{<<enqueue>>} dependencies.
 
 \begin{figure}[H]
@@ -105,12 +104,13 @@ management (FR-03 to FR-05), search and AI (FR-06 to FR-08), notifications
 
 \section{Functional and Non-Functional Requirements}
 
-The requirements were derived from an analysis of user workflows and system
-architecture, ensuring alignment between functional needs and system design.
+The requirements were derived from an analysis of user workflows and the intended
+system architecture, ensuring alignment between stakeholder needs and the design
+choices developed in subsequent chapters.
 
 \subsection{Functional Requirements}
 
-The system defines a set of functional requirements organized around
+The platform defines a set of functional requirements organized around
 \textbf{authentication} (FR-01, FR-02), \textbf{document management} (FR-03 to
 FR-05), \textbf{search and AI capabilities} (FR-06 to FR-08),
 \textbf{notifications} (FR-09), \textbf{administration} (FR-10, FR-11), and
@@ -123,13 +123,11 @@ governed by a hybrid authorization model combining Role-Based Access Control
 \caption{Functional requirements with acceptance criteria}
 \label{tab:requirements} \\
 \hline
-\rowcolor{sectionblue!15}
-\textbf{ID} & \textbf{Requirement} & \textbf{Acceptance criterion} & \textbf{Module / API} \\
+\textbf{ID} & \textbf{Requirement} & \textbf{Acceptance criterion} & \textbf{Primary component} \\
 \hline
 \endfirsthead
 \hline
-\rowcolor{sectionblue!15}
-\textbf{ID} & \textbf{Requirement} & \textbf{Acceptance criterion} & \textbf{Module / API} \\
+\textbf{ID} & \textbf{Requirement} & \textbf{Acceptance criterion} & \textbf{Primary component} \\
 \hline
 \endhead
 \hline
@@ -137,105 +135,73 @@ governed by a hybrid authorization model combining Role-Based Access Control
 
 FR-01 &
 JWT authentication with HttpOnly refresh cookie rotation &
-Login returns access token; refresh rotates session atomically; replay revokes family &
-\tcodelines{POST /auth/login}{POST /auth/refresh} \\
+Successful login returns a short-lived access token; session refresh rotates
+credentials atomically; replay of a rotated token revokes the entire session family &
+Authentication service \\
 \hline
 FR-02 &
 User profile management including avatar upload &
-Platform-hosted avatar served with correct CORP header; cross-origin display verified &
-\tcodelines{PATCH /auth/profile}{GET /avatars/:id} \\
+Profile updates persist; uploaded avatars are served with cross-origin headers
+enabling display in the web client &
+Profile management service \\
 \hline
 FR-03 &
 Document upload with multi-format extraction and async ingest &
-File stored on disk; ingest job enqueued; version status reaches READY &
-\apicode{POST /documents/upload}\newline BullMQ worker \\
+Uploaded file is stored; processing is queued; document version reaches ready
+state when ingestion completes &
+Document ingestion pipeline \\
 \hline
 FR-04 &
 Document visibility control (ALL / DEPARTMENT / PRIVATE) &
-Unauthorised access returns 404 (not 403) to prevent enumeration &
-\tcode{canReadDocument}\newline\tcode{documentAccess.ts} \\
+Unauthorised access returns 404 (not 403) to prevent document enumeration &
+Access control layer \\
 \hline
 FR-05 &
 Document metadata: tags, favorites, recents, archive &
-Tag autocomplete, favorite toggle, recent view, archive/restore all persisted &
-\tcode{documents.ts} \\
+Tag autocomplete, favourite toggle, recent views, and archive operations are
+all persisted &
+Document library service \\
 \hline
 FR-06 &
 Semantic vector search over department-scoped document corpus &
 Vector similarity results ranked correctly; access-filtered; respects restrictions &
-\apicode{POST /search/semantic} \\
+Search service \\
 \hline
 FR-07 &
 Hybrid RAG Ask with SSE streaming and source citations &
-SSE events emitted in order: \tcode{sources}, \tcode{token}, \tcode{done}; citations reference real chunks &
-\tcodelines{POST /search/ask}{ragCompletion.ts} \\
+Answer stream delivers source citations first, then tokens, then completion;
+citations reference real document passages &
+RAG completion service \\
 \hline
 FR-08 &
 Conversation history with per-message feedback &
-Threads persisted; thumbs up/down stored; feedback stats available to admin &
-\apicode{/conversations/*} \\
+Threads persisted; thumbs up/down stored; feedback statistics available to
+administrators &
+Conversation service \\
 \hline
 FR-09 &
 Automatic and manual notification system with attachments &
-Department-scoped events emitted on document create/update/delete; manual send available to managers/admins &
-\tcodelines{/notifications/*}{notificationService.ts} \\
+Department-scoped events emitted on document create/update/delete; manual send
+available to managers and administrators &
+Notification service \\
 \hline
 FR-10 &
 Full administrative control: user/department CRUD, bulk operations, audit &
-Last-admin safety enforced; CSV imports escaped; audit log exportable &
-\apicode{/admin/*} \\
+Last-administrator safety enforced; bulk imports sanitised; audit log exportable &
+Administration module \\
 \hline
 FR-11 &
 Manager dashboard scoped to manageable departments &
-Only departments from \tcode{manageable\-DepartmentIds} returned; member list correct &
-\apicode{/manager/*} \\
+Only departments within the manager's scope are returned; member lists are correct &
+Manager module \\
 \hline
 FR-12 &
 Per-user feature restriction flags &
-Flags block login, document access, and AI queries via middleware; restricted page displayed &
-\tcode{requireDoc\-LibraryAccess}\newline\tcode{requireUse\-AiQueries} \\
+Flags block login, document access, and AI queries; restricted users see a
+dedicated notice page &
+Authorization middleware \\
 \hline
 \end{xltabular}
-
-Table~\ref{tab:fr-traceability} summarises the mapping from each functional
-requirement to its primary implementation module and development sprint.
-
-\begin{table}[H]
-\centering
-\caption{Functional requirements traceability summary}
-\label{tab:fr-traceability}
-\renewcommand{\arraystretch}{1.35}
-\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{0.85cm}|>{\RaggedRight\arraybackslash}p{2.6cm}|Y|>{\Centering\arraybackslash}p{1.0cm}|}
-\hline
-\rowcolor{sectionblue!15}
-\textbf{ID} & \textbf{Domain} & \textbf{Primary module / service} & \textbf{Sprint} \\
-\hline
-FR-01 & Authentication & \tcode{auth.ts} (JWT, refresh families) & S1 \\
-\hline
-FR-02 & Profile management & \tcode{auth.ts}, \tcode{avatarsPublic.ts} & S1 \\
-\hline
-FR-03 & Document ingest & BullMQ ingest worker, \tcode{documents.ts} & S2 \\
-\hline
-FR-04 & Access control & \tcode{documentAccess.ts}, visibility filters & S2 \\
-\hline
-FR-05 & Document organisation & \tcode{documents.ts} (tags, favorites, archive) & S2 \\
-\hline
-FR-06 & Semantic search & \tcode{search.ts}, pgvector retrieval & S3 \\
-\hline
-FR-07 & RAG question answering & \tcode{ragCompletion.ts} (hybrid RAG pipeline) & S3 \\
-\hline
-FR-08 & Conversations & \tcode{conversations.ts} & S3 \\
-\hline
-FR-09 & Notifications & \tcode{notificationService.ts}, \tcode{notifications.ts} & S4 \\
-\hline
-FR-10 & Administration & \tcode{admin.ts} & S4 \\
-\hline
-FR-11 & Manager dashboard & \tcode{manager.ts} & S4 \\
-\hline
-FR-12 & Feature restrictions & Auth middleware, \tcode{requireUseAiQueries} & S1 \\
-\hline
-\end{tabularx}
-\end{table}
 
 Chapter~\ref{ch:architecture} extends this summary with design elements and
 validation test references (Table~\ref{tab:traceability-main}).
@@ -249,32 +215,31 @@ validation test references (Table~\ref{tab:traceability-main}).
 \renewcommand{\arraystretch}{1.4}
 \begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{0.85cm}|>{\RaggedRight\arraybackslash}p{0.38\linewidth}|Y|}
 \hline
-\rowcolor{sectionblue!15}
 \textbf{ID} & \textbf{Requirement} & \textbf{Acceptance criterion} \\
 \hline
 NFR-01 & Health monitoring endpoint &
-\tcode{GET /health} returns \tcode{200 \{status: "ok"\}} when PostgreSQL and Redis
-are reachable; \tcode{503} with per-check detail otherwise \\
+Health check returns success when the database and cache are reachable;
+otherwise returns service-unavailable with per-component detail \\
 \hline
 NFR-02 & Security headers and rate limiting &
-Helmet CSP enforced on all responses; login limited to 15 req/15 min/IP; Ask
-limited to 12 req/min/IP \\
+Security headers enforced on all responses; login limited to 15 requests per
+15 minutes per address; Ask limited to 12 requests per minute per address \\
 \hline
 NFR-03 & Single-flight refresh token (web client) &
-Parallel requests from the same tab do not trigger multiple \tcode{/auth/refresh}
-calls; the in-flight promise is shared \\
+Parallel requests from the same browser tab share a single in-flight refresh
+operation rather than issuing duplicate refresh calls \\
 \hline
 NFR-04 & Docker Compose reproducibility &
-\tcode{docker compose up -{}-build} starts all four services (postgres, redis, api,
-web) in a healthy state; migrations run automatically \\
+Container orchestration starts all four application services in a healthy state;
+database migrations run automatically \\
 \hline
 NFR-05 & Integration test coverage &
-All Vitest/Supertest suites pass on a real PostgreSQL + Redis instance with seeded
-data \\
+Full integration test suite passes on a live database and cache instance with
+seeded data \\
 \hline
 NFR-06 & RAG evaluation harness &
-\tcode{npm run eval:rag:quick} executes without error and writes a JSON report
-to \tcode{eval-reports/} \\
+RAG evaluation workflow completes without error and produces a structured
+quality report \\
 \hline
 \end{tabularx}
 \end{table}
@@ -322,20 +287,18 @@ chapter (Chapter~\ref{ch:validation}):
 \renewcommand{\arraystretch}{1.4}
 \begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.5cm}|Y|>{\RaggedRight\arraybackslash}p{2.0cm}|}
 \hline
-\rowcolor{sectionblue!15}
 \textbf{KPI} & \textbf{Measurement method} & \textbf{Target} \\
 \hline
 Ingest reliability &
-Percentage of uploaded documents reaching \tcode{READY} status without
-\tcode{FAILED} &
+Percentage of uploaded documents reaching ready state without failure &
 $\geq 95\%$ \\
 \hline
 Integration test pass rate &
-\tcode{npm run test:api} output: passed / total &
+Integration test suite pass ratio (passed / total) &
 74 / 74 (100\%) \\
 \hline
 RAG topic classification (no API key) &
-\tcode{eval:rag:quick} optimizer pass rate &
+Quick evaluation optimizer pass rate &
 $\geq 15/34$ (degraded mode) \\
 \hline
 RAG judge scores (with API key) &
@@ -347,7 +310,7 @@ Reuse of rotated token triggers family revocation &
 Verified by auth test suite \\
 \hline
 Security: avatar CORP &
-\tcode{Cross-Origin-Resource-Policy: cross-origin} header present on avatar responses &
+Cross-origin resource policy header present on avatar responses &
 Verified by avatars test \\
 \hline
 \end{tabularx}
@@ -359,7 +322,7 @@ Verified by avatars test \\
 
 The project was managed using the \textbf{Agile Scrum} methodology, chosen for its
 iterative structure, its emphasis on working deliverables at the end of each sprint,
-and its adaptability to evolving requirements — all well-suited to a complex full-stack
+and its adaptability to evolving requirements --- all well-suited to a complex full-stack
 product developed by a single engineer over a bounded internship period.
 
 \subsubsection{Scrum Roles}
@@ -385,8 +348,8 @@ product developed by a single engineer over a bounded internship period.
     at the end of each sprint.
   \item \textbf{Definition of Done}: a requirement is considered done when (a) the
     feature is implemented, (b) at least one integration test covers the happy path
-    and one error path, and (c) the corresponding API route or module is manually
-    validated.
+    and one error path, and (c) the corresponding capability is manually validated
+    against its acceptance criteria.
 \end{itemize}
 
 \subsubsection{Sprint Structure}
@@ -419,7 +382,6 @@ sprint appears in Section~\ref{sec:sprint-design} of Chapter~\ref{ch:architectur
 \setlength{\tabcolsep}{2.5pt}
 \begin{tabularx}{\linewidth}{|>{\Centering\arraybackslash}p{0.055\linewidth}|>{\RaggedRight\arraybackslash}p{0.16\linewidth}|>{\RaggedRight\arraybackslash}X|>{\RaggedRight\arraybackslash}p{0.13\linewidth}|>{\Centering\arraybackslash}p{0.055\linewidth}|}
 \hline
-\rowcolor{sectionblue!15}
 \textbf{Spr.} & \textbf{Theme} & \textbf{Deliverables} & \textbf{Req.} & \textbf{Des.} \\
 \hline
 \textbf{S1} &
@@ -491,7 +453,7 @@ and access control (S1), document corpus (S2), hybrid RAG (S3), governance
 \draw[arrow] (s3) -- (s4);
 \draw[arrow] (s4) -- (s5);
 \end{tikzpicture}
-\caption{Scrum sprint timeline — iterative delivery across five sprints}
+\caption{Scrum sprint timeline --- iterative delivery across five sprints}
 \label{fig:scrum-timeline}
 \end{figure}
 
@@ -514,37 +476,36 @@ in Section~\ref{sec:sprint-design}.
 \setlength{\tabcolsep}{2.5pt}
 \begin{tabularx}{\linewidth}{|>{\RaggedRight\arraybackslash}p{0.09\linewidth}|>{\RaggedRight\arraybackslash}X|>{\RaggedRight\arraybackslash}p{0.33\linewidth}|>{\Centering\arraybackslash}p{0.045\linewidth}|>{\Centering\arraybackslash}p{0.08\linewidth}|}
 \hline
-\rowcolor{sectionblue!15}
 \textbf{ID} & \textbf{User Story} & \textbf{Acceptance Criteria} & \textbf{SP} & \textbf{Pri.} \\
 \hline
 US-S1-01 &
 As a guest, I want to sign in securely so that I can access authorised platform features. &
-\tcode{POST /auth/login} issues access token + refresh cookie; invalid credentials rejected; login limiter enforced. &
+Valid credentials issue an access token and secure refresh cookie; invalid credentials are rejected; login rate limiting is enforced. &
 5 & High \\
 \hline
 US-S1-02 &
 As an authenticated user, I want seamless session continuity so that refresh operations are secure and race-condition free. &
-\tcode{/auth/refresh} rotates token family atomically; replay revokes family; single-flight refresh on web client. &
+Session refresh rotates the token family atomically; replay of a rotated token revokes the family; parallel tab requests share a single refresh operation. &
 8 & High \\
 \hline
 US-S1-03 &
 As an authenticated user, I want to sign out so that active refresh sessions are revoked. &
-Logout revokes current refresh session; subsequent refresh attempts fail. &
+Logout revokes the current refresh session; subsequent refresh attempts fail. &
 2 & Med. \\
 \hline
 US-S1-04 &
 As a user, I want to view and update my profile, including avatar, so that my account information remains accurate. &
-\tcode{PATCH /auth/profile} persists updates; avatar upload works; avatar route serves CORP header for cross-origin display. &
+Profile updates persist; avatar upload succeeds; avatars are served with cross-origin headers for display in the web client. &
 5 & High \\
 \hline
 US-S1-05 &
 As an administrator, I want role-based and per-user access restrictions so that capabilities can be controlled precisely. &
-Role middleware enforces ADMIN/MANAGER/EMPLOYEE boundaries; restriction flags block protected features and redirect to restricted page. &
+Role boundaries enforce administrator, manager, and employee capabilities; restriction flags block protected features and redirect to a restricted notice page. &
 8 & High \\
 \hline
 US-S1-06 &
 As a security owner, I want baseline HTTP protections so that authentication endpoints resist abuse. &
-Helmet headers active globally; login and Ask endpoints rate-limited according to configured thresholds. &
+Security headers are active globally; login and Ask endpoints are rate-limited according to configured thresholds. &
 3 & Med. \\
 \hline
 \end{tabularx}
@@ -561,42 +522,41 @@ Helmet headers active globally; login and Ask endpoints rate-limited according t
 \setlength{\tabcolsep}{2.5pt}
 \begin{tabularx}{\linewidth}{|>{\RaggedRight\arraybackslash}p{0.09\linewidth}|>{\RaggedRight\arraybackslash}X|>{\RaggedRight\arraybackslash}p{0.33\linewidth}|>{\Centering\arraybackslash}p{0.045\linewidth}|>{\Centering\arraybackslash}p{0.08\linewidth}|}
 \hline
-\rowcolor{sectionblue!15}
 \textbf{ID} & \textbf{User Story} & \textbf{Acceptance Criteria} & \textbf{SP} & \textbf{Pri.} \\
 \hline
 US-S2-01 &
 As an employee, I want to upload documents in common formats so that they enter the shared library. &
-\apicode{POST /documents/upload} validates MIME/size, stores file on disk, creates version row, enqueues ingest job. &
+Upload validates file type and size, stores the file, creates a version record, and queues ingestion. &
 8 & High \\
 \hline
 US-S2-02 &
 As the system, I want to ingest uploaded files asynchronously so that text is searchable and embeddable. &
-BullMQ worker extracts text, chunks content, computes 768-d embeddings, persists \tcode{Chunk} rows; version reaches \tcode{READY}. &
+Background worker extracts text, chunks content, computes embeddings, and persists passages; version reaches ready state on completion. &
 13 & High \\
 \hline
 US-S2-03 &
 As a security owner, I want visibility rules enforced so that unauthorised users cannot discover restricted documents. &
-\tcode{ALL}/\tcode{DEPARTMENT}/\tcode{PRIVATE} enforced via \tcode{canReadDocument}; unauthorised access returns 404. &
+Organisation-wide, department, and private visibility levels are enforced; unauthorised access returns 404 rather than revealing existence. &
 8 & High \\
 \hline
 US-S2-04 &
 As an employee, I want to browse, search, and open documents so that I can find relevant files quickly. &
-\apicode{GET /documents} supports filters/pagination; \apicode{GET /documents/:id} returns metadata and active version; download streams file bytes. &
+Document listing supports filters and pagination; detail view returns metadata and active version; download delivers file content. &
 5 & High \\
 \hline
 US-S2-05 &
 As an employee, I want favorites and recents so that I can return to frequently used documents. &
-Favorite toggle and recent-view endpoints persist per user; library home surfaces both lists. &
+Favourite toggle and recent-view tracking persist per user; library home surfaces both lists. &
 3 & Med. \\
 \hline
 US-S2-06 &
 As a document owner, I want versioning and re-ingestion so that updates and embedding upgrades are supported. &
-\apicode{POST /documents/:id/versions} creates new version + ingest job; \apicode{POST .../reprocess} forces re-ingest of existing version. &
+New version upload creates a version record and queues ingestion; reprocess triggers re-ingestion of an existing version. &
 8 & Med. \\
 \hline
 US-S2-07 &
 As a manager, I want to update metadata and retain an audit trail so that document governance is traceable. &
-\apicode{PATCH /documents/:id} updates title, tags, visibility within scope; changes recorded in per-document audit log. &
+Title, tags, and visibility updates persist within scope; changes are recorded in a per-document audit log. &
 5 & Med. \\
 \hline
 \end{tabularx}
@@ -613,32 +573,31 @@ As a manager, I want to update metadata and retain an audit trail so that docume
 \setlength{\tabcolsep}{2.5pt}
 \begin{tabularx}{\linewidth}{|>{\RaggedRight\arraybackslash}p{0.09\linewidth}|>{\RaggedRight\arraybackslash}X|>{\RaggedRight\arraybackslash}p{0.33\linewidth}|>{\Centering\arraybackslash}p{0.045\linewidth}|>{\Centering\arraybackslash}p{0.08\linewidth}|}
 \hline
-\rowcolor{sectionblue!15}
 \textbf{ID} & \textbf{User Story} & \textbf{Acceptance Criteria} & \textbf{SP} & \textbf{Pri.} \\
 \hline
 US-S3-01 &
 As an employee, I want semantic search over the corpus so that I can find relevant passages by meaning. &
-\apicode{POST /search/semantic} embeds query, ranks department-scoped chunks via pgvector, returns snippet previews. &
+Query is embedded and ranked against department-scoped passages; results include snippet previews. &
 8 & High \\
 \hline
 US-S3-02 &
 As an employee, I want cited answers streamed in real time so that I receive grounded responses to natural-language questions. &
-\apicode{POST /search/ask} runs hybrid retrieval + RRF + rerank; SSE emits \tcode{sources}, \tcode{token}, \tcode{done} with chunk citations. &
+Hybrid retrieval and reranking produce an answer stream with source citations delivered before answer tokens and a completion signal. &
 13 & High \\
 \hline
 US-S3-03 &
 As an employee, I want persistent conversation threads so that I can review prior questions and answers. &
-\apicode{/conversations} supports create, list, rename, delete; messages store sources, confidence, and citations. &
+Conversations support create, list, rename, and delete; messages store sources, confidence, and citations. &
 8 & High \\
 \hline
 US-S3-04 &
 As an employee, I want to rate assistant answers so that poor responses can be identified and improved. &
-\apicode{POST .../feedback} stores thumbs up/down; admin stats endpoint aggregates sentiment and volume. &
+Thumbs up/down feedback is stored; administrator statistics aggregate sentiment and volume. &
 5 & Med. \\
 \hline
 US-S3-05 &
 As a data scientist, I want a reproducible RAG evaluation harness so that retrieval quality can be measured over time. &
-\tcode{npm run eval:rag:quick} and \tcode{eval:rag} write JSON reports under \tcode{eval-reports/} without breaking CI. &
+Quick and full evaluation modes produce structured quality reports without disrupting continuous integration. &
 8 & Med. \\
 \hline
 \end{tabularx}
@@ -655,37 +614,36 @@ As a data scientist, I want a reproducible RAG evaluation harness so that retrie
 \setlength{\tabcolsep}{2.5pt}
 \begin{tabularx}{\linewidth}{|>{\RaggedRight\arraybackslash}p{0.09\linewidth}|>{\RaggedRight\arraybackslash}X|>{\RaggedRight\arraybackslash}p{0.33\linewidth}|>{\Centering\arraybackslash}p{0.045\linewidth}|>{\Centering\arraybackslash}p{0.08\linewidth}|}
 \hline
-\rowcolor{sectionblue!15}
 \textbf{ID} & \textbf{User Story} & \textbf{Acceptance Criteria} & \textbf{SP} & \textbf{Pri.} \\
 \hline
 US-S4-01 &
 As an employee, I want automatic notifications on document events so that I stay informed of library changes. &
-Document create/update/delete emits department-scoped inbox entries via \tcode{notificationService.ts}. &
+Document create, update, and delete events generate department-scoped inbox entries. &
 5 & High \\
 \hline
 US-S4-02 &
 As a manager or admin, I want to send manual announcements so that I can communicate with targeted teams. &
-\apicode{POST /notifications/send} validates audience scope; optional attachments downloadable by recipients. &
+Manual send validates audience scope; optional attachments are downloadable by recipients. &
 5 & High \\
 \hline
 US-S4-03 &
 As an employee, I want a notification inbox so that I can read and dismiss messages. &
-List, unread count, mark-read, and mark-all-read endpoints; web client polls with badge indicator. &
+Inbox supports listing, unread count, mark-read, and mark-all-read; web client displays an unread badge. &
 5 & Med. \\
 \hline
 US-S4-04 &
 As a manager, I want a department dashboard so that I can oversee teams and documents I manage. &
-\apicode{/manager/*} returns only \tcode{manageableDepartmentIds}; member lists and department documents scoped correctly. &
+Dashboard returns only departments within the manager's scope; member lists and department documents are correctly filtered. &
 8 & High \\
 \hline
 US-S4-05 &
 As an administrator, I want full user and department administration so that the platform reflects organisational structure. &
-\apicode{/admin/*} supports user CRUD, department create/merge, last-admin safety, CSV import with formula escaping. &
+User and department lifecycle operations are supported; last-administrator safety is enforced; bulk import sanitises spreadsheet formulas. &
 13 & High \\
 \hline
 US-S4-06 &
 As an administrator, I want bulk access management and operational exports so that governance tasks scale efficiently. &
-Bulk department-access PUT, KPI stats, activity log, document audit, and CSV exports available to admins. &
+Bulk department-access updates, KPI statistics, activity logs, document audit trails, and exports are available to administrators. &
 8 & Med. \\
 \hline
 \end{tabularx}
@@ -702,32 +660,31 @@ Bulk department-access PUT, KPI stats, activity log, document audit, and CSV exp
 \setlength{\tabcolsep}{2.5pt}
 \begin{tabularx}{\linewidth}{|>{\RaggedRight\arraybackslash}p{0.09\linewidth}|>{\RaggedRight\arraybackslash}X|>{\RaggedRight\arraybackslash}p{0.33\linewidth}|>{\Centering\arraybackslash}p{0.045\linewidth}|>{\Centering\arraybackslash}p{0.08\linewidth}|}
 \hline
-\rowcolor{sectionblue!15}
 \textbf{ID} & \textbf{User Story} & \textbf{Acceptance Criteria} & \textbf{SP} & \textbf{Pri.} \\
 \hline
 US-S5-01 &
 As an operator, I want a health endpoint so that I can verify database and queue connectivity. &
-\apicode{GET /health} returns \tcode{200} when PostgreSQL and Redis are reachable; \tcode{503} with per-check detail otherwise. &
+Health check returns success when database and cache are reachable; otherwise returns service-unavailable with per-component detail. &
 3 & High \\
 \hline
 US-S5-02 &
 As a developer, I want automated integration tests so that regressions are caught before release. &
-\tcode{npm run test:api} runs 74 Vitest/Supertest cases across 10 suites on real DB/Redis; target 100\% pass. &
+Integration suite runs 74 cases across ten domains on live database and cache; target is 100\% pass rate. &
 13 & High \\
 \hline
 US-S5-03 &
 As an operator, I want reproducible containerised deployment so that the platform can be started consistently. &
-\tcode{docker compose up -{}-build} starts postgres, redis, api, web healthy; migrations run automatically. &
+Container orchestration starts database, cache, API, and web services in a healthy state; migrations run automatically. &
 8 & High \\
 \hline
 US-S5-04 &
 As a data scientist, I want automated RAG judge evaluation so that answer quality can be tracked with an API key. &
-\tcode{npm run eval:rag} produces faithfulness/relevance scores in \tcode{eval-reports/}; quick mode runs without key. &
+Full evaluation produces faithfulness and relevance scores; quick mode runs without an external API key. &
 8 & Med. \\
 \hline
 US-S5-05 &
 As a maintainer, I want complete design documentation so that the system is defensible and maintainable. &
-54 PlantUML diagrams exported; README and architecture guide updated; sequence flows indexed in Appendix~\ref{annex:diagrams}. &
+Fifty-four UML diagrams are exported; architecture guide is updated; sequence flows are catalogued in Chapter~\ref{ch:architecture}. &
 5 & Med. \\
 \hline
 \end{tabularx}
@@ -741,7 +698,6 @@ As a maintainer, I want complete design documentation so that the system is defe
 \renewcommand{\arraystretch}{1.3}
 \begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{3.2cm}|Y|}
 \hline
-\rowcolor{sectionblue!15}
 \textbf{Tool} & \textbf{Usage in project} \\
 \hline
 Prisma Schema DSL & Domain modelling and 29 sequential migrations \\
@@ -759,36 +715,12 @@ Zod & Runtime request validation for all API inputs \\
 \end{tabularx}
 \end{table}
 
-\subsection{Data Science Orientation}
-
-In alignment with the Data Science discipline, the following elements of the project
-are treated as data-science artefacts:
-
-\begin{itemize}
-  \item \textbf{Corpus and embeddings}: the set of ingested documents and their
-    768-dimensional vector representations in PostgreSQL constitute the experimental
-    dataset on which retrieval quality is measured.
-  \item \textbf{Query optimisation}: classifying query type (factual, summary,
-    comparative, procedural, out-of-scope) and rewriting queries for retrieval is
-    analogous to feature engineering in a machine learning pipeline.
-  \item \textbf{RRF ensemble}: the weighted fusion of dense and sparse retrieval
-    results is an ensemble method with tunable hyperparameters (\texttt{RRF\_K},
-    \texttt{RRF\_DENSE\_WEIGHT}, \texttt{RRF\_SPARSE\_WEIGHT}).
-  \item \textbf{Automated judge evaluation}: the RAG evaluation harness uses an
-    LLM-as-judge to measure faithfulness, answer relevance, and context precision,
-    producing reproducible JSON reports — a standard experimental validation
-    workflow for generative AI systems \cite{es2024rag-eval}.
-  \item \textbf{Feedback-driven adaptation}: negative user ratings are semantically
-    compared to new questions using embedding cosine similarity, constituting an
-    online adaptation mechanism without model retraining.
-\end{itemize}
-
 \section{Chapter Conclusion}
 
-This chapter translated the state-of-the-art insights into a verifiable
-specification by defining functional and non-functional requirements, acceptance
-criteria, and requirement-to-module traceability. It also formalized the project
-methodology through a five-sprint Scrum plan and detailed sprint backlogs,
-linking planning artefacts to implementation and validation objectives.
+This chapter established a verifiable specification for the Knowledge Platform by
+defining functional and non-functional requirements, measurable acceptance criteria,
+and key performance indicators. It also formalised the delivery approach through a
+five-sprint Scrum plan with detailed sprint backlogs, linking each increment to
+design, implementation, and validation objectives in the chapters that follow.
 Chapter~\ref{ch:architecture} presents the resulting system design, including
 sprint-aligned interaction diagrams in Section~\ref{sec:sprint-design}.

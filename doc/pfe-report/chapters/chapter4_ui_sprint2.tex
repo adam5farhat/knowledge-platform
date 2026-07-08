@@ -1,0 +1,51 @@
+\subsubsection{Implemented web interfaces}
+\label{subsubsec:impl-s2-ui}
+
+The document library lets users browse department-scoped collections, inspect file
+details, preview documents in the browser, and manage versions.
+
+\paragraph{Library browse and file details.}
+Figure~\ref{fig:ui-library} shows the department card view with sidebar
+navigation (Recent, Favorites, Archived) and filter controls.
+Figure~\ref{fig:ui-doc-details} shows the file detail side panel with ingest
+status, visibility, and action buttons (Open, Download, Favorite, Versions).
+
+\uiscreenshot{ui-library-departments.png}{Department library browse with sidebar navigation and filter controls}{Department library browse}{fig:ui-library}
+
+\uiscreenshot{ui-document-details.png}{Document detail side panel with metadata and action buttons}{Document detail side panel}{fig:ui-doc-details}
+
+\paragraph{Upload workflow.}
+Managers and administrators open a multi-step upload modal (file, metadata, tags)
+from the library FAB (Figure~\ref{fig:ui-doc-upload}), matching the upload
+sequence of Figure~\ref{fig:seq-08}.
+
+\uiscreenshot{ui-document-upload.png}{Multi-step upload modal with file drop zone and metadata fields}{Document upload modal}{fig:ui-doc-upload}
+
+\paragraph{Recent, favorites, and table view.}
+Sidebar scopes filter the library to recently opened files
+(Figure~\ref{fig:ui-library-recent}) or starred favorites
+(Figure~\ref{fig:ui-library-favorites}). Users can switch between card and
+tabular layouts (Figure~\ref{fig:ui-library-table}).
+
+\uiscreenshot{ui-library-recent.png}{Recent documents scope with sidebar highlight}{Recent documents}{fig:ui-library-recent}
+
+\uiscreenshot{ui-library-favorites.png}{Favorites scope listing starred documents}{Favorites view}{fig:ui-library-favorites}
+
+\uiscreenshot{ui-library-table-view.png}{Department library in table layout with column filters}{Table view}{fig:ui-library-table}
+
+\paragraph{Ingest processing status.}
+The detail panel surfaces asynchronous worker progress via a
+\textbf{Processing} badge and progress bar before the document reaches
+\textbf{READY} (validated end state in Chapter~\ref{ch:validation}).
+
+\uiscreenshot{ui-document-processing.png}{File detail panel during ingest with processing badge and progress bar}{Ingest processing status}{fig:ui-doc-processing}
+
+\paragraph{Preview and versioning.}
+Authorized users open PDFs in an in-browser preview modal
+(Figure~\ref{fig:ui-doc-preview}). Managers and administrators can upload new
+versions and inspect the version archive from the Versions action
+(Figure~\ref{fig:ui-doc-versions}).
+
+\uiscreenshot{ui-document-preview.png}{In-app PDF preview modal with navigation controls}{In-app PDF preview modal}{fig:ui-doc-preview}
+
+\uiscreenshot{ui-document-versions.png}{Version archive dialog with upload and reprocess actions}{Version archive dialog}{fig:ui-doc-versions}

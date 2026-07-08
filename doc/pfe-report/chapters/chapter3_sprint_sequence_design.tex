@@ -1,10 +1,8 @@
 \subsection{Sprint 1: Authentication and access control}\label{subsec:sprint1-design}
 
-Sprint~1 establishes the security perimeter of the platform. It delivers
-credential-based authentication with refresh-token rotation (FR-01), profile and
-avatar management (FR-02), per-user feature restrictions (FR-12), and the
-non-functional controls for HTTP hardening and single-flight token refresh
-(NFR-02, NFR-03).
+Sprint~1 defines how people enter and move through the platform. It covers
+sign-in and sign-out, password recovery, profile management, and the rules that
+limit access when an account or feature is restricted.
 
 \sprintstructural{1}%
   {Sprint 1 use-case diagram — Authentication and access control}{fig:sprint1-use-cases}%
@@ -12,79 +10,77 @@ non-functional controls for HTTP hardening and single-flight token refresh
 
 \sprintsequences{1}
 
-\sprintflowgroup{Authentication and session management}
+\sprintflowgroup{Signing in and managing the session}
 
-\paragraph{User login.}
-The login flow validates email and password against bcrypt hashes, enforces account
-lockout after repeated failures, and issues a short-lived access JWT together with
-an HttpOnly refresh cookie bound to a token family stored in the database.
-\seqdiagram{seq-01-login}{User login}{POST /auth/login}{fig:seq-01}
+\paragraph{User sign-in.}
+A user enters email and password; the platform verifies the credentials, applies
+account lockout after repeated failures, and opens a secure session with a
+short-lived access token and a protected refresh cookie.
+\seqdiagram{seq-01-login}{User sign-in}{sign-in flow}{fig:seq-01}
 
-\paragraph{Access token refresh and session rotation.}
-When the in-memory access token expires, the web client triggers a single
-in-flight refresh request that rotates the refresh cookie, invalidates the
-previous family member, and returns a new access token without user interaction.
-\seqdiagram{seq-02-refresh-token}{Access token refresh and session rotation}{POST /auth/refresh}{fig:seq-02}
+\paragraph{Silent session renewal.}
+When the access token expires, the web application renews the session in the
+background so the user can continue working without signing in again.
+\seqdiagram{seq-02-refresh-token}{Silent session renewal}{token refresh flow}{fig:seq-02}
 
-\paragraph{User logout.}
-Logout revokes the active refresh-token family server-side and clears the
-HttpOnly cookie, ensuring that stolen refresh tokens cannot be reused after the
-user explicitly ends the session.
-\seqdiagram{seq-03-logout}{User logout}{POST /auth/logout}{fig:seq-03}
+\paragraph{User sign-out.}
+Signing out ends the active session on the server and removes the refresh cookie
+from the browser, so the account cannot be reused from that device without a new
+sign-in.
+\seqdiagram{seq-03-logout}{User sign-out}{sign-out flow}{fig:seq-03}
 
-\paragraph{Forgot and reset password.}
-Password recovery sends a time-limited reset link by email; the reset endpoint
-validates the token, applies the password policy, and invalidates all outstanding
-refresh families for the affected account.
-\seqdiagram{seq-04-password-reset}{Forgot and reset password}{POST /auth/forgot-password, reset-password}{fig:seq-04}
+\paragraph{Forgotten password recovery.}
+A user who forgot their password requests a reset link by email, then sets a new
+password through a time-limited link. Existing sessions are closed once the
+password changes.
+\seqdiagram{seq-04-password-reset}{Forgotten password recovery}{password reset flow}{fig:seq-04}
 
-\paragraph{Change password with session invalidation.}
-Authenticated users may change their password by supplying the current secret;
-successful rotation updates the hash, enforces policy rules, and terminates other
-active sessions through family revocation.
-\seqdiagram{seq-05-change-password}{Change password with session invalidation}{POST /auth/change-password}{fig:seq-05}
+\paragraph{Changing password while signed in.}
+A signed-in user can change their password after confirming the current one.
+Successful change closes other active sessions for safety.
+\seqdiagram{seq-05-change-password}{Changing password while signed in}{change-password flow}{fig:seq-05}
 
-\sprintflowgroup{Profile, restrictions and session context}
+\sprintflowgroup{Profile, permissions and session context}
 
-\paragraph{Profile update.}
-Profile updates accept display name and avatar file uploads; the API persists
-metadata in Prisma and stores avatar binaries on disk, exposing them through the
-public \texttt{/avatars} route with cross-origin headers.
-\seqdiagram{seq-06-profile-update}{Profile update}{PATCH /auth/profile}{fig:seq-06}
+\paragraph{Updating the user profile.}
+Users can update personal details such as display name and contact information.
+Some changes, such as email updates, require the session to be renewed for
+security.
+\seqdiagram{seq-06-profile-update}{Updating the user profile}{profile update flow}{fig:seq-06}
 
-\paragraph{Feature restriction enforcement.}
-Middleware consults per-user feature flags before protected handlers execute;
-restricted users receive a structured \texttt{403 FEATURE\_RESTRICTED} response
-that the web client maps to a dedicated explanation page.
-\seqdiagram{seq-07-feature-restriction}{Feature restriction enforcement}{403 FEATURE\_RESTRICTED}{fig:seq-07}
+\paragraph{Blocking access to a restricted feature.}
+Before sensitive actions run, the server checks whether the user is allowed to
+use the document library or AI-powered search. If not, the request is rejected
+with a clear permission error (see Figure~\ref{fig:seq-33} for the page shown to
+the user).
+\seqdiagram{seq-07-feature-restriction}{Blocking access to a restricted feature}{feature gate check}{fig:seq-07}
 
-\paragraph{Current user session payload.}
-The \texttt{/me} endpoint returns the authenticated principal, role, department
-memberships, and active feature restrictions so the client can render navigation
-and gate UI affordances without additional round trips.
-\seqdiagram{seq-23-get-auth-me}{Current user session payload}{GET /auth/me}{fig:seq-23}
+\paragraph{Loading the signed-in user's context.}
+After authentication, the application loads the user's role, department
+memberships, and active restrictions so menus and pages can be adapted
+immediately.
+\seqdiagram{seq-23-get-auth-me}{Loading the signed-in user's context}{session context load}{fig:seq-23}
 
-\sprintflowgroup{Guest and restricted UX pages}
+\sprintflowgroup{Pages shown before or outside normal access}
 
-\paragraph{Register information page (no self-service signup).}
-Self-service registration is intentionally disabled; the static \texttt{/register}
-page informs visitors that accounts are provisioned by administrators, avoiding
-orphan users outside the RBAC model.
-\seqdiagram{seq-32-register-info-static}{Register information page (no self-service signup)}{Next.js /register}{fig:seq-32}
+\paragraph{Registration information page.}
+Self-service account creation is not offered. The registration page explains that
+administrators create accounts, which keeps user provisioning under organisational
+control.
+\seqdiagram{seq-32-register-info-static}{Registration information page}{static information page}{fig:seq-32}
 
 \paragraph{Restricted feature explanation page.}
-When the API signals a feature restriction, the client redirects to
-\texttt{/restricted}, presenting context-sensitive guidance rather than a generic
-error banner.
-\seqdiagram{seq-33-restricted-page-ux}{Restricted feature explanation page}{/restricted UX}{fig:seq-33}
+When a user reaches a feature they are not allowed to use, the application shows
+a dedicated explanation page with guidance instead of a generic error message.
+This page is shown in the browser; the permission check itself is illustrated in
+Figure~\ref{fig:seq-07}.
+\seqdiagram{seq-33-restricted-page-ux}{Restricted feature explanation page}{client explanation page}{fig:seq-33}
 
 \subsection{Sprint 2: Document library and ingest}\label{subsec:sprint2-design}
 
-Sprint~2 implements the document corpus lifecycle: multi-format upload and storage
-(FR-03), department-scoped visibility enforcement (FR-04), and library
-organisation features such as versioning, tags, favorites, and recents (FR-05).
-Uploads are accepted synchronously by the API while text extraction, chunking, and
-embedding run asynchronously in a BullMQ worker.
+Sprint~2 introduces the document library: uploading files, preparing them for
+search, browsing and downloading content, and managing versions and metadata
+within department visibility rules.
 
 \sprintstructural{2}%
   {Sprint 2 use-case diagram — Document library and ingest}{fig:sprint2-use-cases}%
@@ -92,67 +88,64 @@ embedding run asynchronously in a BullMQ worker.
 
 \sprintsequences{2}
 
-\sprintflowgroup{Upload and asynchronous ingest}
+\sprintflowgroup{Uploading and preparing documents}
 
-\paragraph{Document upload.}
-The upload endpoint validates MIME type and size, writes the binary to disk,
-creates \texttt{Document} and \texttt{DocumentVersion} rows, and enqueues an
-ingest job keyed by version identifier.
-\seqdiagram{seq-08-document-upload}{Document upload}{POST /documents/upload}{fig:seq-08}
+\paragraph{Uploading a document.}
+A user uploads a file with basic metadata. The platform stores the file, records
+the document in the library, and queues background processing so the user does
+not have to wait for indexing to finish.
+\seqdiagram{seq-08-document-upload}{Uploading a document}{upload flow}{fig:seq-08}
 
-\paragraph{Asynchronous ingest worker.}
-The BullMQ consumer loads the stored file, extracts text per format, splits
-content into sentence-aware chunks with table preservation, computes
-768-dimensional embeddings, and persists \texttt{Chunk} rows indexed for retrieval.
-\seqdiagram{seq-09-document-ingest-worker}{Asynchronous ingest worker}{BullMQ processIngest}{fig:seq-09}
+\paragraph{Background document processing.}
+After upload, a background worker extracts text, splits it into meaningful
+passages, creates searchable embeddings, and stores them so the document can
+later appear in semantic search and AI answers.
+\seqdiagram{seq-09-document-ingest-worker}{Background document processing}{ingest pipeline}{fig:seq-09}
 
-\paragraph{Reprocess document version.}
-Administrators can force re-ingestion of an existing version---for example after
-embedding model upgrades---without re-uploading the binary.
-\seqdiagram{seq-29-document-reprocess}{Reprocess document version}{POST .../reprocess}{fig:seq-29}
+\paragraph{Reprocessing an existing version.}
+An administrator can trigger reprocessing of a document version---for example
+after improving the indexing pipeline---without uploading the file again.
+\seqdiagram{seq-29-document-reprocess}{Reprocessing an existing version}{reprocess flow}{fig:seq-29}
 
-\sprintflowgroup{Library access and download}
+\sprintflowgroup{Browsing and downloading}
 
-\paragraph{Document file download.}
-Authorized users download the original file through a version-scoped endpoint that
-re-checks department visibility before streaming bytes from the storage backend.
-\seqdiagram{seq-10-document-read-download}{Document file download}{GET .../file}{fig:seq-10}
+\paragraph{Downloading a document file.}
+An authorised user downloads the original file. The platform verifies department
+access before sending the file.
+\seqdiagram{seq-10-document-read-download}{Downloading a document file}{download flow}{fig:seq-10}
 
-\paragraph{Document list.}
-The list endpoint applies department filters, search facets, and pagination,
-returning summary metadata suitable for the library grid without loading chunk
-payloads.
-\seqdiagram{seq-24-documents-list}{Document list}{GET /documents}{fig:seq-24}
+\paragraph{Browsing the document library.}
+Users browse the library with filters and pagination. Results show summary
+information suitable for the catalogue view without loading full text content.
+\seqdiagram{seq-24-documents-list}{Browsing the document library}{library list flow}{fig:seq-24}
 
-\paragraph{Document detail.}
-Detail retrieval joins document metadata, active version, tags, ingest status, and
-audit hints, giving the preview pane everything required for inline viewing.
-\seqdiagram{seq-25-document-detail}{Document detail}{GET /documents/:id}{fig:seq-25}
+\paragraph{Opening a document detail view.}
+Opening a document shows its metadata, current version, tags, processing status,
+and the information needed for preview or further actions.
+\seqdiagram{seq-25-document-detail}{Opening a document detail view}{document detail flow}{fig:seq-25}
 
-\paragraph{Favorites and recents.}
-Users pin documents to favorites and the API records recent views; both features
-are scoped to the authenticated principal and surfaced on the library home view.
-\seqdiagram{seq-26-favorites-recents}{Favorites and recents}{POST/DELETE favorite, recent view}{fig:seq-26}
+\paragraph{Favourites and recently viewed documents.}
+Users can mark documents as favourites and revisit recently opened items from the
+library home view.
+\seqdiagram{seq-26-favorites-recents}{Favourites and recently viewed documents}{favourites and recents flow}{fig:seq-26}
 
-\sprintflowgroup{Metadata and versioning}
+\sprintflowgroup{Editing metadata and versions}
 
-\paragraph{Document metadata update.}
-Managers and owners may patch title, description, tags, and visibility; changes
-are validated against writable department scopes and written to the audit trail.
-\seqdiagram{seq-27-patch-document-metadata}{Document metadata update}{PATCH /documents/:id}{fig:seq-27}
+\paragraph{Updating document metadata.}
+Authorised users can edit title, description, tags, and visibility. Changes are
+recorded for traceability.
+\seqdiagram{seq-27-patch-document-metadata}{Updating document metadata}{metadata update flow}{fig:seq-27}
 
-\paragraph{New document version.}
-Uploading a replacement file creates a new \texttt{DocumentVersion}, triggers a
-fresh ingest job, and keeps prior versions available for rollback and audit.
-\seqdiagram{seq-28-document-new-version}{New document version}{POST /documents/:id/versions}{fig:seq-28}
+\paragraph{Publishing a new document version.}
+Uploading a replacement file creates a new version, starts fresh indexing, and
+keeps earlier versions available for audit and rollback.
+\seqdiagram{seq-28-document-new-version}{Publishing a new document version}{new version flow}{fig:seq-28}
 
 \subsection{Sprint 3: Search, RAG and conversations}\label{subsec:sprint3-design}
 
-Sprint~3 delivers the intelligent retrieval layer: semantic search over embedded
-chunks (FR-06), hybrid retrieval-augmented generation with streaming answers
-(FR-07), and persistent conversation threads with feedback (FR-08). The RAG
-evaluation harness (NFR-06) is introduced in parallel to measure answer quality
-against golden datasets.
+Sprint~3 adds intelligent search over the document base and a conversational
+workspace where users can ask questions and receive answers grounded in
+organisational content.
 
 \sprintstructural{3}%
   {Sprint 3 use-case diagram — Search, RAG and conversations}{fig:sprint3-use-cases}%
@@ -160,51 +153,48 @@ against golden datasets.
 
 \sprintsequences{3}
 
-\sprintflowgroup{Search and hybrid RAG}
+\sprintflowgroup{Search and AI-assisted answers}
 
-\paragraph{Semantic vector search.}
-The semantic search endpoint embeds the user query, queries pgvector with
-department filters, and returns ranked chunks with snippet previews for quick
-exploration outside the chat UI.
-\seqdiagram{seq-11-semantic-search}{Semantic vector search}{POST /search/semantic}{fig:seq-11}
+\paragraph{Semantic search.}
+A user enters a natural-language query; the platform finds the most relevant
+document passages and returns ranked excerpts for direct exploration.
+\seqdiagram{seq-11-semantic-search}{Semantic search}{semantic search flow}{fig:seq-11}
 
-\paragraph{Hybrid RAG Ask with SSE streaming.}
-The Ask endpoint orchestrates query optimisation, dense and sparse retrieval,
-reciprocal-rank fusion, LLM reranking, and streams tokens plus source citations
-to the browser over Server-Sent Events.
-\seqdiagram{seq-12-ask-rag-sse}{Hybrid RAG Ask with SSE streaming}{POST /search/ask}{fig:seq-12}
+\paragraph{Asking a question with AI assistance.}
+In the Ask workspace, the platform retrieves relevant passages, combines keyword
+and semantic matching, and streams a structured answer with source references to
+the user in real time.
+\seqdiagram{seq-12-ask-rag-sse}{Asking a question with AI assistance}{RAG answer flow}{fig:seq-12}
 
 \sprintflowgroup{Conversations and answer quality}
 
-\paragraph{Conversation and messages.}
-Users create conversation threads, append questions, and retrieve message history;
-each assistant turn stores retrieved sources, confidence metadata, and links back
-to originating chunks.
-\seqdiagram{seq-13-conversation-and-messages}{Conversation and messages}{/conversations}{fig:seq-13}
+\paragraph{Creating conversations and adding messages.}
+Users open a new conversation, ask questions, receive answers, and can
+automatically generate a short title from the first question. Opening an existing
+thread loads its full history (see Figure~\ref{fig:seq-30}).
+\seqdiagram{seq-13-conversation-and-messages}{Creating conversations and adding messages}{conversation messaging flow}{fig:seq-13}
 
-\paragraph{Answer feedback.}
-After each answer, users may submit thumbs-up/down feedback with optional comments;
-the API persists \texttt{AnswerFeedback} rows used later for quality dashboards.
-\seqdiagram{seq-14-answer-feedback}{Answer feedback}{POST .../feedback}{fig:seq-14}
+\paragraph{Rating an answer.}
+After receiving an answer, users can submit positive or negative feedback with an
+optional comment, helping administrators monitor answer quality over time.
+\seqdiagram{seq-14-answer-feedback}{Rating an answer}{answer feedback flow}{fig:seq-14}
 
-\paragraph{Conversation CRUD supplement.}
-Beyond the primary messaging flow, clients list, rename, and delete conversations
-through supplementary endpoints that keep thread metadata consistent with UI state.
-\seqdiagram{seq-30-conversations-crud-supplement}{Conversation CRUD supplement}{list, patch, delete}{fig:seq-30}
+\paragraph{Managing conversation threads.}
+Users list past conversations, open a thread with its message history, rename a
+thread, or delete it when it is no longer needed.
+\seqdiagram{seq-30-conversations-crud-supplement}{Managing conversation threads}{conversation management flow}{fig:seq-30}
 
-\paragraph{Admin feedback statistics.}
-Administrators query aggregated feedback metrics---volume, sentiment ratio, and
-recent comments---to monitor RAG quality trends across departments.
-\seqdiagram{seq-31-admin-feedback-stats}{Admin feedback statistics}{GET /conversations/feedback/stats}{fig:seq-31}
+\paragraph{Administrator feedback overview.}
+Administrators consult aggregated feedback metrics---volume, satisfaction ratio,
+and recent comments---to track how well AI answers are received across the
+organisation.
+\seqdiagram{seq-31-admin-feedback-stats}{Administrator feedback overview}{feedback statistics flow}{fig:seq-31}
 
 \subsection{Sprint 4: Governance and notifications}\label{subsec:sprint4-design}
 
-Sprint~4 covers organisational governance: automatic and manual notifications
-(FR-09), administrator tooling for users, departments, and bulk operations
-(FR-10), and the manager department dashboard (FR-11). Notification events are
-decoupled from document mutations through a service layer, while admin routes
-enforce elevated RBAC and emit structured audit records for every destructive
-action.
+Sprint~4 supports day-to-day governance: keeping users informed through
+notifications, giving managers visibility over their teams, and providing
+administrators with tools to manage users, departments, and documents at scale.
 
 \sprintstructural{4}%
   {Sprint 4 use-case diagram — Governance and notifications}{fig:sprint4-use-cases}%
@@ -212,97 +202,95 @@ action.
 
 \sprintsequences{4}
 
-\sprintflowgroup{Notification subsystem}
+\sprintflowgroup{Notifications}
 
-\paragraph{Automatic notification on document events.}
-When documents are created or materially updated, the notification service fans
-out inbox entries to subscribed department members without blocking the upload
-response path.
-\seqdiagram{seq-15-notification-automatic}{Automatic notification on document events}{notifyDocumentCreated}{fig:seq-15}
+\paragraph{Automatic notification when a document is added.}
+When a new document is published, subscribed department members receive an inbox
+notification without delaying the upload experience.
+\seqdiagram{seq-15-notification-automatic}{Automatic notification when a document is added}{document-created notification}{fig:seq-15}
 
-\paragraph{Manual announcement.}
-Administrators compose announcements with optional attachments; the send endpoint
-validates audience scope and delivers messages to targeted user inboxes.
-\seqdiagram{seq-16-notification-manual-send}{Manual announcement}{POST /notifications/send}{fig:seq-16}
+\paragraph{Sending a manual announcement.}
+Administrators and managers can send targeted announcements, optionally with
+attachments, to selected users or departments.
+\seqdiagram{seq-16-notification-manual-send}{Sending a manual announcement}{manual announcement flow}{fig:seq-16}
 
-\paragraph{Notification inbox.}
-Users list notifications, query unread counts, mark items as read, and download
-attachments through REST endpoints polled by the web shell.
-\seqdiagram{seq-17-notification-inbox}{Notification inbox}{list, unread, mark read, attachment}{fig:seq-17}
+\paragraph{Reading and managing notifications.}
+Users open their notification inbox, see unread items, mark messages as read,
+and access any attached content.
+\seqdiagram{seq-17-notification-inbox}{Reading and managing notifications}{notification inbox flow}{fig:seq-17}
 
-\sprintflowgroup{Manager dashboard}
+\sprintflowgroup{Manager workspace}
 
 \paragraph{Manager department overview.}
-Managers retrieve department-scoped KPIs---document counts, recent activity, and
-team membership---through dedicated \texttt{/manager} routes filtered to
-manageable departments.
-\seqdiagram{seq-18-manager-dashboard}{Manager department overview}{GET /manager/*}{fig:seq-18}
+Managers view the departments they oversee and inspect each department's member
+list to understand team composition.
+\seqdiagram{seq-18-manager-dashboard}{Manager department overview}{manager department view}{fig:seq-18}
 
 \sprintflowgroup{Administrator governance}
 
-\paragraph{Admin create user.}
-Administrators provision accounts with initial roles, department assignments, and
-optional feature restrictions; credentials are communicated out-of-band per
-organisational policy.
-\seqdiagram{seq-19-admin-user-create}{Admin create user}{POST /admin/users}{fig:seq-19}
+\paragraph{Creating a user account.}
+Administrators create accounts with an initial role, department access, and
+optional feature restrictions. Credentials are shared through organisational
+channels.
+\seqdiagram{seq-19-admin-user-create}{Creating a user account}{user creation flow}{fig:seq-19}
 
-\paragraph{Admin merge departments.}
-Department merge consolidates documents, access grants, and memberships from a
-source department into a target, preserving referential integrity inside a
-transaction.
-\seqdiagram{seq-20-admin-department-merge}{Admin merge departments}{POST /admin/departments/merge}{fig:seq-20}
+\paragraph{Merging two departments.}
+Department merge moves documents, access rights, and memberships from one
+department into another while preserving data consistency.
+\seqdiagram{seq-20-admin-department-merge}{Merging two departments}{department merge flow}{fig:seq-20}
 
-\paragraph{Bulk department access.}
-Bulk PUT replaces the full access matrix for a user or department in one request,
-simplifying onboarding scripts and CSV-driven imports.
-\seqdiagram{seq-21-admin-department-access-bulk}{Bulk department access}{PUT .../department-access}{fig:seq-21}
+\paragraph{Replacing a user's department access in bulk.}
+Administrators can replace all department-access entries for one user in a single
+operation, which simplifies onboarding and access reviews.
+\seqdiagram{seq-21-admin-department-access-bulk}{Replacing a user's department access in bulk}{bulk access update flow}{fig:seq-21}
 
-\paragraph{Admin create department.}
-New organisational units are created with unique slugs; the operation is restricted
-to administrators and is logged for compliance review.
-\seqdiagram{seq-34-admin-department-create}{Admin create department}{POST /admin/departments}{fig:seq-34}
+\paragraph{Creating a department.}
+Administrators add a new organisational unit with a unique identifier. The
+operation is logged for audit purposes.
+\seqdiagram{seq-34-admin-department-create}{Creating a department}{department creation flow}{fig:seq-34}
 
-\paragraph{Single department access grant/revoke.}
-Fine-grained POST and DELETE endpoints add or remove individual department access
-rows without rewriting the entire access matrix.
-\seqdiagram{seq-35-dept-access-single-post-delete}{Single department access grant/revoke}{POST/DELETE access}{fig:seq-35}
+\paragraph{Granting or revoking single department access.}
+Fine-grained actions add or remove access to one department for one user without
+rewriting the entire access matrix.
+\seqdiagram{seq-35-dept-access-single-post-delete}{Granting or revoking single department access}{single access grant or revoke}{fig:seq-35}
 
-\paragraph{Admin KPI statistics.}
-The admin statistics endpoint aggregates platform-wide counters---users,
-documents, conversations, and ingest backlog---for dashboard cards.
-\seqdiagram{seq-36-admin-stats}{Admin KPI statistics}{GET /admin/stats}{fig:seq-36}
+\paragraph{Platform-wide statistics.}
+Administrators view high-level indicators such as user count, document volume,
+conversation activity, and indexing backlog.
+\seqdiagram{seq-36-admin-stats}{Platform-wide statistics}{admin statistics flow}{fig:seq-36}
 
-\paragraph{Admin activity log and CSV export.}
-Administrators browse paginated activity logs and export filtered events to CSV for
-offline analysis, with formula-injection escaping on downloadable fields.
-\seqdiagram{seq-37-admin-activity-export}{Admin activity log and CSV export}{GET /admin/activity}{fig:seq-37}
+\paragraph{Activity log and export.}
+Administrators browse recent platform activity and export filtered events to
+spreadsheet format for offline review.
+\seqdiagram{seq-37-admin-activity-export}{Activity log and export}{activity log export flow}{fig:seq-37}
 
-\paragraph{Document audit trail.}
-Per-document audit views expose who changed metadata, visibility, or versions,
-supporting forensic review during access reviews.
-\seqdiagram{seq-38-admin-document-audit}{Document audit trail}{GET /admin/document-audit}{fig:seq-38}
+\paragraph{Document change audit log.}
+Administrators review and export a platform-wide log of document changes---
+metadata, visibility, and version updates---to support compliance and access
+reviews.
+\seqdiagram{seq-38-admin-document-audit}{Document change audit log}{document audit log flow}{fig:seq-38}
 
-\paragraph{Documents CSV export.}
-Administrators export the document catalogue---titles, departments, tags, and ingest
-status---as CSV for inventory reconciliation.
-\seqdiagram{seq-39-admin-documents-csv-export}{Documents CSV export}{GET /documents/export}{fig:seq-39}
+\paragraph{Exporting the document catalogue.}
+Administrators export the document inventory---titles, departments, tags, and
+processing status---for reconciliation or reporting.
+\seqdiagram{seq-39-admin-documents-csv-export}{Exporting the document catalogue}{document catalogue export}{fig:seq-39}
 
-\paragraph{Bulk document delete.}
-Bulk delete accepts a list of document identifiers, verifies administrator scope,
-removes storage artefacts, and cascades database rows inside a guarded transaction.
-\seqdiagram{seq-40-admin-bulk-delete-documents}{Bulk document delete}{POST /documents/bulk-delete}{fig:seq-40}
+\paragraph{Deleting multiple documents.}
+Administrators remove a selected set of documents in one guarded operation,
+including stored files and related records.
+\seqdiagram{seq-40-admin-bulk-delete-documents}{Deleting multiple documents}{bulk delete flow}{fig:seq-40}
 
-\paragraph{Admin user patch and lock.}
-Administrators update user roles, restrictions, and lock state; account lock
-immediately invalidates refresh families to block further API access.
-\seqdiagram{seq-41-admin-user-patch-lock}{Admin user patch and lock}{PATCH/lock user}{fig:seq-41}
+\paragraph{Updating or locking a user account.}
+Administrators adjust roles, restrictions, or active status. A sign-in lock
+prevents further authentication attempts for a defined period without affecting
+unrelated accounts.
+\seqdiagram{seq-41-admin-user-patch-lock}{Updating or locking a user account}{user update and lock flow}{fig:seq-41}
 
 \subsection{Sprint 5: Operations, testing and deployment}\label{subsec:sprint5-design}
 
-Sprint~5 hardens operability and reproducibility: a public health probe (NFR-01),
-containerised deployment (NFR-04), a broad integration-test suite (NFR-05), and
-the RAG evaluation harness (NFR-06). Unlike feature sprints, several deliverables
-are cross-cutting quality gates rather than user-visible flows.
+Sprint~5 focuses on operability: confirming that the platform is healthy,
+packaging it for reproducible deployment, and validating behaviour through
+automated tests and AI quality checks.
 
 \sprintstructural{5}%
   {Sprint 5 use-case diagram — Operations, testing and deployment}{fig:sprint5-use-cases}%
@@ -310,31 +298,25 @@ are cross-cutting quality gates rather than user-visible flows.
 
 \sprintsequences{5}
 
-\paragraph{API health probe.}
-Load balancers and orchestrators call \texttt{GET /health} to verify that the API
-process is running and can reach PostgreSQL and Redis; the endpoint returns a
-compact JSON status without authentication.
-\seqdiagram{seq-22-health-check}{API health probe}{GET /health}{fig:seq-22}
+\paragraph{Service health check.}
+Monitoring tools call a public health endpoint to verify that the application is
+running and can reach its database and cache services.
+\seqdiagram{seq-22-health-check}{Service health check}{health check flow}{fig:seq-22}
 
 \subsubsection{Operational deliverables}
 \label{subsubsec:sprint5-operations}
 
 \paragraph{Integration test suite.}
-The API ships with a Vitest and Supertest integration suite spanning
-authentication, documents, search, conversations, admin, and manager routers.
-Tests spin up an isolated database schema, seed fixtures, and assert HTTP
-contracts against the same routes documented in the sequence diagrams above,
-providing regression coverage for NFR-05.
+An automated test suite exercises the main user journeys---authentication,
+documents, search, conversations, administration, and manager views---so
+regressions are detected before release.
 
-\paragraph{Docker Compose deployment.}
-Production-oriented Compose files package the API, web, PostgreSQL with pgvector,
-and Redis behind documented environment variables and volume mounts. Migrations run
-through the Prisma CLI inside the API container, ensuring that any workstation
-or CI agent can reproduce the full stack with a single \texttt{docker compose up}
-invocation (NFR-04).
+\paragraph{Containerised deployment.}
+The platform is packaged with its database, cache, API, and web application so the
+full environment can be started consistently on any workstation or in continuous
+integration.
 
-\paragraph{RAG evaluation harness.}
-A command-line evaluation harness loads golden question--answer pairs, invokes the
-Ask pipeline programmatically, and scores responses with an automated LLM judge.
-Reports are written to \texttt{eval-reports/} so retrieval prompt changes can be
-compared across commits, fulfilling the reproducible quality gate of NFR-06.
+\paragraph{RAG quality evaluation.}
+A repeatable evaluation workflow runs predefined questions through the Ask
+pipeline and scores answer quality, producing reports that can be compared across
+development iterations.

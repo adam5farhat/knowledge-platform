@@ -1,116 +1,311 @@
 \chapter[Validation]{Testing, validation and discussion}
 \label{ch:validation}
 
+This chapter evaluates whether the implementation described in
+Chapter~\ref{ch:implementation} satisfies the functional, non-functional, and KPI
+targets defined in Chapter~\ref{ch:requirements} (Table~\ref{tab:kpis}). Validation
+combines automated API tests, RAG evaluation harness runs, and manual browser
+scenarios. The level of confidence attached to each result class is discussed in
+Section~\ref{sec:critical-discussion}.
+
 \section{Validation plan}
 
-Validation was structured at four levels:
-\begin{enumerate}[leftmargin=*,itemsep=0.2em]
-  \item \textbf{Unit tests} --- pure helpers (e.g., role name contracts);
-  \item \textbf{Integration tests} --- Supertest against \texttt{createHttpApp()} with real PostgreSQL and Redis;
-  \item \textbf{System/manual tests} --- browser flows (login, upload, Ask, admin actions);
-  \item \textbf{AI evaluation} --- RAG quick/full harness with automated judge metrics.
-\end{enumerate}
+Validation was structured at four complementary levels. Pure helper functions
+were checked with unit tests. The API was exercised end-to-end through
+integration tests against a live PostgreSQL and Redis stack. Browser scenarios
+on the Next.js client covered flows that are difficult to assert purely at the
+HTTP layer. Finally, a dedicated RAG evaluation harness measured retrieval and
+answer quality with automated judge metrics where an API key was available.
+
+Relative to the solutions surveyed in Chapter~\ref{ch:state-of-the-art}, this
+project validates capabilities that generic document stores or chatbots typically
+lack: \textbf{department-scoped hybrid retrieval}, \textbf{cited streaming answers},
+\textbf{per-user feature restrictions}, and \textbf{administrative audit trails}.
+Unit coverage is intentionally narrow; the primary automated quality gate is the
+\textbf{74-test integration suite}, supplemented by manual UX checks for
+security and restriction flows.
 
 \section{Protocols and experimental conditions}
 
-Integration tests run with \texttt{npm run test:api} (Vitest 3.2). Prerequisites: seeded database (\texttt{npm run db:seed}), Docker services for PostgreSQL and Redis, and environment files for JWT and API URLs.
+Table~\ref{tab:validation-setup} summarises the experimental environment.
+Integration tests run against a seeded database with Docker-hosted PostgreSQL and
+Redis. RAG evaluation uses a quick mode (optimizer-only, 34 cases) and a full
+judge pipeline when a Gemini API key is configured. Manual scenarios were
+executed in the browser on the local development server and are listed in
+Table~\ref{tab:manual-ux-tests} with screenshot evidence in
+Section~\ref{sec:manual-ux-validation}.
 
-RAG evaluation runs via \texttt{npm run eval:rag:quick} (optimizer-only, 34 cases) and \texttt{npm run eval:rag} (full judge pipeline). Full evaluation requires a valid \texttt{GEMINI\_API\_KEY}.
-
-Manual scenarios included: admin login, PDF upload until READY, Ask question with visible citations, manager department view, avatar upload after CORP fix, and notification read/mark-all.
+\begin{table}[H]
+\centering
+\caption{Experimental setup for validation}
+\label{tab:validation-setup}
+\footnotesize
+\renewcommand{\arraystretch}{1.35}
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{3.0cm}|Y|}
+\hline
+\textbf{Parameter} & \textbf{Value} \\
+\hline
+Workstation & Windows 10/11; Node.js 20+ \\
+\hline
+Test framework & Vitest 3.2 + Supertest (\texttt{npm run test:api}) \\
+\hline
+Database / queue & PostgreSQL 16 + pgvector; Redis 7 (Docker Compose) \\
+\hline
+Test corpus & Seeded users, departments, and documents (\texttt{npm run db:seed}) \\
+\hline
+RAG evaluation & \texttt{eval:rag:quick} (34 topic cases); full judge if API key configured \\
+\hline
+Automated run date & 4 July 2026 (74/74 passed, duration $\approx$39\,s) \\
+\hline
+Manual UX & Browser on \texttt{localhost:3000}; scenarios T1--T5 (Table~\ref{tab:manual-ux-tests}) \\
+\hline
+\end{tabularx}
+\end{table}
 
 \section{Presentation of Results}
 
-Table~\ref{tab:kpi-results} maps each KPI defined in Chapter~\ref{ch:requirements}
-(Table~\ref{tab:kpis}) to its measured outcome.
+\subsection{KPI validation results}
+
+Table~\ref{tab:kpi-results} maps each KPI from Chapter~\ref{ch:requirements} to its
+measured outcome and validation conclusion.
 
 \begin{table}[H]
 \centering
 \caption{KPI validation results}
 \label{tab:kpi-results}
+\footnotesize
 \renewcommand{\arraystretch}{1.35}
-\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.4cm}|Y|>{\RaggedRight\arraybackslash}p{1.7cm}|>{\RaggedRight\arraybackslash}p{2.1cm}|}
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.2cm}|Y|>{\RaggedRight\arraybackslash}p{1.5cm}|>{\RaggedRight\arraybackslash}p{2.0cm}|>{\Centering\arraybackslash}p{1.4cm}|}
 \hline
-\rowcolor{sectionblue!15}
-\textbf{KPI} & \textbf{Measurement method} & \textbf{Target} & \textbf{Obtained result} \\
+\textbf{KPI} & \textbf{Measurement method} & \textbf{Target} & \textbf{Obtained} & \textbf{Status} \\
 \hline
 Ingest reliability &
-Percentage of uploads reaching \tcode{READY} without \tcode{FAILED} &
+Uploads reaching ready state without failure &
 $\geq 95\%$ &
-100\% on seeded test corpus (14 document tests) \\
+100\% (14 doc.\ tests) &
+Passed \\
 \hline
-Integration test pass rate &
-\tcode{npm run test:api}: passed / total &
+Integration pass rate &
+Full API integration suite &
 74 / 74 &
-\textbf{74 / 74} (4 July 2026) \\
+\textbf{74 / 74} &
+Passed \\
 \hline
-RAG topic classification (no API key) &
-\tcode{eval:rag:quick} optimizer pass rate &
+RAG topic (no API key) &
+Quick eval optimizer pass rate &
 $\geq 15/34$ &
-\textbf{15 / 34} (degraded mode) \\
+\textbf{15 / 34} &
+Passed \\
 \hline
-RAG judge scores (with API key) &
-Faithfulness and relevance from automated judge &
-Documented in eval report &
-Pending full run; quick eval completed \\
+RAG judge (with API key) &
+Automated faithfulness / relevance judge &
+Documented &
+Pending full run &
+Partial \\
 \hline
 Security: refresh replay &
-Reuse of rotated token revokes family &
-Verified by auth suite &
-\textbf{Pass} (11 auth tests) \\
+Rotated token revokes family &
+Auth suite &
+Pass (11 tests) &
+Passed \\
 \hline
 Security: avatar CORP &
-\tcode{Cross-Origin-Resource-Policy: cross-origin} on avatars &
-Verified by avatars test &
-\textbf{Pass} (1 avatars test) \\
+Cross-origin avatar embedding permitted &
+Avatars test &
+Pass (1 test) &
+Passed \\
 \hline
 \end{tabularx}
 \end{table}
 
-\subsection{Integration Test Results by Sprint Domain}
+\textbf{Analysis.} Five of six KPI rows passed fully. Ingest reliability
+exceeds the 95\% target on the seeded corpus. The integration suite provides
+strong evidence that API contracts match the design sequences of
+Chapter~\ref{ch:architecture}. RAG topic classification meets the degraded-mode
+threshold (15/34) without an external API key; full judge scores remain
+\textbf{partial} pending a complete evaluation run with credentials.
 
-On 4 July 2026, the automated API test suite reported \textbf{74 tests passed} across 10 files with zero failures (duration $\approx$39\,s). Table~\ref{tab:test-summary} groups results by sprint domain, aligned with the functional traceability of Table~\ref{tab:fr-traceability}.
+\subsection{Integration test results by sprint domain}
+
+On 4 July 2026, the automated API test suite reported \textbf{74 tests passed}
+across 10 files with zero failures. Table~\ref{tab:test-summary} groups results by
+sprint domain, aligned with Table~\ref{tab:requirements}.
 
 \begin{table}[H]
 \centering
-\caption{Validation test summary}
+\caption{Validation test summary by sprint domain}
 \label{tab:test-summary}
-\small
-\begin{tabularx}{\textwidth}{>{\RaggedRight\arraybackslash}p{1.1cm} Y >{\Centering\arraybackslash}p{1.4cm} >{\Centering\arraybackslash}p{1.4cm} >{\RaggedRight\arraybackslash}p{1.5cm}}
-\toprule
-\textbf{Sprint} & Objective & Expected & Obtained & Conclusion \\
-\midrule
-S1 & Auth login + refresh rotation & 200 + new token & Pass (11 tests) & Validated \\
-S2 & Document access control & 403/404 when restricted & Pass (14 tests) & Validated \\
-S3 & Search / Ask restrictions & AI flag enforced & Pass (7 tests) & Validated \\
-S4 & Admin RBAC & Non-admin rejected & Pass (18 tests) & Validated \\
-S4 & Notifications lifecycle & CRUD + unread count & Pass (8 tests) & Validated \\
-S1/S5 & Avatar CORP + health probe & Headers + DB/Redis ok & Pass (4 tests) & Validated \\
-\bottomrule
+\footnotesize
+\renewcommand{\arraystretch}{1.35}
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{0.9cm}|Y|>{\RaggedRight\arraybackslash}p{1.8cm}|>{\RaggedRight\arraybackslash}p{1.6cm}|>{\Centering\arraybackslash}p{1.3cm}|}
+\hline
+\textbf{Spr.} & \textbf{Objective} & \textbf{Expected} & \textbf{Obtained} & \textbf{Status} \\
+\hline
+S1 & Secure login and token refresh & 200 + new token & Pass (11 tests) & Passed \\
+\hline
+S2 & Document access control & 403/404 when restricted & Pass (14 tests) & Passed \\
+\hline
+S3 & Search and Ask restrictions & AI flag enforced & Pass (7 tests) & Passed \\
+\hline
+S4 & Admin RBAC & Non-admin rejected & Pass (18 tests) & Passed \\
+\hline
+S4 & Notifications lifecycle & CRUD + unread count & Pass (8 tests) & Passed \\
+\hline
+S1/S5 & Avatar CORP + health probe & Headers + DB/Redis ok & Pass (4 tests) & Passed \\
+\hline
 \end{tabularx}
 \end{table}
 
+\textbf{Analysis.} Every sprint increment from Table~\ref{tab:sprints} has at least
+one passing integration-test group, confirming end-to-end traceability from
+requirements through design to executable verification. The largest groups are
+S4 administration (18 tests) and S2 document access (14 tests), reflecting the
+complexity of RBAC and visibility rules. Figure~\ref{fig:ui-val-terminal-tests}
+shows the Vitest summary from the 7 July 2026 re-run (74/74, duration
+$\approx$41\,s).
+
+\uiscreenshot{ui-val-terminal-tests.png}{Vitest integration suite output showing 74 tests passed across 10 files}{Integration test run}{fig:ui-val-terminal-tests}
+
 \subsection{RAG evaluation results}
 
-Quick evaluation without a configured Gemini API key classified all optimizer topics as \texttt{general}, yielding \textbf{15/34 PASS} on topic-label cases---an expected degradation when the LLM optimizer cannot run. With API credentials, the full harness produces JSON reports under \texttt{apps/api/eval-reports/} for faithfulness and citation metrics. This distinction is important: retrieval and serving paths are testable without the external API, but semantic query optimization and judged answer quality require it.
+Quick evaluation without a configured Gemini API key classified all optimizer
+topics as \texttt{general}, yielding \textbf{15/34 PASS} on topic-label
+cases---an expected degradation when the LLM optimizer cannot run. With API
+credentials, the full harness produces JSON reports under
+\texttt{apps/api/eval-reports/} for faithfulness and citation metrics.
+
+\textbf{Interpretation.} Retrieval and serving paths are testable without the
+external API, but semantic query optimisation and judged answer quality require it.
+The 15/34 result should be read as a \textbf{minimum regression gate}, not as a
+measure of answer quality in production. Figure~\ref{fig:ui-val-rag-eval} captures
+the quick-mode harness output on 7 July 2026.
+
+\uiscreenshot{ui-val-rag-eval.png}{RAG quick evaluation output showing 15 of 34 topic cases passed without Gemini API key}{RAG quick eval run}{fig:ui-val-rag-eval}
 
 \subsection{Manual UX validation}
+\label{sec:manual-ux-validation}
 
-After fixing the avatar CORP header, profile images uploaded to \texttt{/avatars/\{userId\}/\{file\}} display correctly in both the profile modal and navigation bar on \texttt{localhost:3000}, confirming cross-origin embedding policy alignment.
+Table~\ref{tab:manual-ux-tests} summarises the five manual browser scenarios.
+Figures below provide visual evidence; implementation counterparts appear in
+Chapter~\ref{ch:implementation} with complementary captions.
+
+\begin{table}[H]
+\centering
+\caption{Manual UX validation summary}
+\label{tab:manual-ux-tests}
+\footnotesize
+\renewcommand{\arraystretch}{1.35}
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\textwidth}{|>{\Centering\arraybackslash}p{0.7cm}|Y|>{\RaggedRight\arraybackslash}p{2.2cm}|>{\RaggedRight\arraybackslash}p{2.2cm}|>{\Centering\arraybackslash}p{1.2cm}|}
+\hline
+\textbf{Test} & \textbf{Objective} & \textbf{Expected Outcome} & \textbf{Observed Outcome} & \textbf{Status} \\
+\hline
+T1 & Reject invalid credentials without revealing account existence & Generic error message, no enumeration & Fig.~\ref{fig:ui-val-login-error} & Passed \\
+\hline
+T2 & Explain when document library access is disabled & Dedicated restricted page & Fig.~\ref{fig:ui-val-restricted} & Passed \\
+\hline
+T3 & Confirm ingest completes after upload & Processing status shown as complete on detail panel & Fig.~\ref{fig:ui-val-doc-ready} & Passed \\
+\hline
+T4 & Verify hybrid Ask returns cited answers & Answer with source citations & Fig.~\ref{fig:ui-val-ask-rag} & Passed \\
+\hline
+T5 & Show manager department overview & Dept-scoped team and documents & Fig.~\ref{fig:ui-val-mgr-dept} & Passed \\
+\hline
+\end{tabularx}
+\end{table}
+
+\paragraph{Authentication failure (T1).}
+Invalid credentials produce a clear client-side error without revealing whether the
+email exists, consistent with the auth integration suite
+(Table~\ref{tab:test-summary}).
+
+\uiscreenshot{ui-login-error.png}{Invalid email or password message after failed sign-in attempt}{Login error state}{fig:ui-val-login-error}
+
+\paragraph{Feature restriction (T2).}
+When document library access is disabled for a user, the API returns a feature
+restriction response and the client redirects to a dedicated explanation page
+(Figure~\ref{fig:seq-07}, Chapter~\ref{ch:architecture}).
+
+\uiscreenshot{ui-access-restricted.png}{Dedicated page explaining that document library access is disabled}{Access restricted page}{fig:ui-val-restricted}
+
+\paragraph{Ingest completion (T3).}
+After upload and asynchronous processing, the file detail panel shows processing
+status \textbf{READY}, confirming the ingest worker completed embedding and chunk
+persistence.
+
+\uiscreenshot{ui-document-details.png}{Document detail panel showing READY ingest status}{Ingest READY status}{fig:ui-val-doc-ready}
+
+\paragraph{Hybrid Ask with citations (T4).}
+The Ask interface returns a structured answer with confidence indicator and
+clickable source citations grounded in retrieved chunks.
+
+\uiscreenshot{ui-ask-rag-chat.png}{Ask response with structured answer and source citations}{Ask with citations}{fig:ui-val-ask-rag}
+
+\paragraph{Manager department overview (T5).}
+Managers view a read-only team directory and department-scoped document list for
+manageable departments.
+
+\uiscreenshot{ui-manager-department.png}{Manager department overview with team directory and documents}{Manager department view}{fig:ui-val-mgr-dept}
 
 \section{Critical discussion}
+\label{sec:critical-discussion}
 
-\textbf{Strengths.} The platform demonstrates end-to-end engineering coherence: traceable requirements, modular architecture, broad automated test coverage, and a documented RAG pipeline that goes beyond a minimal chat demo (hybrid retrieval, reranking, SSE, feedback, evaluation harness).
+\subsection{Strengths}
 
-\textbf{Limitations.}
+The platform demonstrates end-to-end engineering coherence: traceable requirements,
+modular architecture, broad automated test coverage (74/74), and a documented RAG
+pipeline that goes beyond a minimal chat demo (hybrid retrieval, reranking, SSE,
+feedback, evaluation harness). Manual UX validation confirms that security and
+restriction flows are understandable to end users, not only correct at the API layer.
+
+\subsection{Deviations from targets}
+
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item \textbf{RAG judge KPI} --- full faithfulness/relevance run pending; marked \textbf{Partial} in Table~\ref{tab:kpi-results};
+  \item \textbf{Scale testing} --- no formal load test for concurrent Ask streams was executed; throughput remains unvalidated;
+  \item \textbf{RAG topic eval} --- 15/34 meets the degraded threshold but does not demonstrate production-grade query optimisation without API credentials.
+\end{itemize}
+
+\subsection{Limitations}
+
 \begin{itemize}[leftmargin=*,itemsep=0.2em]
   \item \textbf{External LLM dependency} --- latency, cost, and availability depend on Google Gemini;
   \item \textbf{Storage} --- default local disk is not cloud-native object storage;
-  \item \textbf{Scale testing} --- no formal load test for concurrent Ask streams;
   \item \textbf{RAG metrics} --- automated judge is itself an LLM; human evaluation remains valuable;
   \item \textbf{Corpus dependency} --- answer quality rises with ingest completeness and chunking quality.
 \end{itemize}
 
-\textbf{Threats to validity.} Integration tests use a seeded database smaller than production corpora; RAG eval cases are code-defined and may not cover all host-company domains; manual UX tests were run on a developer workstation.
+\subsection{Threats to validity and confidence level}
 
-\textbf{Perspectives.} Future work includes SSO/LDAP integration, S3-compatible storage, on-prem embedding models, horizontal worker scaling, multilingual UI, and continuous RAG regression in CI when API keys are available.
+Integration tests use a seeded database smaller than production corpora; RAG eval
+cases are code-defined and may not cover all host-company domains; manual UX tests
+were run on a developer workstation.
+
+\textbf{Confidence assessment:}
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item \textbf{High} --- API contracts, RBAC, document access, and notification lifecycles (74/74 integration tests);
+  \item \textbf{Medium} --- RAG answer quality and citation faithfulness (eval harness partial without full judge run);
+  \item \textbf{Low} --- concurrent load, production-scale corpus behaviour, and long-term operational monitoring.
+\end{itemize}
+
+\subsection{Perspectives}
+
+Future work includes SSO/LDAP integration, S3-compatible storage, on-prem embedding
+models, horizontal worker scaling, multilingual UI, CI-integrated RAG regression
+when API keys are available, and field deployment with user acceptance testing on
+real organisational corpora.
+
+\section{Chapter Conclusion}
+
+This chapter validated the Knowledge Platform against the KPIs and sprint domains
+defined in Chapter~\ref{ch:requirements}. Automated integration tests passed
+without failure (74/74), ingest reliability exceeded the 95\% target on the seeded
+corpus, and five manual UX scenarios passed with screenshot evidence.
+The RAG judge KPI remains partial pending a full evaluation run with API credentials,
+and scale testing was not performed. Critical discussion identified high confidence
+in API-level correctness, medium confidence in RAG quality metrics, and acknowledged
+limitations related to external LLM dependency and test corpus size. The general
+conclusion synthesises these outcomes relative to the objectives stated in the
+introduction.

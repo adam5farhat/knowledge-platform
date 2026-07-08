@@ -5,32 +5,32 @@
 \chapter*{Abstract}
 \addcontentsline{toc}{chapter}{Abstract}
 
-Organizations today generate vast volumes of internal documentation — policies,
-technical guides, reports, and procedures — that remain largely inaccessible due to
-fragmented storage, inadequate search tools, and the absence of structured access
-governance. Employees, particularly new hires, waste significant time locating
-information, asking colleagues, or making decisions without reliable knowledge backing.
+Organizations produce large volumes of internal documentation---policies, technical
+guides, reports, and procedures---yet employees often struggle to find reliable
+information quickly. Knowledge is scattered across storage systems, search remains
+keyword-oriented, and access rules are difficult to enforce consistently. These
+constraints slow decision-making and increase dependence on informal channels.
 
-This report presents the design and implementation of the \textbf{Knowledge Platform},
-an enterprise-grade document management and AI-assisted question-answering system
-built for teams organised by departments, with role-based access control. The platform
-is developed as a TypeScript monorepo comprising a \textbf{Next.js~15} web application,
-a \textbf{Node.js/Express} REST and Server-Sent Events API, \textbf{PostgreSQL with
-pgvector} for hybrid retrieval, \textbf{Redis and BullMQ} for asynchronous document
-ingestion, and \textbf{Google Gemini} as the sole external AI provider.
+This report presents the \textbf{Knowledge Platform}, an enterprise web application
+that centralises document management and provides intelligent search and
+question-answering grounded in organisational content. The solution combines a
+modern full-stack web architecture with hybrid retrieval techniques and
+department-scoped access control, so users receive answers supported by traceable
+sources rather than unsupported generated text.
 
-The core technical contribution is a \textbf{hybrid Retrieval-Augmented Generation
-(RAG) pipeline} combining dense vector search and BM25-style full-text retrieval,
-merged through weighted Reciprocal Rank Fusion (RRF), followed by LLM-based
-reranking and streaming answer generation with source citations. The system enforces
-department-scoped document visibility, a three-role hierarchy (Administrator, Manager,
-Employee), and a feedback memory loop that uses negative user ratings to improve
-future answers semantically.
+The main contribution is a complete knowledge lifecycle: secure ingestion of
+heterogeneous documents, semantic indexing, hybrid retrieval combining meaning-based
+and keyword matching, streaming answers with citations, conversation history,
+administrative governance, and user feedback to monitor answer quality over time.
+The platform supports three organisational roles---Administrator, Manager, and
+Employee---with permissions aligned to department structure.
 
-Validation is grounded in \textbf{74 automated integration tests} across ten Vitest
-suites, a RAG evaluation harness with automated judge metrics, and a fully reproducible
-Docker Compose deployment. The project was managed using an \textbf{Agile Scrum}
-methodology structured across five sprints.
+The work was conducted at \CompanyName{} using an Agile Scrum methodology across
+five development sprints. Validation combined automated integration testing,
+repeatable deployment packaging, manual browser scenarios, and an evaluation
+workflow for retrieval-augmented answers. Results indicate that the platform meets
+its functional and non-functional targets while remaining suitable for iterative
+improvement in a real organisational setting.
 
 \medskip
 \noindent\textbf{Keywords:} \KeywordsEN

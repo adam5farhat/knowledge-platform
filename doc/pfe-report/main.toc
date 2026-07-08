@@ -6,9 +6,9 @@
 \contentsline {chapter}{Acknowledgements}{ii}{chapter*.2}%
 \contentsline {chapter}{Abstract}{iii}{chapter*.3}%
 \contentsline {chapter}{Table of contents}{viii}{chapter*.3}%
-\contentsline {chapter}{List of figures}{x}{chapter*.3}%
-\contentsline {chapter}{List of tables}{xi}{chapter*.3}%
-\contentsline {chapter}{List of abbreviations and acronyms}{xiii}{chapter*.4}%
+\contentsline {chapter}{List of figures}{xii}{chapter*.3}%
+\contentsline {chapter}{List of tables}{xiii}{chapter*.3}%
+\contentsline {chapter}{List of abbreviations and acronyms}{xiv}{section*.4}%
 \contentsline {chapter}{General introduction}{1}{chapter*.5}%
 \contentsline {chapter}{\numberline {1}State of the Art}{3}{chapter.1}%
 \contentsline {section}{\numberline {1.1}Scientific and Technical Context}{3}{section.1.1}%
@@ -43,123 +43,155 @@
 \contentsline {subsection}{\numberline {2.1.3}Global Use-Case Model}{14}{subsection.2.1.3}%
 \contentsline {section}{\numberline {2.2}Functional and Non-Functional Requirements}{15}{section.2.2}%
 \contentsline {subsection}{\numberline {2.2.1}Functional Requirements}{15}{subsection.2.2.1}%
-\contentsline {subsection}{\numberline {2.2.2}Non-Functional Requirements}{19}{subsection.2.2.2}%
-\contentsline {subsection}{\numberline {2.2.3}Access Control Model}{19}{subsection.2.2.3}%
-\contentsline {section}{\numberline {2.3}Specifications and Performance Indicators}{20}{section.2.3}%
-\contentsline {section}{\numberline {2.4}Selected Methodology}{21}{section.2.4}%
-\contentsline {subsection}{\numberline {2.4.1}Agile Scrum Framework}{21}{subsection.2.4.1}%
-\contentsline {subsubsection}{\numberline {2.4.1.1}Scrum Roles}{21}{subsubsection.2.4.1.1}%
-\contentsline {subsubsection}{\numberline {2.4.1.2}Scrum Artefacts}{22}{subsubsection.2.4.1.2}%
-\contentsline {subsubsection}{\numberline {2.4.1.3}Sprint Structure}{22}{subsubsection.2.4.1.3}%
-\contentsline {subsection}{\numberline {2.4.2}Sprint Plan}{23}{subsection.2.4.2}%
-\contentsline {subsubsection}{\numberline {2.4.2.1}Sprint Timeline}{24}{subsubsection.2.4.2.1}%
-\contentsline {subsubsection}{\numberline {2.4.2.2}Sprint Backlogs}{24}{subsubsection.2.4.2.2}%
-\contentsline {paragraph}{Sprint 1 --- Authentication and access control.}{25}{paragraph*.14}%
-\contentsline {paragraph}{Sprint 2 --- Document library and ingest.}{26}{paragraph*.16}%
-\contentsline {paragraph}{Sprint 3 --- Search, RAG and conversations.}{27}{paragraph*.18}%
-\contentsline {paragraph}{Sprint 4 --- Governance and notifications.}{28}{paragraph*.20}%
-\contentsline {paragraph}{Sprint 5 --- Operations, testing and deployment.}{29}{paragraph*.22}%
+\contentsline {subsection}{\numberline {2.2.2}Non-Functional Requirements}{18}{subsection.2.2.2}%
+\contentsline {subsection}{\numberline {2.2.3}Access Control Model}{18}{subsection.2.2.3}%
+\contentsline {section}{\numberline {2.3}Specifications and Performance Indicators}{19}{section.2.3}%
+\contentsline {section}{\numberline {2.4}Selected Methodology}{20}{section.2.4}%
+\contentsline {subsection}{\numberline {2.4.1}Agile Scrum Framework}{20}{subsection.2.4.1}%
+\contentsline {subsubsection}{\numberline {2.4.1.1}Scrum Roles}{20}{subsubsection.2.4.1.1}%
+\contentsline {subsubsection}{\numberline {2.4.1.2}Scrum Artefacts}{21}{subsubsection.2.4.1.2}%
+\contentsline {subsubsection}{\numberline {2.4.1.3}Sprint Structure}{21}{subsubsection.2.4.1.3}%
+\contentsline {subsection}{\numberline {2.4.2}Sprint Plan}{22}{subsection.2.4.2}%
+\contentsline {subsubsection}{\numberline {2.4.2.1}Sprint Timeline}{23}{subsubsection.2.4.2.1}%
+\contentsline {subsubsection}{\numberline {2.4.2.2}Sprint Backlogs}{23}{subsubsection.2.4.2.2}%
+\contentsline {paragraph}{Sprint 1 --- Authentication and access control.}{24}{paragraph*.13}%
+\contentsline {paragraph}{Sprint 2 --- Document library and ingest.}{26}{paragraph*.15}%
+\contentsline {paragraph}{Sprint 3 --- Search, RAG and conversations.}{27}{paragraph*.17}%
+\contentsline {paragraph}{Sprint 4 --- Governance and notifications.}{28}{paragraph*.19}%
+\contentsline {paragraph}{Sprint 5 --- Operations, testing and deployment.}{29}{paragraph*.21}%
 \contentsline {subsection}{\numberline {2.4.3}Development and Modelling Tools}{30}{subsection.2.4.3}%
-\contentsline {subsection}{\numberline {2.4.4}Data Science Orientation}{30}{subsection.2.4.4}%
-\contentsline {section}{\numberline {2.5}Chapter Conclusion}{31}{section.2.5}%
-\contentsline {chapter}{\numberline {3}Design and Architecture}{32}{chapter.3}%
-\contentsline {section}{\numberline {3.1}Overall Solution Architecture}{32}{section.3.1}%
-\contentsline {section}{\numberline {3.2}Logical Subsystem Decomposition}{34}{section.3.2}%
+\contentsline {section}{\numberline {2.5}Chapter Conclusion}{30}{section.2.5}%
+\contentsline {chapter}{\numberline {3}Design and Architecture}{31}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Overall Solution Architecture}{31}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Logical Subsystem Decomposition}{33}{section.3.2}%
 \contentsline {section}{\numberline {3.3}Domain Data Model}{34}{section.3.3}%
-\contentsline {section}{\numberline {3.4}Technology Choice Justification}{35}{section.3.4}%
+\contentsline {section}{\numberline {3.4}Technology Choice Justification}{34}{section.3.4}%
 \contentsline {section}{\numberline {3.5}Dynamic Interaction Design by Sprint}{36}{section.3.5}%
 \contentsline {subsection}{\numberline {3.5.1}Sprint 1: Authentication and access control}{37}{subsection.3.5.1}%
 \contentsline {subsubsection}{\numberline {3.5.1.1}Scoped structural views}{37}{subsubsection.3.5.1.1}%
-\contentsline {paragraph}{Use-case model.}{38}{paragraph*.30}%
-\contentsline {paragraph}{Domain class model.}{39}{paragraph*.32}%
+\contentsline {paragraph}{Use-case model.}{38}{paragraph*.29}%
+\contentsline {paragraph}{Domain class model.}{39}{paragraph*.31}%
 \contentsline {subsubsection}{\numberline {3.5.1.2}Interaction sequence diagrams}{39}{subsubsection.3.5.1.2}%
-\contentsline {paragraph}{User login.}{39}{paragraph*.34}%
-\contentsline {paragraph}{Access token refresh and session rotation.}{41}{paragraph*.36}%
-\contentsline {paragraph}{User logout.}{43}{paragraph*.38}%
-\contentsline {paragraph}{Forgot and reset password.}{43}{paragraph*.40}%
-\contentsline {paragraph}{Change password with session invalidation.}{44}{paragraph*.42}%
-\contentsline {paragraph}{Profile update.}{46}{paragraph*.44}%
-\contentsline {paragraph}{Feature restriction enforcement.}{47}{paragraph*.46}%
-\contentsline {paragraph}{Current user session payload.}{47}{paragraph*.48}%
-\contentsline {paragraph}{Register information page (no self-service signup).}{48}{paragraph*.50}%
-\contentsline {paragraph}{Restricted feature explanation page.}{49}{paragraph*.52}%
+\contentsline {paragraph}{User sign-in.}{39}{paragraph*.33}%
+\contentsline {paragraph}{Silent session renewal.}{41}{paragraph*.35}%
+\contentsline {paragraph}{User sign-out.}{43}{paragraph*.37}%
+\contentsline {paragraph}{Forgotten password recovery.}{43}{paragraph*.39}%
+\contentsline {paragraph}{Changing password while signed in.}{44}{paragraph*.41}%
+\contentsline {paragraph}{Updating the user profile.}{46}{paragraph*.43}%
+\contentsline {paragraph}{Blocking access to a restricted feature.}{47}{paragraph*.45}%
+\contentsline {paragraph}{Loading the signed-in user's context.}{47}{paragraph*.47}%
+\contentsline {paragraph}{Registration information page.}{48}{paragraph*.49}%
+\contentsline {paragraph}{Restricted feature explanation page.}{49}{paragraph*.51}%
 \contentsline {subsection}{\numberline {3.5.2}Sprint 2: Document library and ingest}{50}{subsection.3.5.2}%
 \contentsline {subsubsection}{\numberline {3.5.2.1}Scoped structural views}{50}{subsubsection.3.5.2.1}%
-\contentsline {paragraph}{Use-case model.}{50}{paragraph*.54}%
-\contentsline {paragraph}{Domain class model.}{51}{paragraph*.56}%
+\contentsline {paragraph}{Use-case model.}{50}{paragraph*.53}%
+\contentsline {paragraph}{Domain class model.}{51}{paragraph*.55}%
 \contentsline {subsubsection}{\numberline {3.5.2.2}Interaction sequence diagrams}{51}{subsubsection.3.5.2.2}%
-\contentsline {paragraph}{Document upload.}{51}{paragraph*.58}%
-\contentsline {paragraph}{Asynchronous ingest worker.}{52}{paragraph*.60}%
-\contentsline {paragraph}{Reprocess document version.}{53}{paragraph*.62}%
-\contentsline {paragraph}{Document file download.}{54}{paragraph*.64}%
-\contentsline {paragraph}{Document list.}{55}{paragraph*.66}%
-\contentsline {paragraph}{Document detail.}{56}{paragraph*.68}%
-\contentsline {paragraph}{Favorites and recents.}{57}{paragraph*.70}%
-\contentsline {paragraph}{Document metadata update.}{58}{paragraph*.72}%
-\contentsline {paragraph}{New document version.}{59}{paragraph*.74}%
+\contentsline {paragraph}{Uploading a document.}{51}{paragraph*.57}%
+\contentsline {paragraph}{Background document processing.}{52}{paragraph*.59}%
+\contentsline {paragraph}{Reprocessing an existing version.}{53}{paragraph*.61}%
+\contentsline {paragraph}{Downloading a document file.}{54}{paragraph*.63}%
+\contentsline {paragraph}{Browsing the document library.}{55}{paragraph*.65}%
+\contentsline {paragraph}{Opening a document detail view.}{56}{paragraph*.67}%
+\contentsline {paragraph}{Favourites and recently viewed documents.}{57}{paragraph*.69}%
+\contentsline {paragraph}{Updating document metadata.}{58}{paragraph*.71}%
+\contentsline {paragraph}{Publishing a new document version.}{59}{paragraph*.73}%
 \contentsline {subsection}{\numberline {3.5.3}Sprint 3: Search, RAG and conversations}{60}{subsection.3.5.3}%
 \contentsline {subsubsection}{\numberline {3.5.3.1}Scoped structural views}{60}{subsubsection.3.5.3.1}%
-\contentsline {paragraph}{Use-case model.}{61}{paragraph*.76}%
-\contentsline {paragraph}{Domain class model.}{62}{paragraph*.78}%
+\contentsline {paragraph}{Use-case model.}{61}{paragraph*.75}%
+\contentsline {paragraph}{Domain class model.}{62}{paragraph*.77}%
 \contentsline {subsubsection}{\numberline {3.5.3.2}Interaction sequence diagrams}{62}{subsubsection.3.5.3.2}%
-\contentsline {paragraph}{Semantic vector search.}{62}{paragraph*.80}%
-\contentsline {paragraph}{Hybrid RAG Ask with SSE streaming.}{63}{paragraph*.82}%
-\contentsline {paragraph}{Conversation and messages.}{65}{paragraph*.84}%
-\contentsline {paragraph}{Answer feedback.}{66}{paragraph*.86}%
-\contentsline {paragraph}{Conversation CRUD supplement.}{66}{paragraph*.88}%
-\contentsline {paragraph}{Admin feedback statistics.}{67}{paragraph*.90}%
+\contentsline {paragraph}{Semantic search.}{62}{paragraph*.79}%
+\contentsline {paragraph}{Asking a question with AI assistance.}{63}{paragraph*.81}%
+\contentsline {paragraph}{Creating conversations and adding messages.}{65}{paragraph*.83}%
+\contentsline {paragraph}{Rating an answer.}{66}{paragraph*.85}%
+\contentsline {paragraph}{Managing conversation threads.}{66}{paragraph*.87}%
+\contentsline {paragraph}{Administrator feedback overview.}{67}{paragraph*.89}%
 \contentsline {subsection}{\numberline {3.5.4}Sprint 4: Governance and notifications}{68}{subsection.3.5.4}%
 \contentsline {subsubsection}{\numberline {3.5.4.1}Scoped structural views}{68}{subsubsection.3.5.4.1}%
-\contentsline {paragraph}{Use-case model.}{69}{paragraph*.92}%
-\contentsline {paragraph}{Domain class model.}{70}{paragraph*.94}%
+\contentsline {paragraph}{Use-case model.}{69}{paragraph*.91}%
+\contentsline {paragraph}{Domain class model.}{70}{paragraph*.93}%
 \contentsline {subsubsection}{\numberline {3.5.4.2}Interaction sequence diagrams}{71}{subsubsection.3.5.4.2}%
-\contentsline {paragraph}{Automatic notification on document events.}{71}{paragraph*.96}%
-\contentsline {paragraph}{Manual announcement.}{71}{paragraph*.98}%
-\contentsline {paragraph}{Notification inbox.}{72}{paragraph*.100}%
-\contentsline {paragraph}{Manager department overview.}{74}{paragraph*.102}%
-\contentsline {paragraph}{Admin create user.}{74}{paragraph*.104}%
-\contentsline {paragraph}{Admin merge departments.}{75}{paragraph*.106}%
-\contentsline {paragraph}{Bulk department access.}{76}{paragraph*.108}%
-\contentsline {paragraph}{Admin create department.}{76}{paragraph*.110}%
-\contentsline {paragraph}{Single department access grant/revoke.}{77}{paragraph*.112}%
-\contentsline {paragraph}{Admin KPI statistics.}{78}{paragraph*.114}%
-\contentsline {paragraph}{Admin activity log and CSV export.}{79}{paragraph*.116}%
-\contentsline {paragraph}{Document audit trail.}{80}{paragraph*.118}%
-\contentsline {paragraph}{Documents CSV export.}{81}{paragraph*.120}%
-\contentsline {paragraph}{Bulk document delete.}{82}{paragraph*.122}%
-\contentsline {paragraph}{Admin user patch and lock.}{83}{paragraph*.124}%
+\contentsline {paragraph}{Automatic notification when a document is added.}{71}{paragraph*.95}%
+\contentsline {paragraph}{Sending a manual announcement.}{71}{paragraph*.97}%
+\contentsline {paragraph}{Reading and managing notifications.}{72}{paragraph*.99}%
+\contentsline {paragraph}{Manager department overview.}{74}{paragraph*.101}%
+\contentsline {paragraph}{Creating a user account.}{74}{paragraph*.103}%
+\contentsline {paragraph}{Merging two departments.}{75}{paragraph*.105}%
+\contentsline {paragraph}{Replacing a user's department access in bulk.}{76}{paragraph*.107}%
+\contentsline {paragraph}{Creating a department.}{76}{paragraph*.109}%
+\contentsline {paragraph}{Granting or revoking single department access.}{77}{paragraph*.111}%
+\contentsline {paragraph}{Platform-wide statistics.}{78}{paragraph*.113}%
+\contentsline {paragraph}{Activity log and export.}{79}{paragraph*.115}%
+\contentsline {paragraph}{Document change audit log.}{80}{paragraph*.117}%
+\contentsline {paragraph}{Exporting the document catalogue.}{81}{paragraph*.119}%
+\contentsline {paragraph}{Deleting multiple documents.}{82}{paragraph*.121}%
+\contentsline {paragraph}{Updating or locking a user account.}{83}{paragraph*.123}%
 \contentsline {subsection}{\numberline {3.5.5}Sprint 5: Operations, testing and deployment}{84}{subsection.3.5.5}%
 \contentsline {subsubsection}{\numberline {3.5.5.1}Scoped structural views}{84}{subsubsection.3.5.5.1}%
-\contentsline {paragraph}{Use-case model.}{85}{paragraph*.126}%
-\contentsline {paragraph}{Domain class model.}{85}{paragraph*.128}%
+\contentsline {paragraph}{Use-case model.}{85}{paragraph*.125}%
+\contentsline {paragraph}{Domain class model.}{85}{paragraph*.127}%
 \contentsline {subsubsection}{\numberline {3.5.5.2}Interaction sequence diagrams}{85}{subsubsection.3.5.5.2}%
-\contentsline {paragraph}{API health probe.}{85}{paragraph*.130}%
+\contentsline {paragraph}{Service health check.}{85}{paragraph*.129}%
 \contentsline {subsubsection}{\numberline {3.5.5.3}Operational deliverables}{86}{subsubsection.3.5.5.3}%
-\contentsline {paragraph}{Integration test suite.}{86}{paragraph*.132}%
-\contentsline {paragraph}{Docker Compose deployment.}{87}{paragraph*.133}%
-\contentsline {paragraph}{RAG evaluation harness.}{87}{paragraph*.134}%
+\contentsline {paragraph}{Integration test suite.}{86}{paragraph*.131}%
+\contentsline {paragraph}{Containerised deployment.}{86}{paragraph*.132}%
+\contentsline {paragraph}{RAG quality evaluation.}{87}{paragraph*.133}%
 \contentsline {section}{\numberline {3.6}Chapter Conclusion}{87}{section.3.6}%
 \contentsline {chapter}{\numberline {4}Implementation}{88}{chapter.4}%
 \contentsline {section}{\numberline {4.1}Hardware and Software Environment}{88}{section.4.1}%
 \contentsline {section}{\numberline {4.2}Implementation Steps by Sprint}{89}{section.4.2}%
-\contentsline {subsection}{\numberline {4.2.1}Sprint 1: Authentication and access control}{89}{subsection.4.2.1}%
-\contentsline {subsection}{\numberline {4.2.2}Sprint 2: Document library and ingest pipeline}{89}{subsection.4.2.2}%
-\contentsline {subsection}{\numberline {4.2.3}Sprint 3: Search, RAG and conversations}{89}{subsection.4.2.3}%
-\contentsline {subsection}{\numberline {4.2.4}Sprint 4: Governance and notifications}{90}{subsection.4.2.4}%
-\contentsline {subsection}{\numberline {4.2.5}Sprint 5: Operations, testing and deployment}{90}{subsection.4.2.5}%
-\contentsline {section}{\numberline {4.3}Difficulties Encountered and Solutions}{92}{section.4.3}%
-\contentsline {section}{\numberline {4.4}Produced Technical Deliverables}{92}{section.4.4}%
-\contentsline {section}{\numberline {4.5}Chapter Conclusion}{93}{section.4.5}%
-\contentsline {chapter}{\numberline {5}Validation}{94}{chapter.5}%
-\contentsline {section}{\numberline {5.1}Validation plan}{94}{section.5.1}%
-\contentsline {section}{\numberline {5.2}Protocols and experimental conditions}{94}{section.5.2}%
-\contentsline {section}{\numberline {5.3}Presentation of Results}{95}{section.5.3}%
-\contentsline {subsection}{\numberline {5.3.1}Integration Test Results by Sprint Domain}{96}{subsection.5.3.1}%
-\contentsline {subsection}{\numberline {5.3.2}RAG evaluation results}{97}{subsection.5.3.2}%
-\contentsline {subsection}{\numberline {5.3.3}Manual UX validation}{97}{subsection.5.3.3}%
-\contentsline {section}{\numberline {5.4}Critical discussion}{97}{section.5.4}%
-\contentsline {chapter}{General conclusion and perspectives}{99}{chapter*.140}%
-\contentsline {chapter}{References}{101}{Item.24}%
-\contentsline {chapter}{\numberline {A}Complete system diagrams}{103}{appendix.1.A}%
-\contentsline {section}{\numberline {A.1}Structural diagrams}{103}{section.1.A.1}%
-\contentsline {section}{\numberline {A.2}Sequence diagram index (by sprint)}{105}{section.1.A.2}%
+\contentsline {subsection}{\numberline {4.2.1}Sprint 1: Authentication and access control}{90}{subsection.4.2.1}%
+\contentsline {subsubsection}{\numberline {4.2.1.1}Implemented web interfaces}{90}{subsubsection.4.2.1.1}%
+\contentsline {paragraph}{Authentication pages.}{90}{paragraph*.135}%
+\contentsline {paragraph}{Profile management.}{91}{paragraph*.138}%
+\contentsline {paragraph}{Role-based home hubs.}{91}{paragraph*.140}%
+\contentsline {paragraph}{Theme switching.}{93}{paragraph*.144}%
+\contentsline {subsection}{\numberline {4.2.2}Sprint 2: Document library and ingest pipeline}{93}{subsection.4.2.2}%
+\contentsline {subsubsection}{\numberline {4.2.2.1}Implemented web interfaces}{94}{subsubsection.4.2.2.1}%
+\contentsline {paragraph}{Library browse and file details.}{94}{paragraph*.146}%
+\contentsline {paragraph}{Upload workflow.}{95}{paragraph*.149}%
+\contentsline {paragraph}{Recent, favorites, and table view.}{96}{paragraph*.151}%
+\contentsline {paragraph}{Ingest processing status.}{99}{paragraph*.155}%
+\contentsline {paragraph}{Preview and versioning.}{100}{paragraph*.157}%
+\contentsline {subsection}{\numberline {4.2.3}Sprint 3: Search, RAG and conversations}{101}{subsection.4.2.3}%
+\contentsline {subsubsection}{\numberline {4.2.3.1}Implemented web interfaces}{102}{subsubsection.4.2.3.1}%
+\contentsline {paragraph}{Ask interface.}{102}{paragraph*.160}%
+\contentsline {paragraph}{Answer feedback.}{103}{paragraph*.162}%
+\contentsline {subsection}{\numberline {4.2.4}Sprint 4: Governance and notifications}{103}{subsection.4.2.4}%
+\contentsline {subsubsection}{\numberline {4.2.4.1}Implemented web interfaces}{103}{subsubsection.4.2.4.1}%
+\contentsline {paragraph}{Notifications.}{103}{paragraph*.164}%
+\contentsline {paragraph}{Manager dashboard.}{104}{paragraph*.167}%
+\contentsline {paragraph}{Administration hub and directories.}{105}{paragraph*.169}%
+\contentsline {paragraph}{Audit trails and system KPIs.}{107}{paragraph*.174}%
+\contentsline {subsection}{\numberline {4.2.5}Sprint 5: Operations, testing and deployment}{108}{subsection.4.2.5}%
+\contentsline {section}{\numberline {4.3}Difficulties Encountered and Solutions}{110}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Produced Technical Deliverables}{110}{section.4.4}%
+\contentsline {section}{\numberline {4.5}Chapter Conclusion}{111}{section.4.5}%
+\contentsline {chapter}{\numberline {5}Validation}{112}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Validation plan}{112}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Protocols and experimental conditions}{113}{section.5.2}%
+\contentsline {section}{\numberline {5.3}Presentation of Results}{113}{section.5.3}%
+\contentsline {subsection}{\numberline {5.3.1}KPI validation results}{113}{subsection.5.3.1}%
+\contentsline {subsection}{\numberline {5.3.2}Integration test results by sprint domain}{114}{subsection.5.3.2}%
+\contentsline {subsection}{\numberline {5.3.3}RAG evaluation results}{116}{subsection.5.3.3}%
+\contentsline {subsection}{\numberline {5.3.4}Manual UX validation}{117}{subsection.5.3.4}%
+\contentsline {paragraph}{Authentication failure (T1).}{118}{paragraph*.186}%
+\contentsline {paragraph}{Feature restriction (T2).}{119}{paragraph*.188}%
+\contentsline {paragraph}{Ingest completion (T3).}{120}{paragraph*.190}%
+\contentsline {paragraph}{Hybrid Ask with citations (T4).}{120}{paragraph*.192}%
+\contentsline {paragraph}{Manager department overview (T5).}{121}{paragraph*.194}%
+\contentsline {section}{\numberline {5.4}Critical discussion}{121}{section.5.4}%
+\contentsline {subsection}{\numberline {5.4.1}Strengths}{121}{subsection.5.4.1}%
+\contentsline {subsection}{\numberline {5.4.2}Deviations from targets}{121}{subsection.5.4.2}%
+\contentsline {subsection}{\numberline {5.4.3}Limitations}{122}{subsection.5.4.3}%
+\contentsline {subsection}{\numberline {5.4.4}Threats to validity and confidence level}{122}{subsection.5.4.4}%
+\contentsline {subsection}{\numberline {5.4.5}Perspectives}{122}{subsection.5.4.5}%
+\contentsline {section}{\numberline {5.5}Chapter Conclusion}{123}{section.5.5}%
+\contentsline {chapter}{General conclusion and perspectives}{124}{chapter*.196}%
+\contentsline {chapter}{References}{126}{chapter*.196}%
+\contentsline {chapter}{\numberline {A}Validation Summary}{128}{appendix.1.A}%
+\contentsline {chapter}{\numberline {B}Scientific Integrity and Reproducibility}{132}{appendix.1.B}%
+\contentsline {section}{\numberline {B.1}Declaration of AI Tool Usage}{132}{section.1.B.1}%
+\contentsline {section}{\numberline {B.2}Reproducibility Details}{132}{section.1.B.2}%
+\contentsline {section}{\numberline {B.3}Integrity Checklist}{133}{section.1.B.3}%

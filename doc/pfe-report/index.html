@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Knowledge Platform — PFE Report</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 0.75rem 1.25rem;
+      background: #16213e;
+      border-bottom: 1px solid #0f3460;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    header h1 { font-size: 1rem; font-weight: 600; }
+    header a {
+      color: #e94560;
+      text-decoration: none;
+      font-size: 0.875rem;
+    }
+    header a:hover { text-decoration: underline; }
+    iframe {
+      flex: 1;
+      width: 100%;
+      min-height: calc(100vh - 52px);
+      border: none;
+      background: #525659;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ESPRIM PFE Report — Knowledge Platform (149 pages)</h1>
+    <a href="main.pdf" target="_blank" rel="noopener">Open PDF in new tab</a>
+  </header>
+  <iframe src="main.pdf" title="PFE Report PDF"></iframe>
+</body>
+</html>

@@ -1,0 +1,42 @@
+\subsubsection{Implemented web interfaces}
+\label{subsubsec:impl-s1-ui}
+
+The Sprint~1 web client delivers credential-based sign-in, password recovery,
+profile management, and role-based home hubs. Error and restriction states are
+validated manually in Section~\ref{sec:manual-ux-validation}.
+
+\paragraph{Authentication pages.}
+The web client implements credential-based sign-in and password recovery as
+static Next.js routes. Figure~\ref{fig:ui-login} shows the production sign-in
+layout; Figure~\ref{fig:ui-forgot-password} shows the recovery workflow.
+
+\uiscreenshot{ui-login-page.png}{ClarifAI sign-in page with email, password, and theme toggle}{Sign-in page}{fig:ui-login}
+
+\uiscreenshot{ui-forgot-password.png}{Password recovery request form with email field and submit action}{Forgot password}{fig:ui-forgot-password}
+
+\paragraph{Profile management.}
+Figure~\ref{fig:ui-profile} shows the profile settings page: avatar upload,
+editable contact fields, read-only role and department (set by administrators),
+and inline change-password controls.
+
+\uiscreenshot{ui-profile-settings.png}{Profile settings with avatar upload, read-only role and department, and change-password form}{Profile settings}{fig:ui-profile}
+
+\paragraph{Role-based home hubs.}
+After authentication, users land on a tile-based hub whose options depend on
+platform role. Employees see Documents and Ask
+(Figure~\ref{fig:ui-hub-employee}); managers additionally see Department overview
+(Figure~\ref{fig:ui-hub-manager}); administrators see the full four-tile hub
+including Administration (Figure~\ref{fig:ui-hub-admin}).
+
+\uiscreenshot{ui-hub-employee.png}{Employee landing page with Documents and Ask tiles}{Employee home hub}{fig:ui-hub-employee}
+
+\uiscreenshot{ui-hub-manager.png}{Manager landing page with Department overview tile}{Manager home hub}{fig:ui-hub-manager}
+
+\uiscreenshot{ui-hub-admin-light.png}{Administrator landing page with Administration tile}{Administrator home hub (light)}{fig:ui-hub-admin}
+
+\paragraph{Theme switching.}
+Figure~\ref{fig:ui-dark-mode} shows the same administrator hub rendered in dark
+mode, confirming that the CSS theme tokens apply consistently across navigation
+tiles.
+
+\uiscreenshot{ui-hub-admin-dark.png}{Administrator home hub in dark mode showing consistent theme tokens}{Dark theme}{fig:ui-dark-mode}

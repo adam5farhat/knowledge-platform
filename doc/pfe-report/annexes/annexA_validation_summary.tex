@@ -1,0 +1,114 @@
+\chapter{Validation Summary}
+\label{annex:validation-summary}
+
+\begin{table}[H]
+\centering
+\caption{Requirements Traceability Matrix}
+\label{tab:annex-a-traceability}
+\footnotesize
+\renewcommand{\arraystretch}{1.25}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}|>{\RaggedRight\arraybackslash}p{0.75cm}|>{\RaggedRight\arraybackslash}p{2.85cm}|>{\RaggedRight\arraybackslash}p{3.05cm}|>{\RaggedRight\arraybackslash}p{5.7cm}|>{\Centering\arraybackslash}p{1.4cm}|}
+\hline
+\textbf{Req.} & \textbf{Design choice} & \textbf{Implemented element} & \textbf{Validation method} & \textbf{Status} \\
+\hline
+FR-01 & JWT with refresh rotation & Authentication service & Automated auth tests & Validated \\
+\hline
+FR-02 & Profile and avatar handling & Profile management service & Automated profile tests & Validated \\
+\hline
+FR-03 & Asynchronous document ingest & Ingestion pipeline & Automated document tests & Validated \\
+\hline
+FR-04 & Department visibility rules & Access control layer & Automated document tests & Validated \\
+\hline
+FR-05 & Library organisation features & Document library service & Automated document tests & Validated \\
+\hline
+FR-06 & Semantic search & Search service & Automated search tests & Validated \\
+\hline
+FR-07 & Hybrid cited answers & RAG completion service & Search and manual Ask tests & Validated \\
+\hline
+FR-08 & Conversation history & Conversation service & Automated conversation tests & Validated \\
+\hline
+FR-09 & Notification delivery & Notification service & Automated notification tests & Validated \\
+\hline
+FR-10 & Administrative governance & Administration module & Automated admin tests & Validated \\
+\hline
+FR-11 & Manager department view & Manager module & Automated manager tests & Validated \\
+\hline
+FR-12 & Per-user feature restrictions & Authorization middleware & Auth and search tests & Validated \\
+\hline
+\end{tabular*}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption[]{Requirements Traceability Matrix (continued)}
+\footnotesize
+\renewcommand{\arraystretch}{1.25}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}|>{\RaggedRight\arraybackslash}p{0.75cm}|>{\RaggedRight\arraybackslash}p{2.85cm}|>{\RaggedRight\arraybackslash}p{3.05cm}|>{\RaggedRight\arraybackslash}p{5.7cm}|>{\Centering\arraybackslash}p{1.4cm}|}
+\hline
+\textbf{Req.} & \textbf{Design choice} & \textbf{Implemented element} & \textbf{Validation method} & \textbf{Status} \\
+\hline
+NFR-01 & Service health monitoring & Health endpoint & Automated health tests & Validated \\
+\hline
+NFR-02 & HTTP security hardening & Application middleware & Integration tests and review & Validated \\
+\hline
+NFR-03 & Safe session refresh & Client refresh strategy & Automated auth tests & Validated \\
+\hline
+NFR-04 & Reproducible deployment & Container packaging & Manual deployment check & Validated \\
+\hline
+NFR-05 & Automated regression suite & Integration test suite & Local and CI execution & Validated \\
+\hline
+NFR-06 & RAG quality evaluation & Evaluation harness & Quick eval workflow & Partial \\
+\hline
+\end{tabular*}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Technology Architecture Comparison Matrix}
+\label{tab:annex-a-architecture}
+\renewcommand{\arraystretch}{1.35}
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.05cm}|>{\Centering\arraybackslash}p{1.45cm}|>{\Centering\arraybackslash}p{1.25cm}|>{\Centering\arraybackslash}p{1.5cm}|Y|}
+\hline
+\textbf{Criterion} &
+\shortstack{\textbf{Mono-}\\\textbf{repo}} &
+\textbf{Django} &
+\shortstack{\textbf{Micro-}\\\textbf{services}} &
+\textbf{Rationale} \\
+\hline
+Time to market & 3 & 2 & 1 & Shared TypeScript types; one repository \\
+\hline
+SSE streaming fit & 3 & 2 & 2 & Native Express streaming for RAG \\
+\hline
+Team skill alignment & 3 & 2 & 1 & Matches React + Node stack \\
+\hline
+Operational complexity & 3 & 3 & 1 & Single API process + worker \\
+\hline
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Functional Validation Test Summary}
+\label{tab:annex-a-functional-validation}
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}|>{\Centering\arraybackslash}p{0.5cm}|>{\RaggedRight\arraybackslash}p{3.55cm}|>{\RaggedRight\arraybackslash}p{2.75cm}|>{\RaggedRight\arraybackslash}p{2.75cm}|>{\Centering\arraybackslash}p{1.1cm}|}
+\hline
+\textbf{T} & \textbf{Objective} & \textbf{Expected} & \textbf{Observed} & \textbf{Status} \\
+\hline
+T1 & Reject invalid credentials safely & Generic error, no enumeration & Clear sign-in error & Passed \\
+\hline
+T2 & Explain disabled library access & Dedicated restricted page & Restricted page shown & Passed \\
+\hline
+T3 & Confirm ingest completes & Status shown as complete & Ready on detail panel & Passed \\
+\hline
+T4 & Verify cited Ask answers & Answer with citations & Answer with citations & Passed \\
+\hline
+T5 & Show manager overview & Dept.\ team and documents & Team and files listed & Passed \\
+\hline
+\end{tabular*}
+\end{table}

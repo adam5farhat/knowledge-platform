@@ -2,27 +2,56 @@
 
 \section{Declaration of generative AI usage}
 
-Generative AI tools (including Cursor and large language model assistants) were used during this project to support:
-\begin{itemize}[leftmargin=*,itemsep=0.2em]
-  \item drafting and restructuring sections of this report outline;
-  \item suggesting LaTeX table structures aligned with the ESPRIM template;
-  \item implementing and debugging application code (e.g., avatar CORP header fix);
-  \item summarizing technical documentation already present in the repository README.
-\end{itemize}
+Generative AI tools, including Cursor and large language model assistants, supported
+this project in several ways: drafting and restructuring sections of this report
+outline, suggesting LaTeX table structures aligned with the ESPRIM template,
+implementing and debugging application code (notably the avatar CORP header fix),
+and summarizing technical documentation already present in the repository README.
 
-All technical claims, test results, and architectural descriptions were verified against the actual codebase, automated test output, and manual execution. The author assumes full scientific and academic responsibility for the final submitted report.
+All technical claims, test results, and architectural descriptions were verified
+against the actual codebase, automated test output, and manual execution. The author
+assumes full scientific and academic responsibility for the final submitted report.
 
 \section{Minimum reproducibility expectations}
 
-\begin{itemize}[leftmargin=*,itemsep=0.2em]
-  \item \textbf{Repository:} \texttt{c:\textbackslash dev\textbackslash finalproject} (monorepo);
-  \item \textbf{Database:} PostgreSQL 16 + pgvector; migrations via \texttt{npm run db:migrate}; seed via \texttt{npm run db:seed};
-  \item \textbf{Services:} \texttt{npm run docker:up} for PostgreSQL and Redis;
-  \item \textbf{Environment:} \tcode{apps/api/.env} (\tcode{JWT\_SECRET}, \tcode{GEMINI\_API\_KEY}, \tcode{DATABASE\_URL}); \tcode{apps/web/.env.local} (\tcode{NEXT\_PUBLIC\_API\_URL});
-  \item \textbf{Run:} \texttt{npm run dev} from repository root;
-  \item \textbf{Tests:} \texttt{npm run test:api}; RAG eval: \texttt{npm run eval:rag:quick} or \texttt{npm run eval:rag};
-  \item \textbf{Prompt versioning:} \texttt{RAG\_PROMPT\_VERSION} environment variable invalidates answer cache.
-\end{itemize}
+The following parameters define the minimum environment needed to reproduce the
+reported results. Commands may be run from the repository root unless noted.
+
+\begin{table}[H]
+\centering
+\caption{Reproducibility parameters}
+\label{tab:reproducibility}
+\footnotesize
+\renewcommand{\arraystretch}{1.35}
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{3.2cm}|Y|}
+\hline
+\textbf{Parameter} & \textbf{Value} \\
+\hline
+Repository &
+\texttt{c:\textbackslash dev\textbackslash finalproject} (monorepo with \texttt{apps/api} and \texttt{apps/web}) \\
+\hline
+Database &
+PostgreSQL 16 + pgvector; migrations via \texttt{npm run db:migrate}; seed via \texttt{npm run db:seed} \\
+\hline
+Services &
+\texttt{npm run docker:up} for PostgreSQL and Redis \\
+\hline
+Environment &
+\tcode{apps/api/.env} (\tcode{JWT\_SECRET}, \tcode{GEMINI\_API\_KEY}, \tcode{DATABASE\_URL});\newline
+\tcode{apps/web/.env.local} (\tcode{NEXT\_PUBLIC\_API\_URL}) \\
+\hline
+Run &
+\texttt{npm run dev} from repository root (API port~3001, web port~3000) \\
+\hline
+Tests &
+\texttt{npm run test:api}; RAG eval: \texttt{npm run eval:rag:quick} or \texttt{npm run eval:rag} \\
+\hline
+Prompt versioning &
+\texttt{RAG\_PROMPT\_VERSION} environment variable invalidates answer cache \\
+\hline
+\end{tabularx}
+\end{table}
 
 \section{Compliance reminders}
 
