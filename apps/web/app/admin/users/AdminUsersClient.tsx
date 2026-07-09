@@ -22,6 +22,8 @@ import { AdminHubGlyph, type AdminHubGlyphType } from "../AdminHubIcons";
 import dash from "../../components/shellNav.module.css";
 import styles from "./adminUsers.module.css";
 import { API_BASE as API } from "@/lib/apiBase";
+import { formatApiError } from "@/lib/apiErrors";
+import { PASSWORD_RULE, validatePassword } from "@/lib/passwordPolicy";
 
 function IconSearch() {
   return (
@@ -602,8 +604,17 @@ export default function AdminUsersClient() {
     }
     setSubmitError(null);
     setSuccess(null);
+    if (!departmentId) {
+      setSubmitError("Select a department. Create one under Departments if the list is empty.");
+      return;
+    }
     if (roleName === RoleNameApi.EMPLOYEE && !employeeBadgeNumber.trim()) {
       setSubmitError("Employee badge is required when role is EMPLOYEE.");
+      return;
+    }
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setSubmitError(passwordError);
       return;
     }
     setLoading(true);
@@ -625,15 +636,15 @@ export default function AdminUsersClient() {
         },
         body: JSON.stringify(body),
       });
-      let data: { error?: string };
+      let data: { error?: string; details?: { fieldErrors?: Record<string, string[]>; formErrors?: string[] } };
       try {
-        data = (await res.json()) as { error?: string };
+        data = (await res.json()) as typeof data;
       } catch {
         setSubmitError("Invalid response from server");
         return;
       }
       if (!res.ok) {
-        setSubmitError(data.error ?? "Could not create user");
+        setSubmitError(formatApiError(data, "Could not create user"));
         return;
       }
       setSuccess("User created. They can sign in with the email and password you set.");
@@ -830,8 +841,9 @@ export default function AdminUsersClient() {
 
   async function submitPassword() {
     if (!passwordUserId) return;
-    if (passwordValue.length < 8) {
-      setModalError("Password must be at least 8 characters.");
+    const passwordError = validatePassword(passwordValue);
+    if (passwordError) {
+      setModalError(passwordError);
       return;
     }
     setModalError(null);
@@ -843,8 +855,11 @@ export default function AdminUsersClient() {
         body: JSON.stringify({ password: passwordValue }),
       });
       if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setModalError(data.error ?? "Could not set password.");
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          details?: { fieldErrors?: Record<string, string[]>; formErrors?: string[] };
+        };
+        setModalError(formatApiError(data, "Could not set password."));
         return;
       }
       if (forcePwdAfterSet) {
@@ -2226,7 +2241,7 @@ export default function AdminUsersClient() {
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="off" />
           </label>
               <label>
-                <span>Temporary password (min 10 characters)</span>
+                <span>Temporary password</span>
             <input
               type="password"
               value={password}
@@ -2235,6 +2250,9 @@ export default function AdminUsersClient() {
                   minLength={10}
               autoComplete="new-password"
             />
+                <p className={styles.hint} style={{ marginTop: "0.35rem" }}>
+                  {PASSWORD_RULE}
+                </p>
           </label>
               <label>
             <span>Role</span>
@@ -2497,7 +2515,7 @@ export default function AdminUsersClient() {
             <h2>Set password</h2>
             <div className={styles.formGrid}>
               <label>
-                <span>New password (min 10 characters)</span>
+                <span>New password</span>
               <input
                 type="password"
                 value={passwordValue}
@@ -2505,6 +2523,9 @@ export default function AdminUsersClient() {
                   minLength={10}
                 autoComplete="new-password"
               />
+                <p className={styles.hint} style={{ marginTop: "0.35rem" }}>
+                  {PASSWORD_RULE}
+                </p>
             </label>
               <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <input
