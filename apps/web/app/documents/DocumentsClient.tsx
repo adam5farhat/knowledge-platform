@@ -52,6 +52,18 @@ import {
   TableRowHeartIcon,
 } from "./DocumentsClientIcons";
 import { API_BASE as API } from "@/lib/apiBase";
+import { Spinner } from "@/components/Spinner";
+
+const DEFAULT_LIST_FILTERS = {
+  q: "",
+  tagFilter: "",
+  visibilityFilter: "ALL",
+  fileTypeFilter: "ALL",
+  dateFilter: "ALL",
+  sort: "updatedAt_desc",
+} as const;
+
+type ListFilterOverrides = Partial<typeof DEFAULT_LIST_FILTERS>;
 
 export default function DocumentsClient() {
   const router = useRouter();
@@ -106,6 +118,8 @@ export default function DocumentsClient() {
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(() => new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkErr, setBulkErr] = useState<string | null>(null);
+  const [listRefreshing, setListRefreshing] = useState(false);
+  const suppressFilterReloadRef = useRef(false);
   const statusNotifyRef = useRef<Map<string, string>>(new Map());
   /**
    * The click that opens the preview can finish with mouseup on the new fixed backdrop,
@@ -119,6 +133,21 @@ export default function DocumentsClient() {
       previewBackdropIgnoreCloseUntilRef.current = until;
     }
   }
+
+  const hasActiveListFilters = useMemo(
+    () =>
+      Boolean(
+        q.trim() ||
+          tagFilter.trim() ||
+          visibilityFilter !== "ALL" ||
+          fileTypeFilter !== "ALL" ||
+          dateFilter !== "ALL",
+      ),
+    [q, tagFilter, visibilityFilter, fileTypeFilter, dateFilter],
+  );
+
+  const showDeptExplorer =
+    selectedDepartment === "__all" && libraryScope === "ALL" && !hasActiveListFilters;
 
   /** Do not read `window` in useState — SSR and client first paint must match (React #418). */
   useEffect(() => {
@@ -143,14 +172,21 @@ export default function DocumentsClient() {
   }, []);
 
   const loadDocuments = useCallback(
-    async (pageNum: number, forDeptGridOnly?: boolean) => {
+    async (pageNum: number, forDeptGridOnly?: boolean, overrides?: ListFilterOverrides) => {
+      const query = overrides?.q ?? q;
+      const visibility = overrides?.visibilityFilter ?? visibilityFilter;
+      const fileType = overrides?.fileTypeFilter ?? fileTypeFilter;
+      const date = overrides?.dateFilter ?? dateFilter;
+      const tag = overrides?.tagFilter ?? tagFilter;
+      const sortValue = overrides?.sort ?? sort;
+
       const params = new URLSearchParams();
-      if (q.trim()) params.set("q", q.trim());
-      if (visibilityFilter !== "ALL") params.set("visibility", visibilityFilter);
-      if (fileTypeFilter !== "ALL") params.set("fileType", fileTypeFilter);
-      if (dateFilter !== "ALL") params.set("dateFilter", dateFilter);
-      if (tagFilter.trim()) params.set("tag", tagFilter.trim());
-      params.set("sort", sort);
+      if (query.trim()) params.set("q", query.trim());
+      if (visibility !== "ALL") params.set("visibility", visibility);
+      if (fileType !== "ALL") params.set("fileType", fileType);
+      if (date !== "ALL") params.set("dateFilter", date);
+      if (tag.trim()) params.set("tag", tag.trim());
+      params.set("sort", sortValue);
       params.set("libraryScope", libraryScope);
       if (selectedDepartment !== "__all") {
         params.set("departmentId", selectedDepartment);
@@ -203,6 +239,40 @@ export default function DocumentsClient() {
     ],
   );
 
+  const reloadLibrary = useCallback(
+    async (pageNum?: number) => {
+      const page = pageNum ?? (showDeptExplorer ? 1 : listPage);
+      await loadDocuments(page, showDeptExplorer);
+    },
+    [loadDocuments, listPage, showDeptExplorer],
+  );
+
+  const refreshLibrary = useCallback(async () => {
+    if (listRefreshing) return;
+    setListRefreshing(true);
+    setLoadError(null);
+    suppressFilterReloadRef.current = true;
+
+    setQ(DEFAULT_LIST_FILTERS.q);
+    setTagFilter(DEFAULT_LIST_FILTERS.tagFilter);
+    setVisibilityFilter(DEFAULT_LIST_FILTERS.visibilityFilter);
+    setFileTypeFilter(DEFAULT_LIST_FILTERS.fileTypeFilter);
+    setDateFilter(DEFAULT_LIST_FILTERS.dateFilter);
+    setSort(DEFAULT_LIST_FILTERS.sort);
+
+    const deptGrid = selectedDepartment === "__all" && libraryScope === "ALL";
+    try {
+      await loadDocuments(1, deptGrid, DEFAULT_LIST_FILTERS);
+    } catch {
+      const msg = "Could not load documents";
+      setLoadError(msg);
+      toast(msg, "error");
+    } finally {
+      suppressFilterReloadRef.current = false;
+      setListRefreshing(false);
+    }
+  }, [listRefreshing, loadDocuments, libraryScope, selectedDepartment, toast]);
+
   useEffect(() => {
     if (phase !== "ready" || typeof window === "undefined") return;
     const u = new URL(window.location.href);
@@ -216,7 +286,8 @@ export default function DocumentsClient() {
 
   useEffect(() => {
     if (phase !== "ready") return;
-    void loadDocuments(1, libraryScope === "ALL" && selectedDepartment === "__all");
+    if (suppressFilterReloadRef.current) return;
+    void loadDocuments(1, showDeptExplorer);
   }, [
     phase,
     loadDocuments,
@@ -228,6 +299,7 @@ export default function DocumentsClient() {
     fileTypeFilter,
     dateFilter,
     tagFilter,
+    showDeptExplorer,
   ]);
 
   useEffect(() => {
@@ -247,10 +319,10 @@ export default function DocumentsClient() {
     );
     if (!busy) return;
     const id = window.setInterval(() => {
-      void loadDocuments(listPage, false).catch(() => {});
+      void loadDocuments(listPage, showDeptExplorer).catch(() => {});
     }, 4000);
     return () => window.clearInterval(id);
-  }, [phase, documents, listPage, loadDocuments]);
+  }, [phase, documents, listPage, loadDocuments, showDeptExplorer]);
 
   useEffect(() => {
     let cancelled = false;
@@ -428,7 +500,7 @@ export default function DocumentsClient() {
         if (prev?.url) URL.revokeObjectURL(prev.url);
         return null;
       });
-      await loadDocuments(listPage, false);
+      await reloadLibrary();
     } catch {
       setBulkErr("Could not reach the API.");
     } finally {
@@ -538,7 +610,7 @@ export default function DocumentsClient() {
       setUploadTagInput("");
       setUploadStep(1);
       setUploadModalOpen(false);
-      await loadDocuments(1, libraryScope === "ALL" && selectedDepartment === "__all");
+      await reloadLibrary(1);
     } catch {
       setUploadError("Could not reach the API.");
     } finally {
@@ -558,14 +630,14 @@ export default function DocumentsClient() {
       toast(data.error ?? "Delete failed", "error");
       return;
     }
-    await loadDocuments(listPage, false);
+    await reloadLibrary();
   }
 
   async function toggleFavoriteFor(documentId: string, favorited: boolean) {
     const res = await fetchWithAuth(`${API}/documents/${documentId}/favorite`, {
       method: favorited ? "POST" : "DELETE",
     });
-    if (res.ok) await loadDocuments(listPage, false);
+    if (res.ok) await reloadLibrary();
   }
 
   async function archiveDoc(documentId: string) {
@@ -575,7 +647,7 @@ export default function DocumentsClient() {
       toast(data.error ?? "Could not archive this document.", "error");
       return;
     }
-    await loadDocuments(listPage, false);
+    await reloadLibrary();
   }
 
   async function unarchiveDoc(documentId: string) {
@@ -585,7 +657,7 @@ export default function DocumentsClient() {
       toast(data.error ?? "Could not unarchive this document.", "error");
       return;
     }
-    await loadDocuments(listPage, false);
+    await reloadLibrary();
   }
 
   async function onDownload(documentId: string, versionId: string, fileName: string) {
@@ -641,14 +713,20 @@ export default function DocumentsClient() {
 
   const departmentLabel =
     selectedDepartment === "__all"
-      ? scopeHeading ?? "Departments"
+      ? hasActiveListFilters
+        ? q.trim()
+          ? `Search: “${q.trim()}”`
+          : "Filtered results"
+        : (scopeHeading ?? "Departments")
       : departmentItems.find((d) => d.id === selectedDepartment)?.name ?? "Files";
 
   const breadcrumbForFolder =
     selectedDepartment === "__all"
-      ? scopeHeading
-        ? `Home › Documents › ${scopeHeading}`
-        : "Home › Documents"
+      ? hasActiveListFilters
+        ? `Home › Documents › ${departmentLabel}`
+        : scopeHeading
+          ? `Home › Documents › ${scopeHeading}`
+          : "Home › Documents"
       : `Home › ${departmentLabel}`;
 
   const breadcrumbForFileCards = selectedDepartment === "__all" ? "" : `Home › ${departmentLabel}`;
@@ -881,8 +959,19 @@ export default function DocumentsClient() {
               <option value="updatedAt_asc">Sort: Oldest</option>
               <option value="title_desc">Sort: Z-A</option>
             </select>
-            <button type="button" className={styles.primary} onClick={() => void loadDocuments(listPage, false)}>
-              Refresh
+            <button
+              type="button"
+              className={styles.primary}
+              disabled={listRefreshing}
+              onClick={() => void refreshLibrary()}
+            >
+              {listRefreshing ? (
+                <>
+                  <Spinner size={14} label="Refreshing" /> Refreshing…
+                </>
+              ) : (
+                "Refresh"
+              )}
             </button>
             <button type="button" className={styles.ghost} onClick={() => setViewMode((v) => (v === "grid" ? "table" : "grid"))}>
               {viewMode === "grid" ? "Table view" : "Grid view"}
@@ -901,7 +990,7 @@ export default function DocumentsClient() {
 
         <section className={styles.content}>
           <section className={styles.body}>
-          {selectedDepartment === "__all" && libraryScope === "ALL" ? (
+          {showDeptExplorer ? (
             <section className={`${styles.panelCard} ${styles.explorerCard}`}>
               <p className={styles.explorerPath}>{breadcrumbForFolder}</p>
               <div className={styles.explorerHeadRow}>
@@ -910,6 +999,7 @@ export default function DocumentsClient() {
                   <p className={styles.explorerSub}>Select a department to view its documents. Counts include files you can access.</p>
                 </div>
               </div>
+              {loadError ? <p style={{ color: "var(--error)" }}>{loadError}</p> : null}
               <div className={styles.deptGrid}>
                 {departmentItems.map((dep) => (
                   <article
@@ -942,7 +1032,14 @@ export default function DocumentsClient() {
                   type="button"
                   className={styles.explorerBackBtn}
                   onClick={() => {
-                    if (libraryScope !== "ALL") {
+                    if (hasActiveListFilters && selectedDepartment === "__all" && libraryScope === "ALL") {
+                      setQ(DEFAULT_LIST_FILTERS.q);
+                      setTagFilter(DEFAULT_LIST_FILTERS.tagFilter);
+                      setVisibilityFilter(DEFAULT_LIST_FILTERS.visibilityFilter);
+                      setFileTypeFilter(DEFAULT_LIST_FILTERS.fileTypeFilter);
+                      setDateFilter(DEFAULT_LIST_FILTERS.dateFilter);
+                      setSort(DEFAULT_LIST_FILTERS.sort);
+                    } else if (libraryScope !== "ALL") {
                       setLibraryScope("ALL");
                       setSelectedDepartment("__all");
                     } else {
@@ -992,9 +1089,11 @@ export default function DocumentsClient() {
               ) : null}
               {documents.length === 0 ? (
                 <p className={styles.detailMeta}>
-                  {libraryScope === "ARCHIVED"
-                    ? "Nothing in the archive yet. Managers can archive documents from the file details panel; everyone will see them here once archived."
-                    : "No files in this section yet."}
+                  {hasActiveListFilters
+                    ? "No documents match your search or filters."
+                    : libraryScope === "ARCHIVED"
+                      ? "Nothing in the archive yet. Managers can archive documents from the file details panel; everyone will see them here once archived."
+                      : "No files in this section yet."}
                 </p>
               ) : null}
               {viewMode === "grid" ? (
@@ -1222,16 +1321,16 @@ export default function DocumentsClient() {
                   <button
                     type="button"
                     className={styles.ghost}
-                    disabled={listPage <= 1}
-                    onClick={() => void loadDocuments(listPage - 1, false)}
+                    disabled={listPage <= 1 || listRefreshing}
+                    onClick={() => void loadDocuments(listPage - 1, showDeptExplorer)}
                   >
                     Previous
                   </button>
                   <button
                     type="button"
                     className={styles.ghost}
-                    disabled={!listHasMore}
-                    onClick={() => void loadDocuments(listPage + 1, false)}
+                    disabled={!listHasMore || listRefreshing}
+                    onClick={() => void loadDocuments(listPage + 1, showDeptExplorer)}
                   >
                     Next
                   </button>
@@ -1894,7 +1993,7 @@ export default function DocumentsClient() {
         documentId={versionArchiveDocId}
         apiBase={API}
         onClose={() => setVersionArchiveDocId(null)}
-        onVersionsChanged={() => void loadDocuments(listPage, false)}
+        onVersionsChanged={() => void reloadLibrary()}
       />
     </main>
   );
