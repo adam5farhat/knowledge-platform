@@ -8,7 +8,7 @@ All project documentation that lives outside the root [README.md](../README.md) 
 
 | Document | Purpose |
 |----------|---------|
-| [architecture.md](architecture.md) | **Platform architecture** — Mermaid view + link to canonical PlantUML deployment diagram |
+| [architecture.md](architecture.md) | **Platform architecture** — layered monolith overview, data flows, security model, deployment + PlantUML diagram |
 | [platform-functionality-inventory.md](platform-functionality-inventory.md) | Capability inventory mapped to code areas |
 
 ---
