@@ -1,4 +1,4 @@
-\chapter[Implementation]{Realization, implementation or experimentation}
+\chapter[Implementation]{Realisation, implementation or experimentation}
 \label{ch:implementation}
 
 This chapter explains how the sprint-aligned design of
@@ -101,8 +101,7 @@ that enforces roles plus per-user restriction flags for document library and Ask
 access. Profile avatars are served from a CORP-aware public route so browsers
 can embed them across origins. The outcome is a complete sign-in, recovery,
 profile, and role-based navigation shell, with integration tests confirming
-flows \ref{fig:seq-01}--\ref{fig:seq-07}, \ref{fig:seq-23}, \ref{fig:seq-32},
-and \ref{fig:seq-33}.
+flows \ref{fig:seq-01}--\ref{fig:seq-07}.
 
 \input{chapters/chapter4_ui_sprint1}
 
@@ -116,7 +115,7 @@ format, chunks content with sentence-aware splitting and table preservation,
 computes 768-dimensional embeddings, and persists indexed chunks. Visibility
 (\texttt{ALL}, \texttt{DEPARTMENT}, \texttt{PRIVATE}) is enforced so
 unauthorised callers receive a neutral 404 rather than revealing document
-existence. Tags, favorites, recents, and versioning complete the library
+existence. Tags, favourites, recents, and versioning complete the library
 experience. Integration tests cover document flows
 \ref{fig:seq-08}--\ref{fig:seq-10} and \ref{fig:seq-24}--\ref{fig:seq-29}.
 
@@ -128,7 +127,7 @@ experience. Integration tests cover document flows
 The goal of Sprint~3 was to let authorised users find information semantically
 and receive cited, streaming answers grounded in their accessible corpus. Hybrid
 retrieval combines dense vectors and full-text search, fuses rankings, reranks
-with Gemini, and streams results over SSE. Algorithm~\ref{alg:rag} summarizes
+with Gemini, and streams results over SSE. Algorithm~\ref{alg:rag} summarises
 the Ask endpoint logic.
 
 \begin{algorithm}[H]
@@ -136,7 +135,7 @@ the Ask endpoint logic.
 \label{alg:rag}
 \begin{algorithmic}[1]
 \State Authenticate user and resolve \texttt{readableDepartmentIds}
-\State Optimize query (type, topic, rewrite, optional multi-hop)
+\State Optimise query (type, topic, rewrite, optional multi-hop)
 \State Retrieve dense vectors (pgvector) and sparse FTS (BM25-style)
 \State Fuse rankings with weighted reciprocal rank fusion (RRF)
 \State Rerank top chunks with Gemini; optionally expand neighbor chunks
@@ -192,9 +191,9 @@ summarises all sprint sequence flows presented in Section~\ref{sec:sprint-design
 \hline
 \textbf{Sprint} & \textbf{Area} & \textbf{Fig.} & \textbf{Flow} \\
 \hline
-S1 & Auth & \ref{fig:seq-01}--\ref{fig:seq-07}, \ref{fig:seq-23}, \ref{fig:seq-32}, \ref{fig:seq-33} & Login, refresh, logout, password reset/change, profile, restrictions, /me, register info, restricted UX \\
+S1 & Auth & \ref{fig:seq-01}--\ref{fig:seq-07} & Login, logout, password reset/change, profile, restrictions \\
 \hline
-S2 & Documents & \ref{fig:seq-08}--\ref{fig:seq-10}, \ref{fig:seq-24}--\ref{fig:seq-29} & Upload, ingest worker, download, list, detail, favorites, metadata, versions, reprocess \\
+S2 & Documents & \ref{fig:seq-08}--\ref{fig:seq-10}, \ref{fig:seq-24}--\ref{fig:seq-29} & Upload, ingest worker, download, list, detail, favourites, metadata, versions, reprocess \\
 \hline
 S3 & Search / RAG & \ref{fig:seq-11}, \ref{fig:seq-12} & Semantic search, hybrid Ask SSE \\
 \hline
@@ -262,7 +261,7 @@ Section~\ref{sec:manual-ux-validation}.
 
 \section{Chapter Conclusion}
 
-This chapter described the concrete realization of the platform across five
+This chapter described the concrete realisation of the platform across five
 sprint increments, from authentication and document ingest through hybrid RAG,
 governance, and operational readiness. It documented implementation constraints
 and technical resolutions, showing how architectural choices were translated into

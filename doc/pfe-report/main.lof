@@ -7,95 +7,91 @@
 \contentsline {figure}{\numberline {2.1}{\ignorespaces Global use-case diagram of the Knowledge Platform}}{14}{figure.caption.8}%
 \contentsline {figure}{\numberline {2.2}{\ignorespaces Scrum sprint timeline --- iterative delivery across five sprints}}{23}{figure.caption.12}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {3.1}{\ignorespaces Overall platform architecture}}{32}{figure.caption.24}%
-\contentsline {figure}{\numberline {3.2}{\ignorespaces Global domain class diagram (persisted entities and main relationships)}}{34}{figure.caption.26}%
-\contentsline {figure}{\numberline {3.3}{\ignorespaces Sprint 1 use-case diagram — Authentication and access control}}{38}{figure.caption.30}%
-\contentsline {figure}{\numberline {3.4}{\ignorespaces Sprint 1 domain class diagram — Authentication and access control}}{39}{figure.caption.32}%
-\contentsline {figure}{\numberline {3.5}{\ignorespaces User sign-in}}{40}{figure.caption.34}%
-\contentsline {figure}{\numberline {3.6}{\ignorespaces Silent session renewal}}{42}{figure.caption.36}%
-\contentsline {figure}{\numberline {3.7}{\ignorespaces User sign-out}}{43}{figure.caption.38}%
-\contentsline {figure}{\numberline {3.8}{\ignorespaces Forgotten password recovery}}{44}{figure.caption.40}%
-\contentsline {figure}{\numberline {3.9}{\ignorespaces Changing password while signed in}}{45}{figure.caption.42}%
-\contentsline {figure}{\numberline {3.10}{\ignorespaces Updating the user profile}}{46}{figure.caption.44}%
-\contentsline {figure}{\numberline {3.11}{\ignorespaces Blocking access to a restricted feature}}{47}{figure.caption.46}%
-\contentsline {figure}{\numberline {3.12}{\ignorespaces Loading the signed-in user's context}}{48}{figure.caption.48}%
-\contentsline {figure}{\numberline {3.13}{\ignorespaces Registration information page}}{49}{figure.caption.50}%
-\contentsline {figure}{\numberline {3.14}{\ignorespaces Restricted feature explanation page}}{49}{figure.caption.52}%
-\contentsline {figure}{\numberline {3.15}{\ignorespaces Sprint 2 use-case diagram — Document library and ingest}}{50}{figure.caption.54}%
-\contentsline {figure}{\numberline {3.16}{\ignorespaces Sprint 2 domain class diagram — Document library and ingest}}{51}{figure.caption.56}%
-\contentsline {figure}{\numberline {3.17}{\ignorespaces Uploading a document}}{52}{figure.caption.58}%
-\contentsline {figure}{\numberline {3.18}{\ignorespaces Background document processing}}{53}{figure.caption.60}%
-\contentsline {figure}{\numberline {3.19}{\ignorespaces Reprocessing an existing version}}{54}{figure.caption.62}%
-\contentsline {figure}{\numberline {3.20}{\ignorespaces Downloading a document file}}{55}{figure.caption.64}%
-\contentsline {figure}{\numberline {3.21}{\ignorespaces Browsing the document library}}{56}{figure.caption.66}%
-\contentsline {figure}{\numberline {3.22}{\ignorespaces Opening a document detail view}}{57}{figure.caption.68}%
-\contentsline {figure}{\numberline {3.23}{\ignorespaces Favourites and recently viewed documents}}{58}{figure.caption.70}%
-\contentsline {figure}{\numberline {3.24}{\ignorespaces Updating document metadata}}{59}{figure.caption.72}%
-\contentsline {figure}{\numberline {3.25}{\ignorespaces Publishing a new document version}}{60}{figure.caption.74}%
-\contentsline {figure}{\numberline {3.26}{\ignorespaces Sprint 3 use-case diagram — Search, RAG and conversations}}{61}{figure.caption.76}%
-\contentsline {figure}{\numberline {3.27}{\ignorespaces Sprint 3 domain class diagram — Search, RAG and conversations}}{62}{figure.caption.78}%
-\contentsline {figure}{\numberline {3.28}{\ignorespaces Semantic search}}{63}{figure.caption.80}%
-\contentsline {figure}{\numberline {3.29}{\ignorespaces Asking a question with AI assistance}}{64}{figure.caption.82}%
-\contentsline {figure}{\numberline {3.30}{\ignorespaces Creating conversations and adding messages}}{65}{figure.caption.84}%
-\contentsline {figure}{\numberline {3.31}{\ignorespaces Rating an answer}}{66}{figure.caption.86}%
-\contentsline {figure}{\numberline {3.32}{\ignorespaces Managing conversation threads}}{67}{figure.caption.88}%
-\contentsline {figure}{\numberline {3.33}{\ignorespaces Administrator feedback overview}}{68}{figure.caption.90}%
-\contentsline {figure}{\numberline {3.34}{\ignorespaces Sprint 4 use-case diagram — Governance and notifications}}{69}{figure.caption.92}%
-\contentsline {figure}{\numberline {3.35}{\ignorespaces Sprint 4 domain class diagram — Governance and notifications}}{70}{figure.caption.94}%
-\contentsline {figure}{\numberline {3.36}{\ignorespaces Automatic notification when a document is added}}{71}{figure.caption.96}%
-\contentsline {figure}{\numberline {3.37}{\ignorespaces Sending a manual announcement}}{72}{figure.caption.98}%
-\contentsline {figure}{\numberline {3.38}{\ignorespaces Reading and managing notifications}}{73}{figure.caption.100}%
-\contentsline {figure}{\numberline {3.39}{\ignorespaces Manager department overview}}{74}{figure.caption.102}%
-\contentsline {figure}{\numberline {3.40}{\ignorespaces Creating a user account}}{75}{figure.caption.104}%
-\contentsline {figure}{\numberline {3.41}{\ignorespaces Merging two departments}}{76}{figure.caption.106}%
-\contentsline {figure}{\numberline {3.42}{\ignorespaces Replacing a user's department access in bulk}}{76}{figure.caption.108}%
-\contentsline {figure}{\numberline {3.43}{\ignorespaces Creating a department}}{77}{figure.caption.110}%
-\contentsline {figure}{\numberline {3.44}{\ignorespaces Granting or revoking single department access}}{78}{figure.caption.112}%
-\contentsline {figure}{\numberline {3.45}{\ignorespaces Platform-wide statistics}}{79}{figure.caption.114}%
-\contentsline {figure}{\numberline {3.46}{\ignorespaces Activity log and export}}{80}{figure.caption.116}%
-\contentsline {figure}{\numberline {3.47}{\ignorespaces Document change audit log}}{81}{figure.caption.118}%
-\contentsline {figure}{\numberline {3.48}{\ignorespaces Exporting the document catalogue}}{82}{figure.caption.120}%
-\contentsline {figure}{\numberline {3.49}{\ignorespaces Deleting multiple documents}}{83}{figure.caption.122}%
-\contentsline {figure}{\numberline {3.50}{\ignorespaces Updating or locking a user account}}{84}{figure.caption.124}%
-\contentsline {figure}{\numberline {3.51}{\ignorespaces Sprint 5 use-case diagram — Operations, testing and deployment}}{85}{figure.caption.126}%
-\contentsline {figure}{\numberline {3.52}{\ignorespaces Sprint 5 domain class diagram — Operations, testing and deployment}}{85}{figure.caption.128}%
-\contentsline {figure}{\numberline {3.53}{\ignorespaces Service health check}}{86}{figure.caption.130}%
+\contentsline {figure}{\numberline {3.1}{\ignorespaces Overall platform architecture}}{33}{figure.caption.19}%
+\contentsline {figure}{\numberline {3.2}{\ignorespaces Global domain class diagram (persisted entities and main relationships)}}{35}{figure.caption.21}%
+\contentsline {figure}{\numberline {3.3}{\ignorespaces Sprint 1 use-case diagram — Authentication and access control}}{38}{figure.caption.25}%
+\contentsline {figure}{\numberline {3.4}{\ignorespaces Sprint 1 domain class diagram — Authentication and access control}}{39}{figure.caption.27}%
+\contentsline {figure}{\numberline {3.5}{\ignorespaces User sign-in}}{40}{figure.caption.29}%
+\contentsline {figure}{\numberline {3.6}{\ignorespaces User sign-out}}{41}{figure.caption.31}%
+\contentsline {figure}{\numberline {3.7}{\ignorespaces Forgotten password recovery}}{42}{figure.caption.33}%
+\contentsline {figure}{\numberline {3.8}{\ignorespaces Changing password while signed in}}{43}{figure.caption.35}%
+\contentsline {figure}{\numberline {3.9}{\ignorespaces Updating the user profile}}{44}{figure.caption.37}%
+\contentsline {figure}{\numberline {3.10}{\ignorespaces Blocking access to a restricted feature}}{45}{figure.caption.39}%
+\contentsline {figure}{\numberline {3.11}{\ignorespaces Sprint 2 use-case diagram — Document library and ingest}}{46}{figure.caption.41}%
+\contentsline {figure}{\numberline {3.12}{\ignorespaces Sprint 2 domain class diagram — Document library and ingest}}{46}{figure.caption.43}%
+\contentsline {figure}{\numberline {3.13}{\ignorespaces Uploading a document}}{47}{figure.caption.45}%
+\contentsline {figure}{\numberline {3.14}{\ignorespaces Background document processing}}{48}{figure.caption.47}%
+\contentsline {figure}{\numberline {3.15}{\ignorespaces Reprocessing an existing version}}{49}{figure.caption.49}%
+\contentsline {figure}{\numberline {3.16}{\ignorespaces Downloading a document file}}{50}{figure.caption.51}%
+\contentsline {figure}{\numberline {3.17}{\ignorespaces Browsing the document library}}{51}{figure.caption.53}%
+\contentsline {figure}{\numberline {3.18}{\ignorespaces Opening a document detail view}}{52}{figure.caption.55}%
+\contentsline {figure}{\numberline {3.19}{\ignorespaces Favourites and recently viewed documents}}{53}{figure.caption.57}%
+\contentsline {figure}{\numberline {3.20}{\ignorespaces Updating document metadata}}{54}{figure.caption.59}%
+\contentsline {figure}{\numberline {3.21}{\ignorespaces Publishing a new document version}}{55}{figure.caption.61}%
+\contentsline {figure}{\numberline {3.22}{\ignorespaces Sprint 3 use-case diagram — Search, RAG and conversations}}{56}{figure.caption.63}%
+\contentsline {figure}{\numberline {3.23}{\ignorespaces Sprint 3 domain class diagram — Search, RAG and conversations}}{57}{figure.caption.65}%
+\contentsline {figure}{\numberline {3.24}{\ignorespaces Semantic search}}{58}{figure.caption.67}%
+\contentsline {figure}{\numberline {3.25}{\ignorespaces Asking a question with AI assistance}}{59}{figure.caption.69}%
+\contentsline {figure}{\numberline {3.26}{\ignorespaces Creating conversations and adding messages}}{60}{figure.caption.71}%
+\contentsline {figure}{\numberline {3.27}{\ignorespaces Rating an answer}}{61}{figure.caption.73}%
+\contentsline {figure}{\numberline {3.28}{\ignorespaces Managing conversation threads}}{62}{figure.caption.75}%
+\contentsline {figure}{\numberline {3.29}{\ignorespaces Administrator feedback overview}}{63}{figure.caption.77}%
+\contentsline {figure}{\numberline {3.30}{\ignorespaces Sprint 4 use-case diagram — Governance and notifications}}{64}{figure.caption.79}%
+\contentsline {figure}{\numberline {3.31}{\ignorespaces Sprint 4 domain class diagram — Governance and notifications}}{65}{figure.caption.81}%
+\contentsline {figure}{\numberline {3.32}{\ignorespaces Automatic notification when a document is added}}{66}{figure.caption.83}%
+\contentsline {figure}{\numberline {3.33}{\ignorespaces Sending a manual announcement}}{67}{figure.caption.85}%
+\contentsline {figure}{\numberline {3.34}{\ignorespaces Reading and managing notifications}}{68}{figure.caption.87}%
+\contentsline {figure}{\numberline {3.35}{\ignorespaces Manager department overview}}{69}{figure.caption.89}%
+\contentsline {figure}{\numberline {3.36}{\ignorespaces Creating a user account}}{70}{figure.caption.91}%
+\contentsline {figure}{\numberline {3.37}{\ignorespaces Merging two departments}}{71}{figure.caption.93}%
+\contentsline {figure}{\numberline {3.38}{\ignorespaces Replacing a user's department access in bulk}}{71}{figure.caption.95}%
+\contentsline {figure}{\numberline {3.39}{\ignorespaces Creating a department}}{72}{figure.caption.97}%
+\contentsline {figure}{\numberline {3.40}{\ignorespaces Granting or revoking single department access}}{72}{figure.caption.99}%
+\contentsline {figure}{\numberline {3.41}{\ignorespaces Platform-wide statistics}}{73}{figure.caption.101}%
+\contentsline {figure}{\numberline {3.42}{\ignorespaces Activity log and export}}{74}{figure.caption.103}%
+\contentsline {figure}{\numberline {3.43}{\ignorespaces Document change audit log}}{75}{figure.caption.105}%
+\contentsline {figure}{\numberline {3.44}{\ignorespaces Exporting the document catalogue}}{76}{figure.caption.107}%
+\contentsline {figure}{\numberline {3.45}{\ignorespaces Deleting multiple documents}}{77}{figure.caption.109}%
+\contentsline {figure}{\numberline {3.46}{\ignorespaces Updating or locking a user account}}{78}{figure.caption.111}%
+\contentsline {figure}{\numberline {3.47}{\ignorespaces Sprint 5 use-case diagram — Operations, testing and deployment}}{79}{figure.caption.113}%
+\contentsline {figure}{\numberline {3.48}{\ignorespaces Sprint 5 domain class diagram — Operations, testing and deployment}}{79}{figure.caption.115}%
+\contentsline {figure}{\numberline {3.49}{\ignorespaces Service health check}}{80}{figure.caption.117}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {4.1}{\ignorespaces Sign-in page}}{90}{figure.caption.136}%
-\contentsline {figure}{\numberline {4.2}{\ignorespaces Forgot password}}{91}{figure.caption.137}%
-\contentsline {figure}{\numberline {4.3}{\ignorespaces Profile settings}}{91}{figure.caption.139}%
-\contentsline {figure}{\numberline {4.4}{\ignorespaces Employee home hub}}{92}{figure.caption.141}%
-\contentsline {figure}{\numberline {4.5}{\ignorespaces Manager home hub}}{92}{figure.caption.142}%
-\contentsline {figure}{\numberline {4.6}{\ignorespaces Administrator home hub (light)}}{93}{figure.caption.143}%
-\contentsline {figure}{\numberline {4.7}{\ignorespaces Dark theme}}{93}{figure.caption.145}%
-\contentsline {figure}{\numberline {4.8}{\ignorespaces Department library browse}}{94}{figure.caption.147}%
-\contentsline {figure}{\numberline {4.9}{\ignorespaces Document detail side panel}}{95}{figure.caption.148}%
-\contentsline {figure}{\numberline {4.10}{\ignorespaces Document upload modal}}{96}{figure.caption.150}%
-\contentsline {figure}{\numberline {4.11}{\ignorespaces Recent documents}}{97}{figure.caption.152}%
-\contentsline {figure}{\numberline {4.12}{\ignorespaces Favorites view}}{98}{figure.caption.153}%
-\contentsline {figure}{\numberline {4.13}{\ignorespaces Table view}}{99}{figure.caption.154}%
-\contentsline {figure}{\numberline {4.14}{\ignorespaces Ingest processing status}}{100}{figure.caption.156}%
-\contentsline {figure}{\numberline {4.15}{\ignorespaces In-app PDF preview modal}}{101}{figure.caption.158}%
-\contentsline {figure}{\numberline {4.16}{\ignorespaces Version archive dialog}}{101}{figure.caption.159}%
-\contentsline {figure}{\numberline {4.17}{\ignorespaces Ask / RAG chat with citations}}{102}{figure.caption.161}%
-\contentsline {figure}{\numberline {4.18}{\ignorespaces Answer feedback controls}}{103}{figure.caption.163}%
-\contentsline {figure}{\numberline {4.19}{\ignorespaces Notifications inbox}}{104}{figure.caption.165}%
-\contentsline {figure}{\numberline {4.20}{\ignorespaces Send notification modal}}{104}{figure.caption.166}%
-\contentsline {figure}{\numberline {4.21}{\ignorespaces Manager department overview}}{105}{figure.caption.168}%
-\contentsline {figure}{\numberline {4.22}{\ignorespaces Administration hub}}{105}{figure.caption.170}%
-\contentsline {figure}{\numberline {4.23}{\ignorespaces Administrator user directory}}{106}{figure.caption.171}%
-\contentsline {figure}{\numberline {4.24}{\ignorespaces Department management}}{106}{figure.caption.172}%
-\contentsline {figure}{\numberline {4.25}{\ignorespaces Administrator document library}}{106}{figure.caption.173}%
-\contentsline {figure}{\numberline {4.26}{\ignorespaces Document audit log}}{107}{figure.caption.175}%
-\contentsline {figure}{\numberline {4.27}{\ignorespaces Auth activity log}}{107}{figure.caption.176}%
-\contentsline {figure}{\numberline {4.28}{\ignorespaces System KPI dashboard}}{108}{figure.caption.177}%
+\contentsline {figure}{\numberline {4.1}{\ignorespaces Sign-in page}}{84}{figure.caption.123}%
+\contentsline {figure}{\numberline {4.2}{\ignorespaces Forgot password}}{85}{figure.caption.124}%
+\contentsline {figure}{\numberline {4.3}{\ignorespaces Profile settings}}{85}{figure.caption.126}%
+\contentsline {figure}{\numberline {4.4}{\ignorespaces Employee home hub}}{86}{figure.caption.128}%
+\contentsline {figure}{\numberline {4.5}{\ignorespaces Manager home hub}}{86}{figure.caption.129}%
+\contentsline {figure}{\numberline {4.6}{\ignorespaces Administrator home hub (light)}}{86}{figure.caption.130}%
+\contentsline {figure}{\numberline {4.7}{\ignorespaces Dark theme}}{87}{figure.caption.132}%
+\contentsline {figure}{\numberline {4.8}{\ignorespaces Department library browse}}{88}{figure.caption.134}%
+\contentsline {figure}{\numberline {4.9}{\ignorespaces Document detail side panel}}{88}{figure.caption.135}%
+\contentsline {figure}{\numberline {4.10}{\ignorespaces Document upload modal}}{89}{figure.caption.137}%
+\contentsline {figure}{\numberline {4.11}{\ignorespaces Recent documents}}{90}{figure.caption.139}%
+\contentsline {figure}{\numberline {4.12}{\ignorespaces Favourites view}}{91}{figure.caption.140}%
+\contentsline {figure}{\numberline {4.13}{\ignorespaces Table view}}{92}{figure.caption.141}%
+\contentsline {figure}{\numberline {4.14}{\ignorespaces Ingest processing status}}{93}{figure.caption.143}%
+\contentsline {figure}{\numberline {4.15}{\ignorespaces In-app PDF preview modal}}{94}{figure.caption.145}%
+\contentsline {figure}{\numberline {4.16}{\ignorespaces Version archive dialog}}{94}{figure.caption.146}%
+\contentsline {figure}{\numberline {4.17}{\ignorespaces Ask / RAG chat with citations}}{95}{figure.caption.148}%
+\contentsline {figure}{\numberline {4.18}{\ignorespaces Answer feedback controls}}{96}{figure.caption.150}%
+\contentsline {figure}{\numberline {4.19}{\ignorespaces Notifications inbox}}{97}{figure.caption.152}%
+\contentsline {figure}{\numberline {4.20}{\ignorespaces Send notification modal}}{97}{figure.caption.153}%
+\contentsline {figure}{\numberline {4.21}{\ignorespaces Manager department overview}}{98}{figure.caption.155}%
+\contentsline {figure}{\numberline {4.22}{\ignorespaces Administration hub}}{98}{figure.caption.157}%
+\contentsline {figure}{\numberline {4.23}{\ignorespaces Administrator user directory}}{99}{figure.caption.158}%
+\contentsline {figure}{\numberline {4.24}{\ignorespaces Department management}}{99}{figure.caption.159}%
+\contentsline {figure}{\numberline {4.25}{\ignorespaces Administrator document library}}{99}{figure.caption.160}%
+\contentsline {figure}{\numberline {4.26}{\ignorespaces Document audit log}}{100}{figure.caption.162}%
+\contentsline {figure}{\numberline {4.27}{\ignorespaces Auth activity log}}{100}{figure.caption.163}%
+\contentsline {figure}{\numberline {4.28}{\ignorespaces System KPI dashboard}}{101}{figure.caption.164}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {5.1}{\ignorespaces Integration test run}}{116}{figure.caption.183}%
-\contentsline {figure}{\numberline {5.2}{\ignorespaces RAG quick eval run}}{117}{figure.caption.184}%
-\contentsline {figure}{\numberline {5.3}{\ignorespaces Login error state}}{119}{figure.caption.187}%
-\contentsline {figure}{\numberline {5.4}{\ignorespaces Access restricted page}}{119}{figure.caption.189}%
-\contentsline {figure}{\numberline {5.5}{\ignorespaces Ingest READY status}}{120}{figure.caption.191}%
-\contentsline {figure}{\numberline {5.6}{\ignorespaces Ask with citations}}{120}{figure.caption.193}%
-\contentsline {figure}{\numberline {5.7}{\ignorespaces Manager department view}}{121}{figure.caption.195}%
+\contentsline {figure}{\numberline {5.1}{\ignorespaces Integration test run}}{109}{figure.caption.170}%
+\contentsline {figure}{\numberline {5.2}{\ignorespaces RAG quick eval run}}{110}{figure.caption.171}%
+\contentsline {figure}{\numberline {5.3}{\ignorespaces Login error state}}{112}{figure.caption.174}%
+\contentsline {figure}{\numberline {5.4}{\ignorespaces Access restricted page}}{112}{figure.caption.176}%
+\contentsline {figure}{\numberline {5.5}{\ignorespaces Ingest READY status}}{113}{figure.caption.178}%
+\contentsline {figure}{\numberline {5.6}{\ignorespaces Ask with citations}}{113}{figure.caption.180}%
+\contentsline {figure}{\numberline {5.7}{\ignorespaces Manager department view}}{114}{figure.caption.182}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }

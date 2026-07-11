@@ -8,7 +8,7 @@ combines automated API tests, RAG evaluation harness runs, and manual browser
 scenarios. The level of confidence attached to each result class is discussed in
 Section~\ref{sec:critical-discussion}.
 
-\section{Validation plan}
+\section{Validation Plan}
 
 Validation was structured at four complementary levels. Pure helper functions
 were checked with unit tests. The API was exercised end-to-end through
@@ -25,11 +25,11 @@ Unit coverage is intentionally narrow; the primary automated quality gate is the
 \textbf{74-test integration suite}, supplemented by manual UX checks for
 security and restriction flows.
 
-\section{Protocols and experimental conditions}
+\section{Protocols and Experimental Conditions}
 
 Table~\ref{tab:validation-setup} summarises the experimental environment.
 Integration tests run against a seeded database with Docker-hosted PostgreSQL and
-Redis. RAG evaluation uses a quick mode (optimizer-only, 34 cases) and a full
+Redis. RAG evaluation uses a quick mode (optimiser-only, 34 cases) and a full
 judge pipeline when a Gemini API key is configured. Manual scenarios were
 executed in the browser on the local development server and are listed in
 Table~\ref{tab:manual-ux-tests} with screenshot evidence in
@@ -65,7 +65,7 @@ Manual UX & Browser on \texttt{localhost:3000}; scenarios T1--T5 (Table~\ref{tab
 
 \section{Presentation of Results}
 
-\subsection{KPI validation results}
+\subsection{KPI Validation Results}
 
 Table~\ref{tab:kpi-results} maps each KPI from Chapter~\ref{ch:requirements} to its
 measured outcome and validation conclusion.
@@ -94,7 +94,7 @@ Full API integration suite &
 Passed \\
 \hline
 RAG topic (no API key) &
-Quick eval optimizer pass rate &
+Quick eval optimiser pass rate &
 $\geq 15/34$ &
 \textbf{15 / 34} &
 Passed \\
@@ -127,7 +127,7 @@ Chapter~\ref{ch:architecture}. RAG topic classification meets the degraded-mode
 threshold (15/34) without an external API key; full judge scores remain
 \textbf{partial} pending a complete evaluation run with credentials.
 
-\subsection{Integration test results by sprint domain}
+\subsection{Integration Test Results by Sprint Domain}
 
 On 4 July 2026, the automated API test suite reported \textbf{74 tests passed}
 across 10 files with zero failures. Table~\ref{tab:test-summary} groups results by
@@ -169,11 +169,11 @@ $\approx$41\,s).
 
 \uiscreenshot{ui-val-terminal-tests.png}{Vitest integration suite output showing 74 tests passed across 10 files}{Integration test run}{fig:ui-val-terminal-tests}
 
-\subsection{RAG evaluation results}
+\subsection{RAG Evaluation Results}
 
-Quick evaluation without a configured Gemini API key classified all optimizer
+Quick evaluation without a configured Gemini API key classified all optimiser
 topics as \texttt{general}, yielding \textbf{15/34 PASS} on topic-label
-cases---an expected degradation when the LLM optimizer cannot run. With API
+cases---an expected degradation when the LLM optimiser cannot run. With API
 credentials, the full harness produces JSON reports under
 \texttt{apps/api/eval-reports/} for faithfulness and citation metrics.
 
@@ -185,7 +185,7 @@ the quick-mode harness output on 7 July 2026.
 
 \uiscreenshot{ui-val-rag-eval.png}{RAG quick evaluation output showing 15 of 34 topic cases passed without Gemini API key}{RAG quick eval run}{fig:ui-val-rag-eval}
 
-\subsection{Manual UX validation}
+\subsection{Manual UX Validation}
 \label{sec:manual-ux-validation}
 
 Table~\ref{tab:manual-ux-tests} summarises the five manual browser scenarios.
@@ -249,7 +249,7 @@ manageable departments.
 
 \uiscreenshot{ui-manager-department.png}{Manager department overview with team directory and documents}{Manager department view}{fig:ui-val-mgr-dept}
 
-\section{Critical discussion}
+\section{Critical Discussion}
 \label{sec:critical-discussion}
 
 \subsection{Strengths}
@@ -260,7 +260,7 @@ pipeline that goes beyond a minimal chat demo (hybrid retrieval, reranking, SSE,
 feedback, evaluation harness). Manual UX validation confirms that security and
 restriction flows are understandable to end users, not only correct at the API layer.
 
-\subsection{Deviations from targets}
+\subsection{Deviations from Targets}
 
 \begin{itemize}[leftmargin=*,itemsep=0.2em]
   \item \textbf{RAG judge KPI} --- full faithfulness/relevance run pending; marked \textbf{Partial} in Table~\ref{tab:kpi-results};
@@ -277,7 +277,7 @@ restriction flows are understandable to end users, not only correct at the API l
   \item \textbf{Corpus dependency} --- answer quality rises with ingest completeness and chunking quality.
 \end{itemize}
 
-\subsection{Threats to validity and confidence level}
+\subsection{Threats to Validity and Confidence Level}
 
 Integration tests use a seeded database smaller than production corpora; RAG eval
 cases are code-defined and may not cover all host-company domains; manual UX tests

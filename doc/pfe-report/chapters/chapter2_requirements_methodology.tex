@@ -4,6 +4,31 @@
 \chapter[Requirements and Methodology]{Requirements Analysis, Specifications and Methodology}
 \label{ch:requirements}
 
+% Sprint backlog tables use longtable so long backlogs break across pages
+% (avoids near-blank pages and bottom-margin overflow that [H] floats caused).
+\newcommand{\backlogstart}[2]{%
+  \footnotesize
+  \setlength{\tabcolsep}{3pt}%
+  \renewcommand{\arraystretch}{1.3}%
+  \begin{longtable}{|>{\RaggedRight\arraybackslash}p{0.085\linewidth}|>{\RaggedRight\arraybackslash}p{0.235\linewidth}|>{\Centering\arraybackslash}p{0.035\linewidth}|>{\Centering\arraybackslash}p{0.06\linewidth}|>{\RaggedRight\arraybackslash}p{0.40\linewidth}|}
+  \caption{#1}\label{#2}\\
+  \hline
+  \textbf{ID} & \textbf{User Story} & \textbf{SP} & \textbf{Pri.} & \textbf{Acceptance Criteria} \\
+  \hline
+  \endfirsthead
+  \multicolumn{5}{r}{\footnotesize\itshape continued from previous page}\\
+  \hline
+  \textbf{ID} & \textbf{User Story} & \textbf{SP} & \textbf{Pri.} & \textbf{Acceptance Criteria} \\
+  \hline
+  \endhead
+  \hline
+  \multicolumn{5}{r}{\footnotesize\itshape continued on next page}\\
+  \endfoot
+  \hline
+  \endlastfoot
+}
+\newcommand{\backlogstop}{\end{longtable}}
+
 This chapter translates the gaps identified in Chapter~\ref{ch:state-of-the-art} into
 a verifiable specification for the Knowledge Platform. It analyses the host-organisation
 context, defines functional and non-functional requirements with acceptance criteria,
@@ -42,7 +67,7 @@ The key pain points identified through analysis of the existing situation were:
 
 \subsection{System Actors}
 
-Four actor groups interact with the Knowledge Platform, as summarized in
+Four actor groups interact with the Knowledge Platform, as summarised in
 Table~\ref{tab:actors} and detailed in the global use-case diagram
 (Subsection~\ref{subsec:global-use-case}, Figure~\ref{fig:use-cases}):
 
@@ -110,7 +135,7 @@ choices developed in subsequent chapters.
 
 \subsection{Functional Requirements}
 
-The platform defines a set of functional requirements organized around
+The platform defines a set of functional requirements organised around
 \textbf{authentication} (FR-01, FR-02), \textbf{document management} (FR-03 to
 FR-05), \textbf{search and AI capabilities} (FR-06 to FR-08),
 \textbf{notifications} (FR-09), \textbf{administration} (FR-10, FR-11), and
@@ -157,7 +182,7 @@ Unauthorised access returns 404 (not 403) to prevent document enumeration &
 Access control layer \\
 \hline
 FR-05 &
-Document metadata: tags, favorites, recents, archive &
+Document metadata: tags, favourites, recents, archive &
 Tag autocomplete, favourite toggle, recent views, and archive operations are
 all persisted &
 Document library service \\
@@ -285,7 +310,7 @@ chapter (Chapter~\ref{ch:validation}):
 \caption{Key performance indicators}
 \label{tab:kpis}
 \renewcommand{\arraystretch}{1.4}
-\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.5cm}|Y|>{\RaggedRight\arraybackslash}p{2.0cm}|}
+\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.3cm}|Y|>{\RaggedRight\arraybackslash}p{2.7cm}|}
 \hline
 \textbf{KPI} & \textbf{Measurement method} & \textbf{Target} \\
 \hline
@@ -298,7 +323,7 @@ Integration test suite pass ratio (passed / total) &
 74 / 74 (100\%) \\
 \hline
 RAG topic classification (no API key) &
-Quick evaluation optimizer pass rate &
+Quick evaluation optimiser pass rate &
 $\geq 15/34$ (degraded mode) \\
 \hline
 RAG judge scores (with API key) &
@@ -378,9 +403,9 @@ sprint appears in Section~\ref{sec:sprint-design} of Chapter~\ref{ch:architectur
 \caption{Agile Scrum sprint plan}
 \label{tab:sprints}
 \footnotesize
-\renewcommand{\arraystretch}{1.3}
-\setlength{\tabcolsep}{2.5pt}
-\begin{tabularx}{\linewidth}{|>{\Centering\arraybackslash}p{0.055\linewidth}|>{\RaggedRight\arraybackslash}p{0.16\linewidth}|>{\RaggedRight\arraybackslash}X|>{\RaggedRight\arraybackslash}p{0.13\linewidth}|>{\Centering\arraybackslash}p{0.055\linewidth}|}
+\renewcommand{\arraystretch}{1.35}
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}|>{\Centering\arraybackslash}p{0.65cm}|>{\RaggedRight\hyphenpenalty=5000\exhyphenpenalty=5000\arraybackslash}p{2.1cm}|>{\RaggedRight\hyphenpenalty=5000\exhyphenpenalty=5000\arraybackslash}p{5.95cm}|>{\RaggedRight\hyphenpenalty=10000\exhyphenpenalty=10000\arraybackslash}p{2.45cm}|>{\Centering\arraybackslash}p{1.05cm}|}
 \hline
 \textbf{Spr.} & \textbf{Theme} & \textbf{Deliverables} & \textbf{Req.} & \textbf{Des.} \\
 \hline
@@ -388,13 +413,13 @@ sprint appears in Section~\ref{sec:sprint-design} of Chapter~\ref{ch:architectur
 Auth., users, RBAC &
 JWT login/logout/refresh (HttpOnly cookies), refresh-token family revocation,
 password policy, session cap, per-user restrictions, profile/avatar, RBAC middleware &
-FR-01, FR-02, FR-12 \newline NFR-02, NFR-03 &
+FR-01, FR-02, FR-12\newline NFR-02, NFR-03 &
 \ref{subsec:sprint1-design} \\
 \hline
 \textbf{S2} &
 Document library \& ingest &
 Multi-format upload (PDF, Office, HTML, XML, ZIP), BullMQ worker
-(extract$\to$chunk$\to$embed$\to$persist), versioning, tags, favorites, recents,
+(extract$\to$chunk$\to$embed$\to$persist), versioning, tags, favourites, recents,
 archive, visibility, audit log &
 FR-03, FR-04, FR-05 &
 \ref{subsec:sprint2-design} \\
@@ -404,7 +429,7 @@ Hybrid RAG \& Ask &
 Query optimiser, hybrid retrieval (pgvector + BM25 + RRF), LLM reranking,
 neighbour expansion, SSE answers with citations, confidence scoring, critique,
 claim verification, follow-ups, feedback loop, conversations &
-FR-06, FR-07, FR-08 \newline NFR-06 &
+FR-06, FR-07, FR-08\newline NFR-06 &
 \ref{subsec:sprint3-design} \\
 \hline
 \textbf{S4} &
@@ -418,10 +443,10 @@ FR-09, FR-10, FR-11 &
 Tests, eval \& deploy &
 74 Vitest/Supertest integration tests, RAG eval CLI (automated judge),
 Docker Compose prod config, migration pipeline, 54 UML diagrams, README &
-NFR-01, NFR-04, NFR-05 \newline NFR-06 &
+NFR-01, NFR-04, NFR-05\newline NFR-06 &
 \ref{subsec:sprint5-design} \\
 \hline
-\end{tabularx}
+\end{tabular*}
 \end{table}
 
 The \textbf{Des.} column references the sprint interaction-design subsections of
@@ -467,234 +492,180 @@ in Section~\ref{sec:sprint-design}.
 
 \paragraph{Sprint 1 --- Authentication and access control.}
 
-\begin{table}[H]
-\centering
-\caption{Sprint 1 backlog: authentication and access control}
-\label{tab:s1-backlog}
-\footnotesize
-\renewcommand{\arraystretch}{1.3}
-\setlength{\tabcolsep}{2.5pt}
-\begin{tabularx}{\linewidth}{|>{\RaggedRight\arraybackslash}p{0.09\linewidth}|>{\RaggedRight\arraybackslash}X|>{\RaggedRight\arraybackslash}p{0.33\linewidth}|>{\Centering\arraybackslash}p{0.045\linewidth}|>{\Centering\arraybackslash}p{0.08\linewidth}|}
-\hline
-\textbf{ID} & \textbf{User Story} & \textbf{Acceptance Criteria} & \textbf{SP} & \textbf{Pri.} \\
-\hline
+\backlogstart{Sprint 1 backlog: authentication and access control}{tab:s1-backlog}
 US-S1-01 &
 As a guest, I want to sign in securely so that I can access authorised platform features. &
-Valid credentials issue an access token and secure refresh cookie; invalid credentials are rejected; login rate limiting is enforced. &
-5 & High \\
+5 & High &
+Valid credentials issue an access token and secure refresh cookie; invalid credentials are rejected; login rate limiting is enforced. \\
 \hline
 US-S1-02 &
 As an authenticated user, I want seamless session continuity so that refresh operations are secure and race-condition free. &
-Session refresh rotates the token family atomically; replay of a rotated token revokes the family; parallel tab requests share a single refresh operation. &
-8 & High \\
+8 & High &
+Session refresh rotates the token family atomically; replay of a rotated token revokes the family; parallel tab requests share a single refresh operation. \\
 \hline
 US-S1-03 &
 As an authenticated user, I want to sign out so that active refresh sessions are revoked. &
-Logout revokes the current refresh session; subsequent refresh attempts fail. &
-2 & Med. \\
+2 & Med. &
+Logout revokes the current refresh session; subsequent refresh attempts fail. \\
 \hline
 US-S1-04 &
 As a user, I want to view and update my profile, including avatar, so that my account information remains accurate. &
-Profile updates persist; avatar upload succeeds; avatars are served with cross-origin headers for display in the web client. &
-5 & High \\
+5 & High &
+Profile updates persist; avatar upload succeeds; avatars are served with cross-origin headers for display in the web client. \\
 \hline
 US-S1-05 &
 As an administrator, I want role-based and per-user access restrictions so that capabilities can be controlled precisely. &
-Role boundaries enforce administrator, manager, and employee capabilities; restriction flags block protected features and redirect to a restricted notice page. &
-8 & High \\
+8 & High &
+Role boundaries enforce administrator, manager, and employee capabilities; restriction flags block protected features and redirect to a restricted notice page. \\
 \hline
 US-S1-06 &
 As a security owner, I want baseline HTTP protections so that authentication endpoints resist abuse. &
-Security headers are active globally; login and Ask endpoints are rate-limited according to configured thresholds. &
-3 & Med. \\
+3 & Med. &
+Security headers are active globally; login and Ask endpoints are rate-limited according to configured thresholds. \\
 \hline
-\end{tabularx}
-\end{table}
+\backlogstop
 
 \paragraph{Sprint 2 --- Document library and ingest.}
 
-\begin{table}[H]
-\centering
-\caption{Sprint 2 backlog: document library and ingest}
-\label{tab:s2-backlog}
-\footnotesize
-\renewcommand{\arraystretch}{1.3}
-\setlength{\tabcolsep}{2.5pt}
-\begin{tabularx}{\linewidth}{|>{\RaggedRight\arraybackslash}p{0.09\linewidth}|>{\RaggedRight\arraybackslash}X|>{\RaggedRight\arraybackslash}p{0.33\linewidth}|>{\Centering\arraybackslash}p{0.045\linewidth}|>{\Centering\arraybackslash}p{0.08\linewidth}|}
-\hline
-\textbf{ID} & \textbf{User Story} & \textbf{Acceptance Criteria} & \textbf{SP} & \textbf{Pri.} \\
-\hline
+\backlogstart{Sprint 2 backlog: document library and ingest}{tab:s2-backlog}
 US-S2-01 &
 As an employee, I want to upload documents in common formats so that they enter the shared library. &
-Upload validates file type and size, stores the file, creates a version record, and queues ingestion. &
-8 & High \\
+8 & High &
+Upload validates file type and size, stores the file, creates a version record, and queues ingestion. \\
 \hline
 US-S2-02 &
 As the system, I want to ingest uploaded files asynchronously so that text is searchable and embeddable. &
-Background worker extracts text, chunks content, computes embeddings, and persists passages; version reaches ready state on completion. &
-13 & High \\
+13 & High &
+Background worker extracts text, chunks content, computes embeddings, and persists passages; version reaches ready state on completion. \\
 \hline
 US-S2-03 &
 As a security owner, I want visibility rules enforced so that unauthorised users cannot discover restricted documents. &
-Organisation-wide, department, and private visibility levels are enforced; unauthorised access returns 404 rather than revealing existence. &
-8 & High \\
+8 & High &
+Organisation-wide, department, and private visibility levels are enforced; unauthorised access returns 404 rather than revealing existence. \\
 \hline
 US-S2-04 &
 As an employee, I want to browse, search, and open documents so that I can find relevant files quickly. &
-Document listing supports filters and pagination; detail view returns metadata and active version; download delivers file content. &
-5 & High \\
+5 & High &
+Document listing supports filters and pagination; detail view returns metadata and active version; download delivers file content. \\
 \hline
 US-S2-05 &
-As an employee, I want favorites and recents so that I can return to frequently used documents. &
-Favourite toggle and recent-view tracking persist per user; library home surfaces both lists. &
-3 & Med. \\
+As an employee, I want favourites and recents so that I can return to frequently used documents. &
+3 & Med. &
+Favourite toggle and recent-view tracking persist per user; library home surfaces both lists. \\
 \hline
 US-S2-06 &
 As a document owner, I want versioning and re-ingestion so that updates and embedding upgrades are supported. &
-New version upload creates a version record and queues ingestion; reprocess triggers re-ingestion of an existing version. &
-8 & Med. \\
+8 & Med. &
+New version upload creates a version record and queues ingestion; reprocess triggers re-ingestion of an existing version. \\
 \hline
 US-S2-07 &
 As a manager, I want to update metadata and retain an audit trail so that document governance is traceable. &
-Title, tags, and visibility updates persist within scope; changes are recorded in a per-document audit log. &
-5 & Med. \\
+5 & Med. &
+Title, tags, and visibility updates persist within scope; changes are recorded in a per-document audit log. \\
 \hline
-\end{tabularx}
-\end{table}
+\backlogstop
 
 \paragraph{Sprint 3 --- Search, RAG and conversations.}
 
-\begin{table}[H]
-\centering
-\caption{Sprint 3 backlog: search, RAG and conversations}
-\label{tab:s3-backlog}
-\footnotesize
-\renewcommand{\arraystretch}{1.3}
-\setlength{\tabcolsep}{2.5pt}
-\begin{tabularx}{\linewidth}{|>{\RaggedRight\arraybackslash}p{0.09\linewidth}|>{\RaggedRight\arraybackslash}X|>{\RaggedRight\arraybackslash}p{0.33\linewidth}|>{\Centering\arraybackslash}p{0.045\linewidth}|>{\Centering\arraybackslash}p{0.08\linewidth}|}
-\hline
-\textbf{ID} & \textbf{User Story} & \textbf{Acceptance Criteria} & \textbf{SP} & \textbf{Pri.} \\
-\hline
+\backlogstart{Sprint 3 backlog: search, RAG and conversations}{tab:s3-backlog}
 US-S3-01 &
 As an employee, I want semantic search over the corpus so that I can find relevant passages by meaning. &
-Query is embedded and ranked against department-scoped passages; results include snippet previews. &
-8 & High \\
+8 & High &
+Query is embedded and ranked against department-scoped passages; results include snippet previews. \\
 \hline
 US-S3-02 &
 As an employee, I want cited answers streamed in real time so that I receive grounded responses to natural-language questions. &
-Hybrid retrieval and reranking produce an answer stream with source citations delivered before answer tokens and a completion signal. &
-13 & High \\
+13 & High &
+Hybrid retrieval and reranking produce an answer stream with source citations delivered before answer tokens and a completion signal. \\
 \hline
 US-S3-03 &
 As an employee, I want persistent conversation threads so that I can review prior questions and answers. &
-Conversations support create, list, rename, and delete; messages store sources, confidence, and citations. &
-8 & High \\
+8 & High &
+Conversations support create, list, rename, and delete; messages store sources, confidence, and citations. \\
 \hline
 US-S3-04 &
 As an employee, I want to rate assistant answers so that poor responses can be identified and improved. &
-Thumbs up/down feedback is stored; administrator statistics aggregate sentiment and volume. &
-5 & Med. \\
+5 & Med. &
+Thumbs up/down feedback is stored; administrator statistics aggregate sentiment and volume. \\
 \hline
 US-S3-05 &
 As a data scientist, I want a reproducible RAG evaluation harness so that retrieval quality can be measured over time. &
-Quick and full evaluation modes produce structured quality reports without disrupting continuous integration. &
-8 & Med. \\
+8 & Med. &
+Quick and full evaluation modes produce structured quality reports without disrupting continuous integration. \\
 \hline
-\end{tabularx}
-\end{table}
+\backlogstop
 
 \paragraph{Sprint 4 --- Governance and notifications.}
 
-\begin{table}[H]
-\centering
-\caption{Sprint 4 backlog: governance and notifications}
-\label{tab:s4-backlog}
-\footnotesize
-\renewcommand{\arraystretch}{1.3}
-\setlength{\tabcolsep}{2.5pt}
-\begin{tabularx}{\linewidth}{|>{\RaggedRight\arraybackslash}p{0.09\linewidth}|>{\RaggedRight\arraybackslash}X|>{\RaggedRight\arraybackslash}p{0.33\linewidth}|>{\Centering\arraybackslash}p{0.045\linewidth}|>{\Centering\arraybackslash}p{0.08\linewidth}|}
-\hline
-\textbf{ID} & \textbf{User Story} & \textbf{Acceptance Criteria} & \textbf{SP} & \textbf{Pri.} \\
-\hline
+\backlogstart{Sprint 4 backlog: governance and notifications}{tab:s4-backlog}
 US-S4-01 &
 As an employee, I want automatic notifications on document events so that I stay informed of library changes. &
-Document create, update, and delete events generate department-scoped inbox entries. &
-5 & High \\
+5 & High &
+Document create, update, and delete events generate department-scoped inbox entries. \\
 \hline
 US-S4-02 &
 As a manager or admin, I want to send manual announcements so that I can communicate with targeted teams. &
-Manual send validates audience scope; optional attachments are downloadable by recipients. &
-5 & High \\
+5 & High &
+Manual send validates audience scope; optional attachments are downloadable by recipients. \\
 \hline
 US-S4-03 &
 As an employee, I want a notification inbox so that I can read and dismiss messages. &
-Inbox supports listing, unread count, mark-read, and mark-all-read; web client displays an unread badge. &
-5 & Med. \\
+5 & Med. &
+Inbox supports listing, unread count, mark-read, and mark-all-read; web client displays an unread badge. \\
 \hline
 US-S4-04 &
 As a manager, I want a department dashboard so that I can oversee teams and documents I manage. &
-Dashboard returns only departments within the manager's scope; member lists and department documents are correctly filtered. &
-8 & High \\
+8 & High &
+Dashboard returns only departments within the manager's scope; member lists and department documents are correctly filtered. \\
 \hline
 US-S4-05 &
 As an administrator, I want full user and department administration so that the platform reflects organisational structure. &
-User and department lifecycle operations are supported; last-administrator safety is enforced; bulk import sanitises spreadsheet formulas. &
-13 & High \\
+13 & High &
+User and department lifecycle operations are supported; last-administrator safety is enforced; bulk import sanitises spreadsheet formulas. \\
 \hline
 US-S4-06 &
 As an administrator, I want bulk access management and operational exports so that governance tasks scale efficiently. &
-Bulk department-access updates, KPI statistics, activity logs, document audit trails, and exports are available to administrators. &
-8 & Med. \\
+8 & Med. &
+Bulk department-access updates, KPI statistics, activity logs, document audit trails, and exports are available to administrators. \\
 \hline
-\end{tabularx}
-\end{table}
+\backlogstop
 
 \paragraph{Sprint 5 --- Operations, testing and deployment.}
 
-\begin{table}[H]
-\centering
-\caption{Sprint 5 backlog: operations, testing and deployment}
-\label{tab:s5-backlog}
-\footnotesize
-\renewcommand{\arraystretch}{1.3}
-\setlength{\tabcolsep}{2.5pt}
-\begin{tabularx}{\linewidth}{|>{\RaggedRight\arraybackslash}p{0.09\linewidth}|>{\RaggedRight\arraybackslash}X|>{\RaggedRight\arraybackslash}p{0.33\linewidth}|>{\Centering\arraybackslash}p{0.045\linewidth}|>{\Centering\arraybackslash}p{0.08\linewidth}|}
-\hline
-\textbf{ID} & \textbf{User Story} & \textbf{Acceptance Criteria} & \textbf{SP} & \textbf{Pri.} \\
-\hline
+\backlogstart{Sprint 5 backlog: operations, testing and deployment}{tab:s5-backlog}
 US-S5-01 &
 As an operator, I want a health endpoint so that I can verify database and queue connectivity. &
-Health check returns success when database and cache are reachable; otherwise returns service-unavailable with per-component detail. &
-3 & High \\
+3 & High &
+Health check returns success when database and cache are reachable; otherwise returns service-unavailable with per-component detail. \\
 \hline
 US-S5-02 &
 As a developer, I want automated integration tests so that regressions are caught before release. &
-Integration suite runs 74 cases across ten domains on live database and cache; target is 100\% pass rate. &
-13 & High \\
+13 & High &
+Integration suite runs 74 cases across ten domains on live database and cache; target is 100\% pass rate. \\
 \hline
 US-S5-03 &
 As an operator, I want reproducible containerised deployment so that the platform can be started consistently. &
-Container orchestration starts database, cache, API, and web services in a healthy state; migrations run automatically. &
-8 & High \\
+8 & High &
+Container orchestration starts database, cache, API, and web services in a healthy state; migrations run automatically. \\
 \hline
 US-S5-04 &
 As a data scientist, I want automated RAG judge evaluation so that answer quality can be tracked with an API key. &
-Full evaluation produces faithfulness and relevance scores; quick mode runs without an external API key. &
-8 & Med. \\
+8 & Med. &
+Full evaluation produces faithfulness and relevance scores; quick mode runs without an external API key. \\
 \hline
 US-S5-05 &
 As a maintainer, I want complete design documentation so that the system is defensible and maintainable. &
-Fifty-four UML diagrams are exported; architecture guide is updated; sequence flows are catalogued in Chapter~\ref{ch:architecture}. &
-5 & Med. \\
+5 & Med. &
+Fifty-four UML diagrams are exported; architecture guide is updated; sequence flows are catalogued in Chapter~\ref{ch:architecture}. \\
 \hline
-\end{tabularx}
-\end{table}
+\backlogstop
 
 \subsection{Development and Modelling Tools}
 
 \begin{table}[H]
 \centering
 \caption{Development and modelling tools}
+\label{tab:dev-tools}
 \renewcommand{\arraystretch}{1.3}
 \begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{3.2cm}|Y|}
 \hline

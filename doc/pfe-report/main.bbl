@@ -121,8 +121,4 @@ D.~F. Ferraiolo, D.~R. Kuhn, and R.~Chandramouli, ``Role-based access
   2026. [Online]. Available: \url{https://ai.google.dev/gemini-api/docs}
 \BIBentrySTDinterwordspacing
 
-\bibitem{ietf-jwt-bcp}
-{Internet Engineering Task Force}, ``{JSON Web Token Best Current Practices},''
-  2022, rFC 8725. [Online]. Accessed: July 2026.
-
 \end{thebibliography}

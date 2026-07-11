@@ -18,11 +18,6 @@ account lockout after repeated failures, and opens a secure session with a
 short-lived access token and a protected refresh cookie.
 \seqdiagram{seq-01-login}{User sign-in}{sign-in flow}{fig:seq-01}
 
-\paragraph{Silent session renewal.}
-When the access token expires, the web application renews the session in the
-background so the user can continue working without signing in again.
-\seqdiagram{seq-02-refresh-token}{Silent session renewal}{token refresh flow}{fig:seq-02}
-
 \paragraph{User sign-out.}
 Signing out ends the active session on the server and removes the refresh cookie
 from the browser, so the account cannot be reused from that device without a new
@@ -51,30 +46,8 @@ security.
 \paragraph{Blocking access to a restricted feature.}
 Before sensitive actions run, the server checks whether the user is allowed to
 use the document library or AI-powered search. If not, the request is rejected
-with a clear permission error (see Figure~\ref{fig:seq-33} for the page shown to
-the user).
+with a clear permission error.
 \seqdiagram{seq-07-feature-restriction}{Blocking access to a restricted feature}{feature gate check}{fig:seq-07}
-
-\paragraph{Loading the signed-in user's context.}
-After authentication, the application loads the user's role, department
-memberships, and active restrictions so menus and pages can be adapted
-immediately.
-\seqdiagram{seq-23-get-auth-me}{Loading the signed-in user's context}{session context load}{fig:seq-23}
-
-\sprintflowgroup{Pages shown before or outside normal access}
-
-\paragraph{Registration information page.}
-Self-service account creation is not offered. The registration page explains that
-administrators create accounts, which keeps user provisioning under organisational
-control.
-\seqdiagram{seq-32-register-info-static}{Registration information page}{static information page}{fig:seq-32}
-
-\paragraph{Restricted feature explanation page.}
-When a user reaches a feature they are not allowed to use, the application shows
-a dedicated explanation page with guidance instead of a generic error message.
-This page is shown in the browser; the permission check itself is illustrated in
-Figure~\ref{fig:seq-07}.
-\seqdiagram{seq-33-restricted-page-ux}{Restricted feature explanation page}{client explanation page}{fig:seq-33}
 
 \subsection{Sprint 2: Document library and ingest}\label{subsec:sprint2-design}
 

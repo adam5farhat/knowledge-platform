@@ -13,7 +13,7 @@ Chapters~\ref{ch:implementation} and~\ref{ch:validation}.
 \section{Overall Solution Architecture}
 \label{sec:overall-architecture}
 
-The proposed Knowledge Platform adopts a three-tier logical architecture composed of a presentation layer, an application layer, and a data and artificial intelligence layer. This architectural approach promotes separation of concerns by isolating the user interface, business logic, and persistence mechanisms into independent yet collaborative components. Such an organization improves maintainability, scalability, security, and facilitates the future evolution of the platform. Figure~\ref{fig:overall-architecture} presents the overall architecture and the interactions between the main system components.
+The proposed Knowledge Platform adopts a three-tier logical architecture composed of a presentation layer, an application layer, and a data and artificial intelligence layer. This architectural approach promotes separation of concerns by isolating the user interface, business logic, and persistence mechanisms into independent yet collaborative components. Such an organisation improves maintainability, scalability, security, and facilitates the future evolution of the platform. Figure~\ref{fig:overall-architecture} presents the overall architecture and the interactions between the main system components.
 
 At the presentation layer, users interact with the platform through a responsive web application that provides access to document management, semantic search, conversational AI, notifications, and administrative functionalities. Authentication relies on a secure session management strategy based on short-lived access tokens stored in memory and refresh tokens maintained as HttpOnly cookies, reducing the exposure of sensitive authentication credentials.
 
@@ -25,8 +25,8 @@ Together, these three layers establish a modular and extensible architecture cap
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.98\textwidth]{assets/figures/platform-architecture.png}
-\caption[Overall platform architecture]{Overall architecture of the Knowledge Platform (PlantUML source: \texttt{platform-architecture.puml})}
+\includegraphics[width=0.92\textwidth,height=0.72\textheight,keepaspectratio]{assets/figures/platform-architecture.png}
+\caption[Overall platform architecture]{Overall architecture of the Knowledge Platform}
 \label{fig:overall-architecture}
 \end{figure}
 
@@ -103,7 +103,7 @@ streaming RAG, operational simplicity, and alignment with project skills.
 \label{tab:decision-matrix}
 \renewcommand{\arraystretch}{1.4}
 \setlength{\tabcolsep}{5pt}
-\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.6cm}|>{\Centering\arraybackslash}p{1.7cm}|>{\Centering\arraybackslash}p{1.3cm}|>{\Centering\arraybackslash}p{2.1cm}|Y|}
+\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.3cm}|>{\Centering\arraybackslash}p{2.0cm}|>{\Centering\arraybackslash}p{1.4cm}|>{\Centering\arraybackslash}p{2.6cm}|Y|}
 \hline
 \textbf{Criterion} &
 \textbf{Monorepo} &
@@ -190,7 +190,7 @@ presented in three steps:
   \item \textbf{Scoped structural views} --- the sprint use-case model and domain class model;
   \item \textbf{Interaction sequence diagrams} --- step-by-step flows between the user interface, application services, background workers, and external systems.
 \end{enumerate}
-The full diagram catalog is presented in Section~\ref{sec:sprint-design}; implementation
+The full diagram catalogue is presented in Section~\ref{sec:sprint-design}; implementation
 details appear in Chapter~\ref{ch:implementation} and validation in
 Chapter~\ref{ch:validation}.
 
