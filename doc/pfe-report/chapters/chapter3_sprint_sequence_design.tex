@@ -166,13 +166,19 @@ organisational content.
 
 \paragraph{Semantic search --- sequence diagram.}
 A user enters a natural-language query; the platform finds the most relevant
-document passages and returns ranked excerpts for direct exploration.
+document passages and returns ranked excerpts for direct exploration. Dense
+retrieval runs under the same SQL access filter used by Ask, so ranking is
+computed only over documents the caller is authorised to read
+(Subsection~\ref{subsubsec:retrieval-security}).
 \seqdiagram{seq-11-semantic-search}{Semantic search}{semantic search flow}{fig:seq-11}
 
 \paragraph{Asking a question with AI assistance --- sequence diagram.}
-In the Ask workspace, the platform retrieves relevant passages, combines keyword
-and semantic matching, and streams a structured answer with source references to
-the user in real time.
+In the Ask workspace, the platform retrieves relevant passages under
+department and visibility constraints, combines keyword and semantic matching
+on that authorised subset, and streams a structured answer with source
+references to the user in real time. Reranking and generation operate only on
+chunks already admitted by the retrieval-time filter
+(Subsection~\ref{subsubsec:retrieval-security}).
 \seqdiagram{seq-12-ask-rag-sse}{Asking a question with AI assistance}{RAG answer flow}{fig:seq-12}
 
 \sprintflowgroup{Conversations and answer quality}

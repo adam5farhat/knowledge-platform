@@ -4,13 +4,120 @@
 This chapter turns the requirements and sprint plan of Chapter~\ref{ch:requirements}
 into a concrete system design. Two complementary views organise the presentation:
 \begin{itemize}[leftmargin=*,itemsep=0.2em]
-  \item \textbf{Static design} (Sections~\ref{sec:overall-architecture}--\ref{sec:subsystem-decomposition}) --- three-tier platform architecture, technology justification, global domain class model, and subsystem responsibilities;
+  \item \textbf{Architecture choice and static design} (Sections~\ref{sec:technology-justification}--\ref{sec:subsystem-decomposition}) --- architecture and technology selection, system architecture, domain model, and subsystem responsibilities;
   \item \textbf{Dynamic design} (Section~\ref{sec:sprint-design}) --- sprint-scoped use-case and domain class models, followed by interaction sequences for every major API and UX flow.
 \end{itemize}
 Implementation details and validation evidence follow in
 Chapters~\ref{ch:implementation} and~\ref{ch:validation}.
 
-\section{Three-tier Platform Architecture}
+\section{Architecture Choice}
+\label{sec:technology-justification}
+
+The implementation of the Knowledge Platform required selecting technologies that
+satisfy the functional and non-functional requirements identified in
+Chapter~\ref{ch:requirements} while remaining appropriate for the project's scope.
+The selected technology stack prioritises development efficiency, maintainability,
+scalability, and smooth integration with AI-powered document retrieval. The
+following subsections justify the main architectural and technology decisions
+adopted throughout the project.
+
+\subsection{Selection of the Application Architecture}
+\label{subsec:app-architecture-selection}
+
+Several architectural approaches were considered during the design phase.
+Table~\ref{tab:decision-matrix} compares the principal alternatives using
+evaluation criteria relevant to the project, including development time, streaming
+capabilities, team expertise, and operational complexity.
+
+\begin{table}[H]
+\centering
+\caption{Decision-support matrix for platform architecture (scores: 1 = weak, 3 = strong)}
+\label{tab:decision-matrix}
+\renewcommand{\arraystretch}{1.4}
+\setlength{\tabcolsep}{5pt}
+\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.3cm}|>{\Centering\arraybackslash}p{2.0cm}|>{\Centering\arraybackslash}p{1.4cm}|>{\Centering\arraybackslash}p{2.6cm}|Y|}
+\hline
+\textbf{Criterion} &
+\textbf{Monorepo} &
+\textbf{Django} &
+\textbf{Microservices} &
+\textbf{Rationale} \\
+\hline
+Time to market & 3 & 2 & 1 & Shared TypeScript types; one repository \\
+\hline
+SSE streaming fit & 3 & 2 & 2 & Native Express streaming for RAG \\
+\hline
+Team skill alignment & 3 & 2 & 1 & Matches React + Node stack \\
+\hline
+Operational complexity & 3 & 3 & 1 & Single API process + worker \\
+\hline
+\end{tabularx}
+\end{table}
+
+Based on this evaluation, a TypeScript monorepo composed of a Next.js frontend and
+an Express backend was selected. This architecture provides a unified development
+environment, facilitates code sharing, and naturally supports Server-Sent Events
+(SSE), which are required for real-time AI response streaming. The chosen stack
+also aligns with the team's previous experience, which reduces implementation risk
+within a fixed internship schedule.
+
+Language and framework choices follow from that architecture.
+\textbf{TypeScript} is used across the API and the web application so that domain
+types, validation contracts, and shared utilities stay consistent in one
+repository. \textbf{Next.js}~\cite{nextjs-docs} implements the presentation layer
+with the App Router and a mix of server and client rendering suited to dashboards,
+document browsing, and the Ask workspace. \textbf{Express}~\cite{express-docs}
+hosts the REST API and streams RAG answers over SSE without introducing a second
+backend runtime. \textbf{Prisma}~\cite{prisma-docs} provides the ORM, schema
+definitions, and sequential migrations that keep the relational model under
+version control. Together these choices match the title of this section: they are
+not incidental libraries, but the concrete application stack that realises the
+three-tier design of Section~\ref{sec:overall-architecture}.
+
+\subsection{Database and Retrieval Technology}
+\label{subsec:database-retrieval-tech}
+
+PostgreSQL enhanced with the pgvector extension was selected as the primary
+persistence layer~\cite{pgvector-docs}. Relational metadata (users, departments,
+documents, conversations, notifications) and vector embeddings then coexist in a
+single database, which simplifies transaction management and supports hybrid
+retrieval that combines semantic similarity with SQL filters such as department
+scope and visibility. Those authorisation predicates are evaluated
+\emph{inside} the dense and full-text SQL queries (query-time RBAC/ABAC), rather
+than as a post-retrieval cleanup step; see
+Subsection~\ref{subsubsec:retrieval-security}. Dedicated vector databases such as
+Pinecone, Weaviate, or Milvus~\cite{pinecone-docs} would specialise embedding
+search further, but would also add another service to operate, synchronise, and
+secure. For the expected corpus size and deployment model of this project,
+PostgreSQL with pgvector cuts infrastructure complexity while remaining
+sufficient for hybrid search and RAG.
+
+\subsection{AI Service Selection}
+\label{subsec:ai-service-selection}
+
+Google Gemini was adopted as the external AI provider for embedding generation,
+optional reranking, and answer synthesis~\cite{google-gemini-docs}. Managed AI
+services remove the operational burden of hosting and maintaining large language
+models on internship hardware, while still offering strong multilingual quality
+suited to enterprise document understanding. Self-hosting open-weight models was
+considered but rejected for this scope: it would have required GPU capacity,
+model packaging, and continuous maintenance that would divert effort from the
+platform lifecycle (ingest, access control, hybrid retrieval, and governance)
+that forms the core of the work.
+
+\subsection{Background Processing Strategy}
+\label{subsec:background-processing}
+
+Document ingestion is performed asynchronously through a Redis-backed BullMQ
+queue~\cite{redis-docs, bullmq-docs}. Parsing documents, generating chunks, and
+creating embeddings are computationally intensive; moving them off the request
+path keeps interactive API calls responsive. Running the BullMQ consumer in the
+same API process simplifies deployment for a prototype-scale platform (one process
+to start, monitor, and containerise). The design remains extensible: the queue
+abstraction allows a dedicated worker service later if volume or isolation needs
+grow, without rewriting the ingest pipeline itself.
+
+\section{System Architecture}
 \label{sec:overall-architecture}
 
 The Knowledge Platform uses a three-tier logical architecture: a presentation layer,
@@ -50,6 +157,97 @@ used throughout the remainder of this chapter.
 \caption[Overall platform architecture]{Overall three-tier architecture of the Knowledge Platform}
 \label{fig:overall-architecture}
 \end{figure}
+
+\subsection{Physical Deployment Details}
+\label{subsec:physical-deployment}
+
+Figure~\ref{fig:overall-architecture} presents the logical organisation of the
+Knowledge Platform across presentation, application, and data tiers. The table
+below summarises the corresponding physical deployment: the concrete components,
+listening ports, communication protocols, and inter-service connections used in
+the implemented stack.
+
+\begin{table}[H]
+\centering
+\caption{Physical deployment and communication details}
+\label{tab:physical-deployment}
+\scriptsize
+\renewcommand{\arraystretch}{1.4}
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\textwidth}{%
+  |>{\RaggedRight\arraybackslash\hspace{0pt}}p{2.0cm}%
+  |>{\RaggedRight\arraybackslash\hspace{0pt}}p{2.1cm}%
+  |>{\Centering\arraybackslash}p{1.3cm}%
+  |>{\RaggedRight\arraybackslash\hspace{0pt}}p{2.0cm}%
+  |>{\RaggedRight\arraybackslash\hspace{0pt}}p{2.9cm}%
+  |>{\RaggedRight\arraybackslash\hspace{0pt}}Y|}
+\hline
+\textbf{Component} &
+\textbf{Technology} &
+\textbf{Port} &
+\textbf{Protocol} &
+\textbf{Connected To} &
+\textbf{Purpose} \\
+\hline
+Client Browser &
+Web Browser &
+--- &
+HTTP/\allowbreak HTTPS &
+Next.js Frontend &
+User interface \\
+\hline
+Next.js Frontend &
+Next.js &
+3000 &
+HTTP/\allowbreak REST/\allowbreak SSE &
+Express API &
+Web application \\
+\hline
+Express API &
+Express.js &
+4000 &
+REST, SSE, TCP &
+PostgreSQL,\newline Redis,\newline Google Gemini API &
+Business logic \\
+\hline
+PostgreSQL &
+PostgreSQL~+\newline pgvector &
+5432 &
+TCP &
+Express API &
+Persistent data and vector storage \\
+\hline
+Redis &
+Redis &
+6379 &
+TCP &
+Express API,\newline BullMQ Worker &
+Cache, queues, job coordination \\
+\hline
+BullMQ Worker &
+BullMQ Worker &
+--- &
+Redis TCP &
+Redis,\newline PostgreSQL,\newline Google Gemini API &
+Background document processing \\
+\hline
+Google Gemini API &
+External AI Service &
+HTTPS &
+REST API &
+Express API,\newline BullMQ Worker &
+Embeddings and LLM inference \\
+\hline
+\end{tabularx}
+\end{table}
+
+The principal communication flows follow this topology. The browser reaches the
+Next.js frontend over HTTP or HTTPS. The frontend calls the Express API through
+REST endpoints and uses Server-Sent Events (SSE) for streaming Ask responses.
+The Express API talks to PostgreSQL and Redis over TCP. Redis coordinates
+asynchronous jobs consumed by BullMQ workers, which, together with the API,
+invoke Google Gemini services through secure HTTPS REST requests for embeddings
+and generative inference.
 
 \subsection{Requirements Traceability}
 \label{subsec:architecture-requirements-traceability}
@@ -128,133 +326,32 @@ Manual review and integration tests \\
 \end{xltabular}
 \normalsize
 
-\section{Technology Choice Justification}
-\label{sec:technology-justification}
+\section{Detailed Design}
+\label{sec:detailed-design}
 
-The implementation of the Knowledge Platform required selecting technologies that
-satisfy the functional and non-functional requirements identified in
-Chapter~\ref{ch:requirements} while remaining appropriate for the project's scope.
-The selected technology stack prioritises development efficiency, maintainability,
-scalability, and smooth integration with AI-powered document retrieval. The
-following subsections justify the main architectural and technology decisions
-adopted throughout the project.
-
-\subsection{Selection of the Application Architecture}
-\label{subsec:app-architecture-selection}
-
-Several architectural approaches were considered during the design phase.
-Table~\ref{tab:decision-matrix} compares the principal alternatives using
-evaluation criteria relevant to the project, including development time, streaming
-capabilities, team expertise, and operational complexity.
-
-\begin{table}[H]
-\centering
-\caption{Decision-support matrix for platform architecture (scores: 1 = weak, 3 = strong)}
-\label{tab:decision-matrix}
-\renewcommand{\arraystretch}{1.4}
-\setlength{\tabcolsep}{5pt}
-\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{2.3cm}|>{\Centering\arraybackslash}p{2.0cm}|>{\Centering\arraybackslash}p{1.4cm}|>{\Centering\arraybackslash}p{2.6cm}|Y|}
-\hline
-\textbf{Criterion} &
-\textbf{Monorepo} &
-\textbf{Django} &
-\textbf{Microservices} &
-\textbf{Rationale} \\
-\hline
-Time to market & 3 & 2 & 1 & Shared TypeScript types; one repository \\
-\hline
-SSE streaming fit & 3 & 2 & 2 & Native Express streaming for RAG \\
-\hline
-Team skill alignment & 3 & 2 & 1 & Matches React + Node stack \\
-\hline
-Operational complexity & 3 & 3 & 1 & Single API process + worker \\
-\hline
-\end{tabularx}
-\end{table}
-
-Based on this evaluation, a TypeScript monorepo composed of a Next.js frontend and
-an Express backend was selected. This architecture provides a unified development
-environment, facilitates code sharing, and naturally supports Server-Sent Events
-(SSE), which are required for real-time AI response streaming. The chosen stack
-also aligns with the team's previous experience, which reduces implementation risk
-within a fixed internship schedule.
-
-Language and framework choices follow from that architecture.
-\textbf{TypeScript} is used across the API and the web application so that domain
-types, validation contracts, and shared utilities stay consistent in one
-repository. \textbf{Next.js}~\cite{nextjs-docs} implements the presentation layer
-with the App Router and a mix of server and client rendering suited to dashboards,
-document browsing, and the Ask workspace. \textbf{Express}~\cite{express-docs}
-hosts the REST API and streams RAG answers over SSE without introducing a second
-backend runtime. \textbf{Prisma}~\cite{prisma-docs} provides the ORM, schema
-definitions, and sequential migrations that keep the relational model under
-version control. Together these choices match the title of this section: they are
-not incidental libraries, but the concrete application stack that realises the
-three-tier design of Section~\ref{sec:overall-architecture}.
-
-\subsection{Database and Retrieval Technology}
-\label{subsec:database-retrieval-tech}
-
-PostgreSQL enhanced with the pgvector extension was selected as the primary
-persistence layer~\cite{pgvector-docs}. Relational metadata (users, departments,
-documents, conversations, notifications) and vector embeddings then coexist in a
-single database, which simplifies transaction management and supports hybrid
-retrieval that combines semantic similarity with SQL filters such as department
-scope and visibility. Dedicated vector databases such as Pinecone, Weaviate, or
-Milvus~\cite{pinecone-docs} would specialise embedding search further, but would
-also add another service to operate, synchronise, and secure. For the expected
-corpus size and deployment model of this project, PostgreSQL with pgvector cuts
-infrastructure complexity while remaining sufficient for hybrid search and RAG.
-
-\subsection{AI Service Selection}
-\label{subsec:ai-service-selection}
-
-Google Gemini was adopted as the external AI provider for embedding generation,
-optional reranking, and answer synthesis~\cite{google-gemini-docs}. Managed AI
-services remove the operational burden of hosting and maintaining large language
-models on internship hardware, while still offering strong multilingual quality
-suited to enterprise document understanding. Self-hosting open-weight models was
-considered but rejected for this scope: it would have required GPU capacity,
-model packaging, and continuous maintenance that would divert effort from the
-platform lifecycle (ingest, access control, hybrid retrieval, and governance)
-that forms the core of the work.
-
-\subsection{Background Processing Strategy}
-\label{subsec:background-processing}
-
-Document ingestion is performed asynchronously through a Redis-backed BullMQ
-queue~\cite{redis-docs, bullmq-docs}. Parsing documents, generating chunks, and
-creating embeddings are computationally intensive; moving them off the request
-path keeps interactive API calls responsive. Running the BullMQ consumer in the
-same API process simplifies deployment for a prototype-scale platform (one process
-to start, monitor, and containerise). The design remains extensible: the queue
-abstraction allows a dedicated worker service later if volume or isolation needs
-grow, without rewriting the ingest pipeline itself.
-
-\section{Global Domain Class Model}
+\subsection{Global Domain Class Model}
 \label{sec:domain-model}
 
 The persisted domain model represents the core entities of the Knowledge Platform
-and the relationships between them. It provides a structural view of the system by
-modelling users and roles, departments and access rights, documents and versions,
-conversation threads and feedback, and notifications.
+and the relationships between them. Figure~\ref{fig:class-diagram} presents the
+\textbf{principal} UML class diagram used in this chapter: identity and access
+(\texttt{User}, \texttt{Role}, \texttt{Department}, \texttt{UserDepartmentAccess}),
+the document library (\texttt{Document}, \texttt{DocumentVersion},
+\texttt{DocumentChunk}, \texttt{DocumentTag}), and conversational AI
+(\texttt{Conversation}, \texttt{ConversationMessage}, \texttt{AnswerFeedback}).
+Secondary persistence entities---session and token tables, audit logs, favourites,
+recents, and notifications---are omitted here for clarity and are documented in
+the extended class diagram of Annex~\ref{annex:integrity}
+(Figure~\ref{fig:annex-class-detailed}).
 
-Figure~\ref{fig:class-diagram} presents the corresponding global UML class diagram.
-The figure is meant to make the main entity groups and their associations visible
-in one place, so that later sprint-scoped class diagrams can be read as focused
-extracts of this same model rather than as unrelated schemas.
-
-\clearpage
-\begin{sidewaysfigure}
+\begin{figure}[H]
 \centering
-\includegraphics[width=\textheight,height=0.92\textwidth,keepaspectratio]{assets/figures/global-class-knowledge-platform.png}
-\caption{Global domain class diagram (persisted entities and main relationships)}
+\includegraphics[width=\textwidth,height=0.82\textheight,keepaspectratio]{assets/figures/global-class-knowledge-platform.png}
+\caption{Global domain class diagram (principal entities and relationships)}
 \label{fig:class-diagram}
-\end{sidewaysfigure}
-\clearpage
-\FloatBarrier
+\end{figure}
 
-\section{Logical Subsystem Decomposition}
+\subsection{Logical Subsystem Decomposition}
 \label{sec:subsystem-decomposition}
 
 To improve modularity and maintainability, the Knowledge Platform is decomposed
@@ -305,7 +402,7 @@ Manager workspace API \\
 \section{Sprint-scoped Dynamic Design}
 \label{sec:sprint-design}
 
-Sections~\ref{sec:overall-architecture}--\ref{sec:subsystem-decomposition} describe
+Sections~\ref{sec:technology-justification}--\ref{sec:subsystem-decomposition} describe
 \textbf{what} the platform is made of. This section describes \textbf{how} people,
 services, and background processes interact during real use. For each development
 sprint in Table~\ref{tab:sprints} of Chapter~\ref{ch:requirements}, the design is

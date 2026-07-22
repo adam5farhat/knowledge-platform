@@ -179,6 +179,14 @@
   \label{#4}
   \end{figure}%
 }
+% Structured academic explanation for a UI screen (before \uiscreenshot).
+\newcommand{\uiexplain}[5]{%
+  \noindent\textbf{Purpose.} #1\par\vspace{0.2em}%
+  \noindent\textbf{Access.} #2\par\vspace{0.2em}%
+  \noindent\textbf{Main components.} #3\par\vspace{0.2em}%
+  \noindent\textbf{Typical workflow.} #4\par\vspace{0.2em}%
+  \noindent\textbf{Expected behaviour.} #5\par\vspace{0.35em}%
+}
 \newcommand{\techicon}[2][1.15em]{%
   \raisebox{-0.28\height}{\includegraphics[height=#1]{assets/tech-icons/#2.png}}%
 }

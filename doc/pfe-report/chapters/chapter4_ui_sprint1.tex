@@ -2,40 +2,103 @@
 \label{subsubsec:impl-s1-ui}
 
 The Sprint~1 web client covers credential-based sign-in, password recovery,
-profile management, and role-based home hubs. Error and restriction states are
-validated manually in Section~\ref{sec:manual-ux-validation}.
+profile management, and role-based home hubs. Each interface below is described
+in terms of purpose, access path, major components, typical workflow, and
+expected system behaviour. Error and restriction states are validated manually in
+Section~\ref{sec:manual-ux-validation}.
 
-\paragraph{Authentication pages.}
-Sign-in and password recovery are implemented as static Next.js routes.
-Figure~\ref{fig:ui-login} shows the production sign-in layout;
-Figure~\ref{fig:ui-forgot-password} shows the recovery workflow.
-
+\paragraph{Sign-in page.}
+\uiexplain
+{Authenticate registered users and issue a secure session before any protected
+feature can be used.}
+{Public route \texttt{/login} (or the application root when no session is
+active). Guests and signed-out users reach this page directly.}
+{Brand header and theme toggle; email and password fields; primary sign-in
+action; link to password recovery; inline validation and generic error messaging.}
+{The user enters credentials and submits the form. On success the client stores
+the short-lived access token in memory, receives the HttpOnly refresh cookie, and
+is redirected to the role-appropriate home hub.}
+{Valid credentials open a session; invalid credentials yield a non-enumerating
+error; repeated failures may trigger lockout according to server policy; rate
+limiting applies to the login endpoint.}
 \uiscreenshot{ui-login-page.png}{Knowledge Platform sign-in page with email, password, and theme toggle}{Sign-in page}{fig:ui-login}
 
+\paragraph{Forgot-password page.}
+\uiexplain
+{Allow users who forgot their password to request a time-limited reset link by
+email without exposing whether an account exists.}
+{Link from the sign-in page (``Forgot password?'') to the recovery route.}
+{Email input; submit action; return-to-sign-in link; confirmation message area.}
+{The user submits an email address. The server always returns a neutral success
+acknowledgement and, when the account exists, sends a reset message through the
+configured SMTP channel.}
+{No account enumeration; reset tokens expire; completing the reset invalidates
+prior sessions for that user.}
 \uiscreenshot{ui-forgot-password.png}{Password recovery request form with email field and submit action}{Forgot password}{fig:ui-forgot-password}
 
-\paragraph{Profile management.}
-Figure~\ref{fig:ui-profile} shows the profile settings page: avatar upload,
-editable contact fields, read-only role and department (set by administrators),
-and inline change-password controls.
-
+\paragraph{Profile settings.}
+\uiexplain
+{Let authenticated users view and update personal profile data, manage their
+avatar, and change their password while signed in.}
+{Signed-in navigation to Profile / Settings from the shell header or hub.}
+{Avatar upload and preview; editable identity fields (for example display name
+and contact details); read-only role and department; change-password form with
+current and new password fields.}
+{The user updates profile fields or uploads an avatar and saves. Password change
+requires the current password; on success other sessions are revoked.}
+{Persisted profile fields reload on the next session; avatars are served with
+CORP-aware headers; unauthorised role or department edits are rejected because
+those attributes remain administrator-controlled.}
 \uiscreenshot{ui-profile-settings.png}{Profile settings with avatar upload, read-only role and department, and change-password form}{Profile settings}{fig:ui-profile}
 
-\paragraph{Role-based home hubs.}
-After authentication, users land on a tile-based hub whose options depend on
-platform role. Employees see Documents and Ask
-(Figure~\ref{fig:ui-hub-employee}); managers also see Department overview
-(Figure~\ref{fig:ui-hub-manager}); administrators see the full four-tile hub
-including Administration (Figure~\ref{fig:ui-hub-admin}).
-
+\paragraph{Employee home hub.}
+\uiexplain
+{Provide employees with a clear entry point to the document library and the Ask
+workspace after authentication.}
+{Default landing page after employee sign-in, or navigation to Home.}
+{Role-aware tile grid; Documents and Ask tiles; shared shell chrome (header,
+notifications affordance, theme control).}
+{The user selects Documents to open the library or Ask to open the conversational
+workspace. Restricted features are hidden or redirect to the restricted notice.}
+{Only capabilities allowed by role and per-user flags are reachable; selecting a
+tile navigates to the corresponding authenticated route.}
 \uiscreenshot{ui-hub-employee.png}{Employee landing page with Documents and Ask tiles}{Employee home hub}{fig:ui-hub-employee}
 
+\paragraph{Manager home hub.}
+\uiexplain
+{Extend the employee entry point with manager-specific navigation to department
+oversight.}
+{Default landing page after manager sign-in.}
+{Documents, Ask, and Department overview tiles within the same hub layout.}
+{The manager opens Department overview to inspect managed teams and
+department-scoped documents, or uses the shared Documents and Ask tiles.}
+{Department overview lists only departments within the manager's scope; other
+tiles behave as for employees.}
 \uiscreenshot{ui-hub-manager.png}{Manager landing page with Department overview tile}{Manager home hub}{fig:ui-hub-manager}
 
+\paragraph{Administrator home hub.}
+\uiexplain
+{Give administrators a four-tile landing surface that also opens the
+administration console.}
+{Default landing page after administrator sign-in.}
+{Documents, Ask, Department overview (when applicable), and Administration tiles;
+light-theme presentation of shared shell chrome.}
+{The administrator selects Administration to enter the governance hub, or uses
+the other tiles for library and Ask work.}
+{Administration routes require the administrator role; unauthorised roles cannot
+open those modules.}
 \uiscreenshot{ui-hub-admin-light.png}{Administrator landing page with Administration tile}{Administrator home hub (light)}{fig:ui-hub-admin}
 
-\paragraph{Theme switching.}
-Figure~\ref{fig:ui-dark-mode} shows the same administrator hub in dark mode,
-confirming that the CSS theme tokens apply consistently across navigation tiles.
-
+\paragraph{Dark theme (administrator hub).}
+\uiexplain
+{Demonstrate consistent theming of the authenticated shell so that contrast and
+navigation remain readable in dark mode.}
+{Theme toggle on the hub or shell header while signed in as administrator (same
+route as the light hub).}
+{Same tile layout as the light administrator hub, rendered with dark-theme CSS
+tokens for background, text, and controls.}
+{The user toggles theme; the hub and shared chrome update without leaving the
+page.}
+{Theme preference applies consistently across tiles and chrome; no functional
+difference from the light hub beyond visual tokens.}
 \uiscreenshot{ui-hub-admin-dark.png}{Administrator home hub in dark mode showing consistent theme tokens}{Dark theme}{fig:ui-dark-mode}

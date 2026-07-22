@@ -137,8 +137,9 @@ V.~C. Hu, D.~Ferraiolo, R.~Kuhn, A.~Schnitzer, K.~Sandlin, R.~Miller, and
 
 \bibitem{glean-docs}
 \BIBentryALTinterwordspacing
-------, ``Glean developer and platform documentation,'' 2025, [Online].
-  Accessed: July 2026. [Online]. Available: \url{https://developers.glean.com/}
+{Glean Technologies, Inc.\relax}, ``Glean developer and platform
+  documentation,'' 2025, [Online]. Accessed: July 2026. [Online]. Available:
+  \url{https://developers.glean.com/}
 \BIBentrySTDinterwordspacing
 
 \bibitem{nextjs-docs}

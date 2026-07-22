@@ -1,16 +1,37 @@
 \subsubsection{Implemented web interfaces}
 \label{subsubsec:impl-s3-ui}
 
-\paragraph{Ask interface.}
-The Ask workspace streams structured answers with confidence indicators and
-clickable source citations grounded in retrieved chunks
-(Figure~\ref{fig:seq-11}, Figure~\ref{fig:seq-12}).
+Sprint~3 interfaces focus on grounded question answering and quality feedback.
+Each screen is documented with purpose, access, components, workflow, and
+expected behaviour.
 
+\paragraph{Ask / RAG chat.}
+\uiexplain
+{Enable authorised users to ask natural-language questions and receive
+streaming, cited answers grounded in accessible enterprise documents.}
+{Home hub Ask tile, or authenticated navigation to the Ask workspace. Feature
+flags may block this route for restricted accounts.}
+{Conversation list or new-thread control; message composer; streaming answer
+pane; confidence indicator; clickable source citations linked to retrieved
+chunks.}
+{The user opens or starts a conversation, submits a question, and reads the
+streamed answer with sources (Figures~\ref{fig:seq-11} and~\ref{fig:seq-12}).
+Follow-up turns reuse conversation context where supported.}
+{Answers cite passages the user is allowed to see, because access filters are
+applied during dense and sparse SQL retrieval before fusion
+(Subsection~\ref{subsubsec:retrieval-security}); empty or low-evidence cases
+are signalled rather than inventing sources; restricted users are denied entry.}
 \uiscreenshot{ui-ask-rag-chat.png}{Ask chat interface with structured answer, confidence indicator, and source citations}{Ask / RAG chat with citations}{fig:ui-ask-rag}
 
-\paragraph{Answer feedback.}
-Each completed assistant message offers copy, thumbs-up, and thumbs-down controls;
-negative feedback can include a free-text comment for export and RAG evaluation
-(Figure~\ref{fig:ui-ask-feedback}, Figure~\ref{fig:seq-14}).
-
+\paragraph{Answer feedback controls.}
+\uiexplain
+{Collect structured user judgement on assistant answers to support quality
+monitoring and later evaluation.}
+{Displayed on each completed assistant message inside the Ask workspace.}
+{Copy action; thumbs-up and thumbs-down controls; optional comment field for
+negative feedback; grounding or citation badge near the answer.}
+{After reading an answer, the user rates it and may add a short comment; the
+client posts feedback against the message (Figure~\ref{fig:seq-14}).}
+{Feedback is stored per message and user; administrators can later inspect
+aggregates; rating does not alter the generated text already shown.}
 \uiscreenshot{ui-ask-feedback.png}{Per-answer feedback controls with copy, thumbs up/down, and grounding badge}{Answer feedback controls}{fig:ui-ask-feedback}

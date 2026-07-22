@@ -127,15 +127,17 @@ Sprint~3 let authorised users find information semantically and receive cited,
 streaming answers grounded in their accessible corpus. Hybrid retrieval combines
 dense vectors and full-text search, fuses rankings, reranks with Gemini, and
 streams results over SSE. Algorithm~\ref{alg:rag} summarises the Ask endpoint
-logic.
+logic. Access enforcement inside that pipeline is detailed in
+Subsection~\ref{subsubsec:retrieval-security}.
 
 \begin{algorithm}[H]
 \caption{Hybrid RAG Ask pipeline (simplified)}
 \label{alg:rag}
 \begin{algorithmic}[1]
-\State Authenticate user and resolve \texttt{readableDepartmentIds}
+\State Authenticate user; resolve role and \texttt{readableDepartmentIds}
 \State Optimise query (type, topic, rewrite, optional multi-hop)
-\State Retrieve dense vectors (pgvector) and sparse FTS (BM25-style)
+\State Retrieve dense (pgvector) and sparse (BM25-style FTS) candidates
+      \textbf{under a shared SQL access filter}
 \State Fuse rankings with weighted reciprocal rank fusion (RRF)
 \State Rerank top chunks with Gemini; optionally expand neighbor chunks
 \State Stream SSE events: \texttt{sources}, \texttt{token}, optional \texttt{correction}
@@ -143,6 +145,72 @@ logic.
 \State Optionally cache answer keyed by prompt version and filters
 \end{algorithmic}
 \end{algorithm}
+
+\subsubsection{Security Enforcement in the Retrieval Pipeline}
+\label{subsubsec:retrieval-security}
+
+Semantic search and Ask share the same retrieval core. Confidentiality therefore
+depends on \emph{when} hybrid RBAC/ABAC rules enter that core. The platform does
+not retrieve freely and then discard forbidden hits. Instead, it binds
+authorisation into the SQL that forms the candidate sets, so unauthorised
+passages never enter fusion, reranking, or generation.
+
+\paragraph{Authorisation inputs.}
+After authentication, middleware resolves the caller's platform role (RBAC) and
+department-readable scope (ABAC), including inherited membership on the
+department tree. Administrators may bypass visibility predicates; other roles
+receive a concrete \texttt{readableDepartmentIds} set. Feature-restriction flags
+may additionally block the Ask or library routes before retrieval begins.
+Document attributes used by ABAC are visibility
+(\texttt{ALL}, \texttt{DEPARTMENT}, \texttt{PRIVATE}), owning department, and
+owner identity for private documents. Only latest, non-archived,
+\texttt{READY} versions are eligible.
+
+\paragraph{Where filtering is applied.}
+Access filtering is applied as follows relative to the pipeline stages:
+
+\begin{itemize}
+  \item \textbf{Before vector retrieval (as a separate pre-filter stage):}
+        no. There is no standalone corpus-narrowing pass that runs ahead of
+        embedding search outside SQL.
+  \item \textbf{During vector retrieval:}
+        yes. The pgvector similarity query includes a shared SQL
+        \texttt{WHERE} predicate (\texttt{accessFilter}) so that only
+        authorised documents can appear in the dense top-$k$.
+  \item \textbf{During SQL / full-text retrieval:}
+        yes. The BM25-style FTS query applies the \emph{same}
+        \texttt{accessFilter} predicate, so sparse candidates obey identical
+        visibility and department rules.
+  \item \textbf{After vector retrieval (post-filter on ranked hits):}
+        no. The design deliberately avoids retrieving first and filtering
+        afterwards.
+  \item \textbf{During reranking:}
+        no additional ACL. Reranking reorders chunks that already passed the
+        SQL filter.
+  \item \textbf{During final answer generation:}
+        no additional ACL. The generative model receives only the filtered,
+        fused, and optionally reranked context; citations are drawn from that
+        same set.
+\end{itemize}
+
+Neighbor-chunk expansion likewise stays within a document version that has
+already been admitted by the filter; it does not reopen the corpus.
+
+\paragraph{Security implications.}
+Query-time enforcement has three direct consequences. First, unauthorised
+chunks never participate in reciprocal-rank fusion, so they cannot rise through
+reranking or appear as Ask citations. Second, similarity scores and keyword
+ranks are computed only over the caller's permitted subset, which prevents
+inference from the mere presence of a near-neighbour in a forbidden document.
+Third, because generation never sees forbidden text, prompt leakage and
+citation leakage of private or out-of-department content are structurally
+reduced compared with post-hoc filtering, where a bug or partial filter could
+still expose snippets in logs, caches, or streamed tokens. Combined with
+neutral denial patterns on direct document access elsewhere in the API, this
+design prevents unauthorised document exposure along the RAG path: RBAC decides
+\emph{who} may use Ask and who bypasses visibility as administrator, while ABAC
+predicates decide \emph{which} documents may enter retrieval, and both channels
+of hybrid search honour those predicates before any ranking or generation step.
 
 The Ask UI consumes SSE streams and renders markdown with sanitised links.
 Conversation threads, message persistence, and thumbs-up/down feedback complete

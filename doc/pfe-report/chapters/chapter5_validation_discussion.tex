@@ -252,51 +252,275 @@ manageable departments.
 \section{Critical Discussion}
 \label{sec:critical-discussion}
 
+This section evaluates the Knowledge Platform as an engineering artefact rather
+than only as a checklist of passed tests. Strengths and unmet targets are stated
+first; the core of the discussion then analyses concrete limitations with cause,
+impact, possible mitigation, and future improvement. Threats to validity and a
+confidence assessment close the section.
+
 \subsection{Strengths}
 
-End-to-end coherence is the clearest strength of the platform. Requirements remain
-traceable, the architecture stays modular, the automated suite covers 74/74 cases,
-and the documented RAG pipeline goes well past a thin chat demo: hybrid retrieval,
-reranking, SSE, feedback, and an evaluation harness. Manual UX checks also show that
-security and restriction flows are intelligible to users, not merely correct at the
-API layer.
+End-to-end coherence remains the clearest strength. Functional requirements stay
+traceable to design sequences and to the 74/74 integration suite; the architecture
+keeps authentication, ingest, retrieval, and governance in separable modules; and
+the Ask path implements a full RAG stack (hybrid retrieval, reranking, SSE,
+feedback, and an evaluation harness) rather than a thin chat wrapper. Manual UX
+checks further show that restriction and security flows are intelligible in the
+browser, not only correct at the HTTP layer.
 
 \subsection{Deviations from Targets}
 
-A few targets were only partly met. The RAG judge KPI still lacks a full
+Several targets were only partly met. The RAG judge KPI still lacks a full
 faithfulness and relevance run, so it remains \textbf{Partial} in
-Table~\ref{tab:kpi-results}. No formal load test was run for concurrent Ask
-streams, leaving throughput unvalidated. The topic evaluation at 15/34 clears the
-degraded threshold, yet it does not show production-grade query optimisation when
-API credentials are absent.
+Table~\ref{tab:kpi-results}. The topic evaluation at 15/34 clears the degraded
+threshold without an external API key, yet that result does not demonstrate
+production-grade query optimisation under live model credentials. These gaps do
+not invalidate the functional evidence; they bound how far the measured results
+can be extrapolated.
 
-\subsection{Limitations}
+Concurrent Ask AI and Server-Sent Events (SSE) load testing was deliberately
+placed outside the scope of the present validation campaign. The experimental
+effort focused on functional correctness, access control, and RAG behaviour under
+controlled laboratory conditions, rather than on performance envelopes under
+multi-user streaming load. Such testing remains important because Ask answers are
+delivered over long-lived SSE connections whose stability, fairness, and resource
+cost only become visible when many clients stream in parallel: connection
+saturation, proxy buffering, and shared process limits can inflate response
+latency, exhaust memory or file descriptors, and starve ingest or API workers
+even when single-user scenarios pass. Accordingly, future work should include
+dedicated stress testing that characterises high concurrency, measures response
+latency under load, monitors resource utilisation, and evaluates worker
+scalability for the Ask and ingest paths before any claim of production readiness
+is made.
 
-Several limits follow from the design choices. Latency, cost, and availability
-all hinge on Google Gemini as the external LLM. Default storage is local disk
-rather than cloud-native object storage. The automated judge is itself an LLM, so
-human evaluation still has a place. Answer quality also climbs or falls with how
-complete the ingest corpus is and how well chunking performs.
+\subsection{Engineering Limitations}
 
+The limitations below follow from architectural choices, external dependencies,
+and the scope of the validation campaign. Each item is examined as a critical
+engineering risk.
+
+\paragraph{Large-document processing delays.}
+\noindent\textbf{Cause.} Ingest is sequential per file on a single worker path:
+text extraction, sentence-aware chunking, embedding calls, and index writes all
+run after upload. Large PDFs or multi-section Office files increase extraction
+time and the number of embedding batches.\par\vspace{0.15em}
+\noindent\textbf{Impact.} Users see prolonged \textbf{Processing} states; Ask and
+search cannot use the document until it reaches \textbf{READY}. Under burst
+uploads, the queue lengthens and perceived library freshness drops.\par\vspace{0.15em}
+\noindent\textbf{Possible mitigation.} Cap accepted page or byte size at upload;
+show accurate progress and estimated remaining work; prioritise smaller jobs or
+fail fast on pathological files; parallelise chunk embedding within a document
+where the provider allows batching.\par\vspace{0.15em}
+\noindent\textbf{Future improvement.} Scale to multiple workers with fair
+scheduling, optional OCR offload for scanned PDFs, and object-storage-backed
+pipelines that process pages or sections incrementally.
+\par\vspace{0.35em}
+\paragraph{Embedding generation latency.}
+\noindent\textbf{Cause.} Dense vectors are produced by remote embedding APIs
+(Gemini embeddings in the current stack). Latency is dominated by network
+round-trips and provider rate limits, not by local CPU alone.\par\vspace{0.15em}
+\noindent\textbf{Impact.} Ingest wall-clock time grows roughly with chunk count;
+reprocess and version bumps re-trigger the same cost. Operational cost and
+availability track the embedding provider.\par\vspace{0.15em}
+\noindent\textbf{Possible mitigation.} Batch embed requests; cache embeddings for
+unchanged chunks across versions; backoff and retry with jitter on rate limits;
+defer non-critical re-embedding.\par\vspace{0.15em}
+\noindent\textbf{Future improvement.} Deploy an on-premises or self-hosted
+embedding model for predictable latency, or a hybrid policy that embeds hot
+content remotely and cold content asynchronously.
+\par\vspace{0.35em}
+\paragraph{LLM hallucinations.}
+\noindent\textbf{Cause.} Generative models can produce fluent text that is not
+entailed by retrieved context, especially when retrieval returns weak or empty
+evidence, or when the prompt allows unsupported elaboration.\par\vspace{0.15em}
+\noindent\textbf{Impact.} Users may trust incorrect procedural or policy answers.
+Even with citations, a mismatched narrative can undermine confidence in the
+platform as a knowledge system.\par\vspace{0.15em}
+\noindent\textbf{Possible mitigation.} Require citation grounding in the system
+prompt; surface confidence and ``insufficient evidence'' states; keep answers
+extractive when retrieval scores are low; collect thumbs-down feedback for
+offline review.\par\vspace{0.15em}
+\noindent\textbf{Future improvement.} Complete the automated faithfulness judge
+in CI, add human spot-checks on critical domains, and experiment with
+answer-abstention and citation-alignment post-filters.
+\par\vspace{0.35em}
+\paragraph{Retrieval inaccuracies.}
+\noindent\textbf{Cause.} Hybrid retrieval can still miss the right passage when
+queries are ambiguous, chunk boundaries split tables or definitions, vocabulary
+drifts from the corpus, or reranking is unavailable without API credentials.\par\vspace{0.15em}
+\noindent\textbf{Impact.} Downstream generation receives poor context, which
+amplifies hallucination risk and yields irrelevant citations. Topic evaluation at
+15/34 in degraded mode already illustrates optimiser brittleness without live
+models.\par\vspace{0.15em}
+\noindent\textbf{Possible mitigation.} Tune chunk size and overlap; preserve
+tables during splitting; expand queries; keep dense and lexical channels in
+fusion; expose ``no strong match'' rather than forcing an answer.\par\vspace{0.15em}
+\noindent\textbf{Future improvement.} Domain-adapted embeddings, learned
+rerankers on host-company queries, and continuous RAG regression on a growing
+golden set.
+\par\vspace{0.35em}
+\paragraph{Permission filtering challenges.}
+\noindent\textbf{Cause.} Visibility (\texttt{ALL}, \texttt{DEPARTMENT},
+\texttt{PRIVATE}) and department membership must be applied consistently at
+document list, download, preview, search, and Ask retrieval time. In Ask and
+semantic search the predicates are bound into SQL
+(Subsection~\ref{subsubsec:retrieval-security}); any path that filters too
+late---or inconsistently across channels---would still risk leakage or false
+negatives.\par\vspace{0.15em}
+\noindent\textbf{Impact.} Over-filtering hides legitimate knowledge; under-
+filtering is a confidentiality failure. Debugging is hard because tests use a
+small seeded graph, while production graphs are denser (nested departments,
+managers with multiple scopes, restricted AI flags).\par\vspace{0.15em}
+\noindent\textbf{Possible mitigation.} Enforce filters in a single shared data-
+access layer; return neutral 404s for unauthorised document IDs; keep integration
+tests for each visibility class and Ask restriction flag.\par\vspace{0.15em}
+\noindent\textbf{Future improvement.} Property-based authorisation tests,
+policy-as-code reviews, and staging corpora that mirror real department
+hierarchies before go-live.
+\par\vspace{0.35em}
+\paragraph{Concurrent SSE limitations.}
+\noindent\textbf{Cause.} Ask streams use Server-Sent Events over long-lived HTTP
+connections. Node process limits, proxy buffering, and per-connection memory for
+partial tokens constrain how many simultaneous streams one instance can hold.\par\vspace{0.15em}
+\noindent\textbf{Impact.} Under concurrent Ask load, streams may stall, time out,
+or degrade interactive latency for other users sharing the same API instance.
+The validation suite never measured this regime.\par\vspace{0.15em}
+\noindent\textbf{Possible mitigation.} Bound concurrent streams per user and per
+instance; disable proxy buffering for SSE routes; keep heartbeats; shed load with
+clear 503 responses when saturated.\par\vspace{0.15em}
+\noindent\textbf{Future improvement.} Horizontal Ask workers behind a
+sticky-session or connection-aware proxy, plus synthetic concurrency benchmarks
+as a release gate.
+\par\vspace{0.35em}
+\paragraph{Lack of stress testing.}
+\noindent\textbf{Cause.} Validation prioritised functional correctness (74 API
+tests, manual UX, RAG quick eval) over performance engineering. No soak, spike,
+or breakpoint test plan was executed against ingest, search, or Ask.\par\vspace{0.15em}
+\noindent\textbf{Impact.} Passing functional KPIs do not imply acceptable
+behaviour at organisational scale. Capacity planning and SLA claims would be
+speculative.\par\vspace{0.15em}
+\noindent\textbf{Possible mitigation.} Define a minimal stress profile (for
+example concurrent uploads, concurrent Ask sessions, and large list pagination)
+and run it on a staging stack before production pilots.\par\vspace{0.15em}
+\noindent\textbf{Future improvement.} Automate load tests in CI or nightly jobs,
+publish latency percentiles (p50/p95), and set explicit capacity envelopes per
+deployment size.
+\par\vspace{0.35em}
+\paragraph{Large-database scalability.}
+\noindent\textbf{Cause.} The prototype relies on a single PostgreSQL instance with
+pgvector. Index size, vacuum behaviour, and hybrid query plans were characterised
+only on a seeded corpus, not on multi-year organisational libraries.\par\vspace{0.15em}
+\noindent\textbf{Impact.} As chunk tables grow, retrieval latency and storage
+cost rise; maintenance windows lengthen; naive queries may scan more than
+necessary when filters and vector search interact.\par\vspace{0.15em}
+\noindent\textbf{Possible mitigation.} Index visibility and department keys used
+in filters; partition or archive cold documents; monitor query plans; keep
+embedding dimensionality and chunk retention under review.\par\vspace{0.15em}
+\noindent\textbf{Future improvement.} Read replicas for search-heavy workloads,
+approximate nearest-neighbour tuning at scale, and optional specialised vector
+stores if PostgreSQL becomes the bottleneck.
+\par\vspace{0.35em}
+\paragraph{Network dependency.}
+\noindent\textbf{Cause.} Embeddings, generation, and optional reranking call
+external Gemini endpoints. File storage defaults to local disk on the API host
+rather than durable multi-AZ object storage.\par\vspace{0.15em}
+\noindent\textbf{Impact.} Provider outages, DNS failures, or campus network
+partitions block Ask and slow ingest even when PostgreSQL and Redis are healthy.
+Local disk also complicates multi-instance deployment and backup.\par\vspace{0.15em}
+\noindent\textbf{Possible mitigation.} Timeouts, retries, and circuit breakers on
+provider calls; degraded mode that disables Ask while leaving library browse
+online; health probes that surface dependency status (already partially present).\par\vspace{0.15em}
+\noindent\textbf{Future improvement.} S3-compatible document storage, optional
+on-prem models, and multi-region failover for critical read paths.
+\par\vspace{0.35em}
+\paragraph{Token limits.}
+\noindent\textbf{Cause.} Context windows and output budgets of the LLM bound how
+much retrieved text and conversation history can be sent in one Ask turn.
+Aggressive truncation may drop the very passages needed for a correct answer.\par\vspace{0.15em}
+\noindent\textbf{Impact.} Long multi-hop questions, large tables, or extended
+threads lose context; answers become shallower; users may need to rephrase or
+split questions.\par\vspace{0.15em}
+\noindent\textbf{Possible mitigation.} Rank and pack only top chunks under a
+token budget; summarise older turns; refuse oversized prompts with a clear
+message; prefer shorter extractive answers when the budget is tight.\par\vspace{0.15em}
+\noindent\textbf{Future improvement.} Adaptive context packing, map-reduce over
+many chunks for long documents, and models with larger windows where licensing
+and cost allow.
+\par\vspace{0.35em}
 \subsection{Threats to Validity and Confidence Level}
 
-Integration tests use a seeded database smaller than a production corpus. RAG eval
-cases are code-defined and may miss some host-company domains. Manual UX tests
-were run on a developer workstation.
+External validity is limited by the experimental setup in
+Table~\ref{tab:validation-setup}. Integration tests use a seeded database smaller
+and cleaner than a production corpus. RAG evaluation cases are code-defined and
+may miss host-company jargon and document genres. Manual UX scenarios ran on a
+developer workstation against \texttt{localhost}, so browser, network, and SSO
+conditions of a real deployment remain untested. The automated judge, when used,
+is itself an LLM and can disagree with expert readers.
 
-\textbf{Confidence assessment.} Confidence is high for API contracts, RBAC,
-document access, and notification lifecycles, backed by the 74/74 integration
-suite. It is medium for RAG answer quality and citation faithfulness while the
-eval harness remains partial without a full judge run. Confidence stays low for
-concurrent load, production-scale corpus behaviour, and long-term operational
-monitoring.
+\textbf{Confidence assessment.} Confidence is \textbf{high} for API contracts,
+RBAC, document access control, and notification lifecycles, backed by the 74/74
+integration suite. Confidence is \textbf{medium} for RAG answer quality and
+citation faithfulness while the full judge KPI remains partial. Confidence is
+\textbf{low} for concurrent SSE behaviour, stress capacity, large-database
+retrieval latency, and long-horizon operational monitoring---precisely the areas
+highlighted as engineering limitations above.
 
 \subsection{Perspectives}
 
-Natural next steps include SSO or LDAP integration, S3-compatible storage, on-prem
-embedding models, and horizontal worker scaling. Multilingual UI, CI-integrated RAG
-regression once API keys are available, and field deployment with user acceptance
-testing on real organisational corpora would round out the present work.
+The limitations analysed above motivate a phased roadmap. The perspectives below
+distinguish work that consolidates the present prototype, work that strengthens
+scalability and retrieval quality, and work that transforms the platform into a
+production-grade organisational service. Priorities follow risk: capacity and
+measurement first, then quality and elasticity, then architectural evolution.
+
+\subsubsection{Short-Term Perspectives}
+
+Short-term work should close the most immediate gaps between laboratory evidence
+and operational readiness. A structured \textbf{load-testing} campaign is required
+for concurrent Ask streams (SSE), burst document uploads, and paginated library
+queries, with published latency percentiles (p50/p95) and explicit saturation
+thresholds. The pending RAG faithfulness and relevance judge run should be
+completed under live API credentials and retained as a regression gate. Permission
+and visibility tests ought to be extended to richer department graphs so that
+authorisation edge cases observed in design are exercised before any pilot.
+\textbf{Advanced monitoring} should move beyond basic health probes toward
+structured metrics for ingest queue depth, embedding latency, Ask token usage,
+error rates, and dependency availability, with alerts tied to those signals.
+Finally, incremental \textbf{OCR improvements} for scanned PDFs---starting with a
+reliable text-extraction fallback and clearer failure states---would reduce
+silent ingest degradation on image-heavy corpora.
+
+\subsubsection{Medium-Term Perspectives}
+
+Medium-term perspectives address elasticity and answer quality once measurement
+baselines exist. \textbf{Horizontal scaling} of the API and \textbf{distributed
+workers} for ingest would decouple upload bursts from interactive Ask traffic and
+allow fair scheduling across large documents. Retrieval quality should advance
+through \textbf{better reranking} (learned or cross-encoder rerankers evaluated
+against a growing golden set) and \textbf{fine-tuned embeddings} adapted to
+host-company vocabulary, reducing the retrieval inaccuracies noted earlier.
+\textbf{Multilingual support}---at minimum for document ingest, search, and
+Ask---would widen the usable corpus beyond a single working language and align
+the product with multilingual organisations. Complementary platform work in this
+horizon includes SSO or LDAP integration, S3-compatible object storage, and
+CI-integrated RAG regression so that quality does not regress as features
+accumulate.
+
+\subsubsection{Long-Term Perspectives}
+
+Long-term perspectives concern architectural ambition and deployment maturity.
+A \textbf{hybrid cloud deployment} model---retaining sensitive corpora and
+identity on controlled infrastructure while optionally using cloud capacity for
+elastic embedding or generation---would balance confidentiality with scale.
+\textbf{Multi-agent AI} workflows (for example specialised agents for query
+reformulation, evidence gathering, citation checking, and answer synthesis) could
+replace the present monolithic Ask path where complexity justifies the
+orchestration cost. On-premises or privately hosted generation and embedding
+stacks would further reduce network dependency. Field deployment with user
+acceptance testing on real organisational corpora, continuous capacity planning,
+and governance aligned with enterprise audit requirements would convert the
+present high confidence in API correctness into sustained operational confidence
+at production scale.
 
 \section{Chapter Conclusion}
 
@@ -305,8 +529,11 @@ from Chapter~\ref{ch:requirements}. Automated integration tests passed without
 failure (74/74), ingest reliability cleared the 95\% target on the seeded corpus,
 and five manual UX scenarios passed with screenshot evidence.
 The RAG judge KPI is still partial until a full evaluation run with API credentials
-is completed, and scale testing was not performed. The critical discussion places
+is completed, and stress testing was not performed. The critical discussion places
 high confidence in API-level correctness, medium confidence in RAG quality metrics,
-and notes limits tied to the external LLM and the size of the test corpus. The
-general conclusion weighs these outcomes against the objectives stated in the
+and low confidence in concurrent SSE capacity and large-corpus behaviour. Concrete
+engineering limitations---including ingest and embedding latency, hallucination and
+retrieval risk, permission filtering, network and token constraints, and the absence
+of load testing---are analysed with causes, impacts, mitigations, and future work.
+The general conclusion weighs these outcomes against the objectives stated in the
 introduction.

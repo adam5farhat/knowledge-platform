@@ -29,13 +29,17 @@
 }
 \newcommand{\backlogstop}{\end{longtable}}
 
-This chapter turns the gaps identified in Chapter~\ref{ch:state-of-the-art} into
-a verifiable specification for the Knowledge Platform. After analysing the host
-organisation, it defines functional and non-functional requirements with acceptance
-criteria, then sets out the Agile Scrum approach and five-sprint plan that frame
-the design (Chapter~\ref{ch:architecture}), implementation
-(Chapter~\ref{ch:implementation}), and validation (Chapter~\ref{ch:validation})
-work that follow.
+This chapter specifies the requirements and delivery methodology of the Knowledge
+Platform. It begins with a functional analysis of the host organisation, the
+system actors, and the global use-case model that bounds the platform's scope.
+It then formulates the functional and non-functional requirements, including the
+hybrid access-control model and the performance indicators used to make those
+requirements measurable. UML modelling supports this analysis through the global
+use-case view of the system. A comparison of software development methodologies
+then justifies the choice of Agile Scrum. The chapter finally presents the selected
+methodology, the five-sprint delivery plan with detailed backlogs, and the
+development and modelling tools adopted for the project. The sections that follow
+develop these elements in that order.
 
 \section{Analysis of the Existing Situation and Usage Context}
 
@@ -387,9 +391,13 @@ document library, search, and AI assistant within their permitted scope.
 
 \textbf{Attribute-Based Access Control (ABAC)} further constrains permissions by
 attributes such as department membership and document visibility
-(\texttt{ALL}, \texttt{DEPARTMENT}, \texttt{PRIVATE}). Retrieval and RAG pipelines
-apply these filters before returning results, so that semantic search and generated
-answers never expose unauthorised content (FR-08, FR-17, FR-18).
+(\texttt{ALL}, \texttt{DEPARTMENT}, \texttt{PRIVATE}). In semantic search and Ask,
+those predicates are applied as query-time SQL filters on both dense (pgvector)
+and sparse (full-text) retrieval---not after ranking or during answer
+generation---so unauthorised passages never enter fusion, reranking, or the
+generative context (FR-08, FR-17, FR-18).
+Subsection~\ref{subsubsec:retrieval-security} details this enforcement point in
+the retrieval pipeline.
 
 \textbf{Per-user feature restriction flags} let administrators disable specific
 capabilities for individual users (for example, blocking document-library access or
@@ -440,6 +448,96 @@ Verified by avatars test \\
 \hline
 \end{tabularx}
 \end{table}
+
+\section{Comparison of Software Development Methodologies}
+\label{sec:methodology-comparison}
+
+Selecting a software process model is a strategic decision: it shapes how
+requirements evolve, how risk is contained, and how frequently stakeholders can
+inspect working software. Before adopting a delivery approach for the Knowledge
+Platform, four representative methodologies were compared against the criteria
+that matter most for this internship: flexibility, client feedback, risk
+management, adaptability, suitability to an AI-enabled product, and support for
+iterative development. Table~\ref{tab:methodology-comparison} summarises that
+comparison.
+
+\begin{table}[H]
+\centering
+\caption{Comparison of software development methodologies}
+\label{tab:methodology-comparison}
+\footnotesize
+\renewcommand{\arraystretch}{1.35}
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{1.85cm}|Y|Y|Y|Y|}
+\hline
+\textbf{Criterion} & \textbf{Waterfall} & \textbf{Spiral} & \textbf{V-Model} & \textbf{Agile Scrum} \\
+\hline
+Flexibility &
+Low: phases are sequential and late change is costly &
+Medium--High: cycles allow replanning after risk reviews &
+Low: verification is paired to fixed stages &
+High: backlog priorities can change each sprint \\
+\hline
+Client feedback &
+Late: mainly at milestones and final delivery &
+Periodic: reviews after risk-driven cycles &
+Stage-gated: validation follows corresponding design &
+Continuous: sprint reviews expose working increments \\
+\hline
+Risk management &
+Limited early: defects surface late &
+Strong: risk analysis drives each spiral &
+Strong on V\&V: testing mirrors each design level &
+Continuous: short sprints and retrospectives surface risk early \\
+\hline
+Adaptability &
+Weak under uncertain or evolving requirements &
+Good when risks and alternatives must be explored &
+Weak when requirements are unstable &
+Strong: increments absorb new learning quickly \\
+\hline
+AI project suitability &
+Poor fit: RAG quality and prompts evolve experimentally &
+Useful for exploratory risk, heavier to operate alone &
+Better for fixed-spec systems than AI prototypes &
+Strong: retrieval, prompts, and UX can be tuned per sprint \\
+\hline
+Iterative development &
+None (linear) &
+Yes (risk-driven iterations) &
+Limited (stage pairs, not product increments) &
+Yes (time-boxed sprints with a potentially shippable increment) \\
+\hline
+\end{tabularx}
+\end{table}
+
+Waterfall remains appropriate when requirements are stable and the problem is well
+understood, but it offers little room to revise scope once coding has begun. For a
+platform that combines document ingest, hybrid retrieval, and RAG-based answering,
+those assumptions do not hold: retrieval quality, prompt behaviour, and
+department-scoped access rules typically become clearer only after working slices
+are exercised. The V-Model strengthens verification and validation discipline, yet
+it inherits the same sequential rigidity and therefore remains a weak match when
+stakeholder feedback and AI evaluation must reshape priorities mid-project.
+
+The Spiral model addresses risk more explicitly by repeating analysis, evaluation,
+and development cycles. That risk focus is valuable for an AI-enabled system, but
+the model is comparatively heavy for a single-engineer internship with a fixed
+calendar: each spiral still requires substantial planning overhead, and delivery
+cadence is less standardised than a sprint-based rhythm.
+
+Agile Scrum combines short iterative increments with continuous stakeholder
+feedback, explicit backlog prioritisation, and a lightweight ceremony set that a
+small team can sustain. Flexibility and adaptability are built into the sprint
+cycle; risk is reduced by delivering testable vertical slices early; and AI-specific
+work---such as tuning hybrid retrieval or reviewing cited answers---can be
+scheduled as backlog items without freezing the overall plan. Those properties
+align directly with the Knowledge Platform's uncertain technical surface and with
+the need for regular industrial and academic review during the internship.
+
+On that basis, Scrum was selected as the delivery methodology for this project.
+The following section details how the framework was applied: roles, artefacts,
+sprint structure, and the five-sprint plan that organised the work.
 
 \section{Selected Methodology}
 

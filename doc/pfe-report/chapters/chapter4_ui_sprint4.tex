@@ -2,49 +2,131 @@
 \label{subsubsec:impl-s4-ui}
 
 Governance consoles cover notifications, manager department overviews,
-administration modules, and audit dashboards. The screenshots below illustrate
-each area.
+administration modules, and audit dashboards. Each interface below includes
+purpose, access path, major components, typical workflow, and expected behaviour.
 
-\paragraph{Notifications.}
-Users receive announcements in a slide-out inbox
-(Figure~\ref{fig:ui-notif-inbox}). Administrators and managers compose manual
-notifications through a modal form with recipient scope and optional attachments
-(Figure~\ref{fig:ui-notif-send}).
-
+\paragraph{Notifications inbox.}
+\uiexplain
+{Deliver automatic and manual announcements to the signed-in user and allow
+inbox triage.}
+{Bell or notifications control in the authenticated shell chrome.}
+{Slide-out or drawer inbox; unread badge; message list with title, time, and
+read state; open and mark-read actions; attachment download when present.}
+{The user opens the inbox, reads items, marks them read, and downloads
+attachments when authorised.}
+{Unread counts update after mark-read; only notifications targeted to the user
+appear; attachments respect recipient authorisation.}
 \uiscreenshot{ui-notifications-inbox.png}{Notifications inbox drawer listing unread announcements}{Notifications inbox}{fig:ui-notif-inbox}
 
+\paragraph{Send notification modal.}
+\uiexplain
+{Allow managers and administrators to publish manual announcements to a chosen
+audience.}
+{Send or Compose action from the notifications area or administration context
+(manager or administrator role).}
+{Title and body fields; recipient scope (users, roles, or departments); optional
+attachment controls; send and cancel actions.}
+{The author fills the form, selects scope, optionally attaches a file, and
+sends; recipients receive inbox entries.}
+{Invalid scope is rejected; successful send creates fan-out inbox rows; senders
+without privilege cannot open the modal.}
 \uiscreenshot{ui-notification-send.png}{Send notification modal with title, body, and recipient scope}{Send notification modal}{fig:ui-notif-send}
 
-\paragraph{Manager dashboard.}
-Figure~\ref{fig:ui-mgr-dept} shows the department overview: team directory,
-department-scoped document list, and ingest status for manageable departments.
-
+\paragraph{Manager department overview.}
+\uiexplain
+{Give managers visibility over the departments they oversee, including members
+and related documents.}
+{Manager home-hub Department overview tile, or manager navigation to the
+department dashboard.}
+{Managed-department selector or list; team directory; department-scoped document
+list; ingest or readiness indicators where shown.}
+{The manager selects a department, reviews members, and inspects documents under
+that scope.}
+{Only manageable departments are listed; data outside scope is omitted.}
 \uiscreenshot{ui-manager-department.png}{Manager department overview with team directory and document list}{Manager department overview}{fig:ui-mgr-dept}
 
-\paragraph{Administration hub and directories.}
-The administration landing page (Figure~\ref{fig:ui-admin-hub}) routes to six
-modules. Figure~\ref{fig:ui-admin-users} shows the user directory with role,
-department, lock state, and bulk import. Figure~\ref{fig:ui-admin-depts} shows
-department cards with hierarchy and merge tool. Figure~\ref{fig:ui-admin-docs}
-shows the admin document library with processing filters and bulk delete.
-
+\paragraph{Administration hub.}
+\uiexplain
+{Provide a single landing surface that routes administrators to governance
+modules.}
+{Administrator home-hub Administration tile.}
+{Module tiles or cards for Users, Departments, Documents, Auth activity,
+Document audit, and System KPIs.}
+{The administrator selects a module tile and lands in the corresponding
+directory or dashboard.}
+{Non-administrators cannot open the hub; each tile leads to a privileged route.}
 \uiscreenshot{ui-admin-hub.png}{Administration hub with Users, Departments, Documents, Auth activity, Document audit, and System modules}{Administration hub}{fig:ui-admin-hub}
 
+\paragraph{Administrator user directory.}
+\uiexplain
+{Support full user-account lifecycle operations for platform governance.}
+{Administration hub Users module.}
+{Searchable user table; role and department columns; restriction and lock
+controls; create or bulk-import actions.}
+{The administrator searches or filters users, opens an account to edit role,
+restrictions, or lock state, or creates accounts in bulk where supported.}
+{Last-administrator safeguards apply; lock and restriction changes take effect
+on subsequent authentication; unauthorised callers receive denial.}
 \uiscreenshot{ui-admin-users.png}{Administrator user directory with roles, restrictions, and lock controls}{Administrator user directory}{fig:ui-admin-users}
 
+\paragraph{Department management.}
+\uiexplain
+{Maintain the organisational department structure, including hierarchy and
+merge operations.}
+{Administration hub Departments module.}
+{Department cards or tree; create and edit controls; merge tool; membership
+context.}
+{The administrator creates or updates departments, adjusts hierarchy, or merges
+a source department into a target while preserving related data.}
+{Merge preserves associated users and documents; unique department constraints
+are enforced; destructive actions require confirmation.}
 \uiscreenshot{ui-admin-departments.png}{Department management with hierarchy tree and merge tool}{Department management}{fig:ui-admin-depts}
 
+\paragraph{Administrator document library.}
+\uiexplain
+{Give administrators platform-wide document control beyond a single department
+library view.}
+{Administration hub Documents module.}
+{Cross-department document table; processing-status filters; bulk selection;
+bulk delete and related administrative actions.}
+{The administrator filters by status, selects documents, and applies bulk
+operations or opens an item for inspection.}
+{Bulk deletes are guarded; filters reflect ingest state; access remains
+administrator-only.}
 \uiscreenshot{ui-admin-documents.png}{Administrator document library with status filters and bulk operations}{Administrator document library}{fig:ui-admin-docs}
 
-\paragraph{Audit trails and system KPIs.}
-Figure~\ref{fig:ui-admin-doc-audit} shows the library-wide document audit log.
-Figure~\ref{fig:ui-admin-auth-activity} shows authentication and security events
-with IP and client metadata. Figure~\ref{fig:ui-admin-system-kpi} shows the
-system overview dashboard with period-over-period user, document, and department
-counts.
-
+\paragraph{Document audit log.}
+\uiexplain
+{Provide a library-wide trail of significant document activities for compliance
+and review.}
+{Administration hub Document audit module.}
+{Chronological event table; filters; CSV export action; actor and document
+references.}
+{The administrator filters events, inspects rows, and exports the log for
+offline analysis.}
+{Export contains the filtered subset; events mirror persisted audit records.}
 \uiscreenshot{ui-admin-doc-audit.png}{Library-wide document audit log with CSV export action}{Document audit log}{fig:ui-admin-doc-audit}
 
+\paragraph{Auth activity log.}
+\uiexplain
+{Expose authentication and security events to support incident review and
+access governance.}
+{Administration hub Auth activity module.}
+{Event list with type, user, timestamp, IP address, and client metadata; filters
+and export where available.}
+{The administrator searches for login, logout, lock, or reset-related events and
+exports evidence when needed.}
+{Events are append-oriented; sensitive secrets are never shown in clear text.}
 \uiscreenshot{ui-admin-auth-activity.png}{Authentication and security event log with IP and client metadata}{Auth activity log}{fig:ui-admin-auth-activity}
 
+\paragraph{System KPI dashboard.}
+\uiexplain
+{Summarise platform health and growth indicators for administrative monitoring.}
+{Administration hub System module.}
+{KPI cards or charts for users, documents, departments, and related totals;
+period-over-period comparison.}
+{The administrator opens the dashboard and compares current counts with the
+previous period.}
+{Figures reflect authorised aggregate queries; empty corpora show zero baselines
+rather than errors.}
 \uiscreenshot{ui-admin-system-kpi.png}{System overview KPI dashboard with period-over-period comparison}{System KPI dashboard}{fig:ui-admin-system-kpi}

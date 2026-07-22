@@ -10,7 +10,7 @@ organisational documents. It compares existing approaches and situates the
 Knowledge Platform in that landscape. Requirements, implementation, and
 validation belong to later chapters and are left aside here.
 
-\section{Scientific and Technical Context}
+\section{Organizational Context}
 \label{sec:context}
 
 \subsection{The Enterprise Knowledge Lifecycle Problem}
@@ -20,6 +20,8 @@ technical documentation, procedures, contracts, internal reports, spreadsheets,
 emails, and operational guidelines. At the same time, those assets are scattered
 across shared drives, email, messaging tools, and departmental repositories that
 rarely talk to one another.
+
+\section{Problem Statement}
 
 The problem is therefore broader than search alone. Knowledge is hard to collect
 consistently, hard to centralise across tools and departments, hard to organise
@@ -40,7 +42,7 @@ not answer questions in natural language. Permission models are also often too
 coarse to reflect how departments actually share knowledge. In practice, these
 platforms behave as passive repositories rather than active knowledge systems.
 
-\section{Information Retrieval: From Keywords to Semantics}
+\section{Existing Study}
 
 \subsection{Classical Retrieval Models}
 
@@ -66,8 +68,6 @@ signals \cite{ram2023hybrid, lin2021unicoil}. Ranking fusion methods such as
 Reciprocal Rank Fusion (RRF) merge the two result lists so that exact keyword hits
 and meaning-based matches reinforce each other. That hybrid pattern is now the
 usual baseline for production search.
-
-\section{Retrieval-Augmented Generation (RAG)}
 
 \subsection{Concept and Architecture}
 
@@ -98,8 +98,6 @@ Classical IR metrics do not fully capture whether an answer is faithful or
 useful. Recent work therefore proposes LLM-based evaluation frameworks that score
 faithfulness, relevance, and completeness \cite{es2024rag-eval}, which helps to
 spot hallucinations and regressions once a system is in production.
-
-\section{Access Control and Knowledge Governance}
 
 \subsection{Role-Based Access Control (RBAC)}
 
@@ -150,7 +148,7 @@ usage remain auditable. In particular, filters have to run inside the retrieval
 pipeline; otherwise a generated answer can leak content that the user was never
 meant to see.
 
-\section{Enterprise Knowledge Systems and Existing Solutions}
+\section{Existing Solutions}
 
 \subsection{Shared Drives and Document Management Systems}
 
@@ -208,7 +206,7 @@ proprietary hosted SaaS. The ranking pipeline is opaque, self-hosting and deep
 customisation are unavailable, and feedback-driven optimisation of the stack
 remains limited for the customer organisation.
 
-\section{Comparative Analysis}
+\section{Comparison of Existing Solutions}
 
 To position the proposed platform within the current landscape of enterprise
 knowledge management solutions, a comparative analysis of representative systems
@@ -259,7 +257,7 @@ Full enterprise knowledge lifecycle solution \\
 \end{tabularx}
 \end{table}
 
-\section{Project Positioning}
+\section{Justification of the Selected Solution}
 
 Taken together, the review points to a clear gap: no widely available solution
 simultaneously covers document lifecycle management, centralised governance,
@@ -273,6 +271,8 @@ answers with source grounding through RAG, and keeps a feedback path so that
 answer quality can be monitored. Unlike tools that solve only one slice of the
 problem (storage, retrieval toolkit, or closed SaaS assistant), the contribution
 here is an integrated lifecycle that can be inspected, deployed, and extended.
+
+\section{Detailed Project Objectives}
 
 \subsection{Key Contribution}
 
