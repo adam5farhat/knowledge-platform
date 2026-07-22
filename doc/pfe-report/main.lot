@@ -3,23 +3,23 @@
 \babel@toc {english}{}\relax 
 \babel@toc {english}{}\relax 
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {1.1}{\ignorespaces Comparative analysis of enterprise knowledge management solutions}}{10}{table.caption.6}%
+\contentsline {table}{\numberline {1.1}{\ignorespaces Comparative analysis of enterprise knowledge management solutions}}{9}{table.caption.6}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {2.1}{\ignorespaces System actors and their primary capabilities}}{13}{table.caption.7}%
-\contentsline {table}{\numberline {2.2}{\ignorespaces Functional requirements with acceptance criteria}}{15}{table.2.2}%
-\contentsline {table}{\numberline {2.3}{\ignorespaces Non-functional requirements}}{18}{table.caption.9}%
-\contentsline {table}{\numberline {2.4}{\ignorespaces Key performance indicators}}{20}{table.caption.10}%
-\contentsline {table}{\numberline {2.5}{\ignorespaces Agile Scrum sprint plan}}{22}{table.caption.11}%
-\contentsline {table}{\numberline {2.6}{\ignorespaces Sprint 1 backlog: authentication and access control}}{23}{table.2.6}%
-\contentsline {table}{\numberline {2.7}{\ignorespaces Sprint 2 backlog: document library and ingest}}{25}{table.2.7}%
-\contentsline {table}{\numberline {2.8}{\ignorespaces Sprint 3 backlog: search, RAG and conversations}}{27}{table.2.8}%
-\contentsline {table}{\numberline {2.9}{\ignorespaces Sprint 4 backlog: governance and notifications}}{28}{table.2.9}%
-\contentsline {table}{\numberline {2.10}{\ignorespaces Sprint 5 backlog: operations, testing and deployment}}{30}{table.2.10}%
-\contentsline {table}{\numberline {2.11}{\ignorespaces Development and modelling tools}}{31}{table.caption.18}%
+\contentsline {table}{\numberline {2.1}{\ignorespaces System actors and their primary capabilities}}{12}{table.caption.7}%
+\contentsline {table}{\numberline {2.2}{\ignorespaces Functional requirements with acceptance criteria}}{14}{table.2.2}%
+\contentsline {table}{\numberline {2.3}{\ignorespaces Non-functional requirements}}{16}{table.caption.9}%
+\contentsline {table}{\numberline {2.4}{\ignorespaces Key performance indicators}}{18}{table.caption.10}%
+\contentsline {table}{\numberline {2.5}{\ignorespaces Agile Scrum sprint plan}}{20}{table.caption.11}%
+\contentsline {table}{\numberline {2.6}{\ignorespaces Sprint 1 backlog: authentication and access control}}{22}{table.2.6}%
+\contentsline {table}{\numberline {2.7}{\ignorespaces Sprint 2 backlog: document library and ingest}}{23}{table.2.7}%
+\contentsline {table}{\numberline {2.8}{\ignorespaces Sprint 3 backlog: search, RAG and conversations}}{25}{table.2.8}%
+\contentsline {table}{\numberline {2.9}{\ignorespaces Sprint 4 backlog: governance and notifications}}{27}{table.2.9}%
+\contentsline {table}{\numberline {2.10}{\ignorespaces Sprint 5 backlog: operations, testing and deployment}}{28}{table.2.10}%
+\contentsline {table}{\numberline {2.11}{\ignorespaces Development and modelling tools}}{29}{table.caption.18}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {3.1}{\ignorespaces Subsystem responsibilities}}{34}{table.caption.20}%
-\contentsline {table}{\numberline {3.2}{\ignorespaces Decision-support matrix for platform architecture (scores: 1 = weak, 3 = strong)}}{36}{table.caption.22}%
-\contentsline {table}{\numberline {3.3}{\ignorespaces Requirements-to-design traceability (excerpt)}}{37}{table.caption.23}%
+\contentsline {table}{\numberline {3.1}{\ignorespaces Decision-support matrix for platform architecture (scores: 1 = weak, 3 = strong)}}{33}{table.caption.20}%
+\contentsline {table}{\numberline {3.2}{\ignorespaces Requirements-to-design traceability (excerpt)}}{34}{table.caption.21}%
+\contentsline {table}{\numberline {3.3}{\ignorespaces Subsystem responsibilities}}{37}{table.caption.23}%
 \addvspace {10\p@ }
 \contentsline {table}{\numberline {4.1}{\ignorespaces Development and deployment stack (detailed)}}{83}{table.caption.121}%
 \contentsline {table}{\numberline {4.2}{\ignorespaces Index of implementation sequence diagrams (Chapter~\ref {ch:architecture}, \S \ref {sec:sprint-design})}}{102}{table.caption.165}%
@@ -30,8 +30,9 @@
 \contentsline {table}{\numberline {5.3}{\ignorespaces Validation test summary by sprint domain}}{108}{table.caption.169}%
 \contentsline {table}{\numberline {5.4}{\ignorespaces Manual UX validation summary}}{111}{table.caption.172}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {A.1}{\ignorespaces Requirements Traceability Matrix}}{120}{table.caption.185}%
-\contentsline {table}{\numberline {A.3}{\ignorespaces Technology Architecture Comparison Matrix}}{121}{table.caption.187}%
-\contentsline {table}{\numberline {A.4}{\ignorespaces Functional Validation Test Summary}}{122}{table.caption.188}%
+\contentsline {table}{\numberline {A.1}{\ignorespaces Requirements Traceability Matrix}}{118}{table.caption.184}%
+\contentsline {table}{\numberline {A.2}{\ignorespaces Requirements Traceability Matrix (continued)}}{119}{table.caption.185}%
+\contentsline {table}{\numberline {A.3}{\ignorespaces Technology Architecture Comparison Matrix}}{119}{table.caption.186}%
+\contentsline {table}{\numberline {A.4}{\ignorespaces Functional Validation Test Summary}}{120}{table.caption.187}%
 \addvspace {10\p@ }
-\contentsline {table}{\numberline {B.1}{\ignorespaces Reproducibility parameters}}{124}{table.caption.189}%
+\contentsline {table}{\numberline {B.1}{\ignorespaces Reproducibility parameters}}{122}{table.caption.188}%

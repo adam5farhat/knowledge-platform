@@ -1,38 +1,38 @@
-\chapter[Validation]{Testing, validation and discussion}
+\chapter{Validation}
 \label{ch:validation}
 
-This chapter evaluates whether the implementation described in
-Chapter~\ref{ch:implementation} satisfies the functional, non-functional, and KPI
-targets defined in Chapter~\ref{ch:requirements} (Table~\ref{tab:kpis}). Validation
-combines automated API tests, RAG evaluation harness runs, and manual browser
-scenarios. The level of confidence attached to each result class is discussed in
-Section~\ref{sec:critical-discussion}.
+This chapter asks whether the implementation in
+Chapter~\ref{ch:implementation} meets the functional, non-functional, and KPI
+targets set out in Chapter~\ref{ch:requirements} (Table~\ref{tab:kpis}). The
+evidence comes from automated API tests, RAG evaluation harness runs, and
+manual browser scenarios. Section~\ref{sec:critical-discussion} discusses how
+much confidence each class of result actually warrants.
 
 \section{Validation Plan}
 
-Validation was structured at four complementary levels. Pure helper functions
-were checked with unit tests. The API was exercised end-to-end through
-integration tests against a live PostgreSQL and Redis stack. Browser scenarios
-on the Next.js client covered flows that are difficult to assert purely at the
-HTTP layer. Finally, a dedicated RAG evaluation harness measured retrieval and
-answer quality with automated judge metrics where an API key was available.
+Validation was organised at four levels. Unit tests cover pure helper functions.
+Integration tests exercise the API end-to-end against a live PostgreSQL and Redis
+stack. Browser scenarios on the Next.js client catch flows that are awkward to
+assert at the HTTP layer alone. A dedicated RAG evaluation harness then measures
+retrieval and answer quality with automated judge metrics when an API key is
+available.
 
-Relative to the solutions surveyed in Chapter~\ref{ch:state-of-the-art}, this
-project validates capabilities that generic document stores or chatbots typically
-lack: \textbf{department-scoped hybrid retrieval}, \textbf{cited streaming answers},
+Relative to the solutions surveyed in Chapter~\ref{ch:state-of-the-art}, the
+checks target capabilities that generic document stores or chatbots usually omit:
+\textbf{department-scoped hybrid retrieval}, \textbf{cited streaming answers},
 \textbf{per-user feature restrictions}, and \textbf{administrative audit trails}.
-Unit coverage is intentionally narrow; the primary automated quality gate is the
-\textbf{74-test integration suite}, supplemented by manual UX checks for
-security and restriction flows.
+Unit coverage is kept deliberately narrow. The main automated quality gate is the
+\textbf{74-test integration suite}, with manual UX checks filling in security and
+restriction flows.
 
 \section{Protocols and Experimental Conditions}
 
 Table~\ref{tab:validation-setup} summarises the experimental environment.
 Integration tests run against a seeded database with Docker-hosted PostgreSQL and
 Redis. RAG evaluation uses a quick mode (optimiser-only, 34 cases) and a full
-judge pipeline when a Gemini API key is configured. Manual scenarios were
-executed in the browser on the local development server and are listed in
-Table~\ref{tab:manual-ux-tests} with screenshot evidence in
+judge pipeline when a Gemini API key is configured. Manual scenarios were run in
+the browser on the local development server; they appear in
+Table~\ref{tab:manual-ux-tests}, with screenshot evidence in
 Section~\ref{sec:manual-ux-validation}.
 
 \begin{table}[H]
@@ -120,18 +120,18 @@ Passed \\
 \end{tabularx}
 \end{table}
 
-\textbf{Analysis.} Five of six KPI rows passed fully. Ingest reliability
-exceeds the 95\% target on the seeded corpus. The integration suite provides
-strong evidence that API contracts match the design sequences of
-Chapter~\ref{ch:architecture}. RAG topic classification meets the degraded-mode
-threshold (15/34) without an external API key; full judge scores remain
-\textbf{partial} pending a complete evaluation run with credentials.
+\textbf{Analysis.} Five of the six KPI rows passed fully. On the seeded corpus,
+ingest reliability clears the 95\% bar. The integration suite gives solid evidence
+that API contracts match the design sequences in
+Chapter~\ref{ch:architecture}. RAG topic classification hits the degraded-mode
+threshold (15/34) without an external API key; full judge scores stay
+\textbf{partial} until a complete run with credentials is available.
 
 \subsection{Integration Test Results by Sprint Domain}
 
-On 4 July 2026, the automated API test suite reported \textbf{74 tests passed}
-across 10 files with zero failures. Table~\ref{tab:test-summary} groups results by
-sprint domain, aligned with Table~\ref{tab:requirements}.
+On 4 July 2026 the automated API suite reported \textbf{74 tests passed}
+across 10 files with no failures. Table~\ref{tab:test-summary} groups the results by
+sprint domain, in line with Table~\ref{tab:requirements}.
 
 \begin{table}[H]
 \centering
@@ -159,28 +159,28 @@ S1/S5 & Avatar CORP + health probe & Headers + DB/Redis ok & Pass (4 tests) & Pa
 \end{tabularx}
 \end{table}
 
-\textbf{Analysis.} Every sprint increment from Table~\ref{tab:sprints} has at least
-one passing integration-test group, confirming end-to-end traceability from
-requirements through design to executable verification. The largest groups are
-S4 administration (18 tests) and S2 document access (14 tests), reflecting the
-complexity of RBAC and visibility rules. Figure~\ref{fig:ui-val-terminal-tests}
-shows the Vitest summary from the 7 July 2026 re-run (74/74, duration
-$\approx$41\,s).
+\textbf{Analysis.} Each sprint increment in Table~\ref{tab:sprints} has at least
+one passing integration-test group, so the chain from requirements through design
+to executable verification stays intact. Administration (S4, 18 tests) and
+document access (S2, 14 tests) form the largest groups, which matches how heavy
+RBAC and visibility rules are in practice.
+Figure~\ref{fig:ui-val-terminal-tests} shows the Vitest summary from the 7 July
+2026 re-run (74/74, duration $\approx$41\,s).
 
 \uiscreenshot{ui-val-terminal-tests.png}{Vitest integration suite output showing 74 tests passed across 10 files}{Integration test run}{fig:ui-val-terminal-tests}
 
 \subsection{RAG Evaluation Results}
 
 Quick evaluation without a configured Gemini API key classified all optimiser
-topics as \texttt{general}, yielding \textbf{15/34 PASS} on topic-label
-cases---an expected degradation when the LLM optimiser cannot run. With API
-credentials, the full harness produces JSON reports under
+topics as \texttt{general}, giving \textbf{15/34 PASS} on topic-label
+cases. That drop is expected when the LLM optimiser cannot run. With API
+credentials, the full harness writes JSON reports under
 \texttt{apps/api/eval-reports/} for faithfulness and citation metrics.
 
-\textbf{Interpretation.} Retrieval and serving paths are testable without the
-external API, but semantic query optimisation and judged answer quality require it.
-The 15/34 result should be read as a \textbf{minimum regression gate}, not as a
-measure of answer quality in production. Figure~\ref{fig:ui-val-rag-eval} captures
+\textbf{Interpretation.} Retrieval and serving paths can be checked without the
+external API; semantic query optimisation and judged answer quality cannot.
+The 15/34 figure is best treated as a \textbf{minimum regression gate}, not as a
+score of production answer quality. Figure~\ref{fig:ui-val-rag-eval} records
 the quick-mode harness output on 7 July 2026.
 
 \uiscreenshot{ui-val-rag-eval.png}{RAG quick evaluation output showing 15 of 34 topic cases passed without Gemini API key}{RAG quick eval run}{fig:ui-val-rag-eval}
@@ -189,7 +189,7 @@ the quick-mode harness output on 7 July 2026.
 \label{sec:manual-ux-validation}
 
 Table~\ref{tab:manual-ux-tests} summarises the five manual browser scenarios.
-Figures below provide visual evidence; implementation counterparts appear in
+The figures below supply visual evidence; matching implementation notes sit in
 Chapter~\ref{ch:implementation} with complementary captions.
 
 \begin{table}[H]
@@ -254,58 +254,59 @@ manageable departments.
 
 \subsection{Strengths}
 
-The platform demonstrates end-to-end engineering coherence: traceable requirements,
-modular architecture, broad automated test coverage (74/74), and a documented RAG
-pipeline that goes beyond a minimal chat demo (hybrid retrieval, reranking, SSE,
-feedback, evaluation harness). Manual UX validation confirms that security and
-restriction flows are understandable to end users, not only correct at the API layer.
+End-to-end coherence is the clearest strength of the platform. Requirements remain
+traceable, the architecture stays modular, the automated suite covers 74/74 cases,
+and the documented RAG pipeline goes well past a thin chat demo: hybrid retrieval,
+reranking, SSE, feedback, and an evaluation harness. Manual UX checks also show that
+security and restriction flows are intelligible to users, not merely correct at the
+API layer.
 
 \subsection{Deviations from Targets}
 
-\begin{itemize}[leftmargin=*,itemsep=0.2em]
-  \item \textbf{RAG judge KPI} --- full faithfulness/relevance run pending; marked \textbf{Partial} in Table~\ref{tab:kpi-results};
-  \item \textbf{Scale testing} --- no formal load test for concurrent Ask streams was executed; throughput remains unvalidated;
-  \item \textbf{RAG topic eval} --- 15/34 meets the degraded threshold but does not demonstrate production-grade query optimisation without API credentials.
-\end{itemize}
+A few targets were only partly met. The RAG judge KPI still lacks a full
+faithfulness and relevance run, so it remains \textbf{Partial} in
+Table~\ref{tab:kpi-results}. No formal load test was run for concurrent Ask
+streams, leaving throughput unvalidated. The topic evaluation at 15/34 clears the
+degraded threshold, yet it does not show production-grade query optimisation when
+API credentials are absent.
 
 \subsection{Limitations}
 
-\begin{itemize}[leftmargin=*,itemsep=0.2em]
-  \item \textbf{External LLM dependency} --- latency, cost, and availability depend on Google Gemini;
-  \item \textbf{Storage} --- default local disk is not cloud-native object storage;
-  \item \textbf{RAG metrics} --- automated judge is itself an LLM; human evaluation remains valuable;
-  \item \textbf{Corpus dependency} --- answer quality rises with ingest completeness and chunking quality.
-\end{itemize}
+Several limits follow from the design choices. Latency, cost, and availability
+all hinge on Google Gemini as the external LLM. Default storage is local disk
+rather than cloud-native object storage. The automated judge is itself an LLM, so
+human evaluation still has a place. Answer quality also climbs or falls with how
+complete the ingest corpus is and how well chunking performs.
 
 \subsection{Threats to Validity and Confidence Level}
 
-Integration tests use a seeded database smaller than production corpora; RAG eval
-cases are code-defined and may not cover all host-company domains; manual UX tests
+Integration tests use a seeded database smaller than a production corpus. RAG eval
+cases are code-defined and may miss some host-company domains. Manual UX tests
 were run on a developer workstation.
 
-\textbf{Confidence assessment:}
-\begin{itemize}[leftmargin=*,itemsep=0.2em]
-  \item \textbf{High} --- API contracts, RBAC, document access, and notification lifecycles (74/74 integration tests);
-  \item \textbf{Medium} --- RAG answer quality and citation faithfulness (eval harness partial without full judge run);
-  \item \textbf{Low} --- concurrent load, production-scale corpus behaviour, and long-term operational monitoring.
-\end{itemize}
+\textbf{Confidence assessment.} Confidence is high for API contracts, RBAC,
+document access, and notification lifecycles, backed by the 74/74 integration
+suite. It is medium for RAG answer quality and citation faithfulness while the
+eval harness remains partial without a full judge run. Confidence stays low for
+concurrent load, production-scale corpus behaviour, and long-term operational
+monitoring.
 
 \subsection{Perspectives}
 
-Future work includes SSO/LDAP integration, S3-compatible storage, on-prem embedding
-models, horizontal worker scaling, multilingual UI, CI-integrated RAG regression
-when API keys are available, and field deployment with user acceptance testing on
-real organisational corpora.
+Natural next steps include SSO or LDAP integration, S3-compatible storage, on-prem
+embedding models, and horizontal worker scaling. Multilingual UI, CI-integrated RAG
+regression once API keys are available, and field deployment with user acceptance
+testing on real organisational corpora would round out the present work.
 
 \section{Chapter Conclusion}
 
-This chapter validated the Knowledge Platform against the KPIs and sprint domains
-defined in Chapter~\ref{ch:requirements}. Automated integration tests passed
-without failure (74/74), ingest reliability exceeded the 95\% target on the seeded
-corpus, and five manual UX scenarios passed with screenshot evidence.
-The RAG judge KPI remains partial pending a full evaluation run with API credentials,
-and scale testing was not performed. Critical discussion identified high confidence
-in API-level correctness, medium confidence in RAG quality metrics, and acknowledged
-limitations related to external LLM dependency and test corpus size. The general
-conclusion synthesises these outcomes relative to the objectives stated in the
+This chapter checked the Knowledge Platform against the KPIs and sprint domains
+from Chapter~\ref{ch:requirements}. Automated integration tests passed without
+failure (74/74), ingest reliability cleared the 95\% target on the seeded corpus,
+and five manual UX scenarios passed with screenshot evidence.
+The RAG judge KPI is still partial until a full evaluation run with API credentials
+is completed, and scale testing was not performed. The critical discussion places
+high confidence in API-level correctness, medium confidence in RAG quality metrics,
+and notes limits tied to the external LLM and the size of the test corpus. The
+general conclusion weighs these outcomes against the objectives stated in the
 introduction.

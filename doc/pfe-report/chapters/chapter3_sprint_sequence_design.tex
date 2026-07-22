@@ -5,48 +5,60 @@ sign-in and sign-out, password recovery, profile management, and the rules that
 limit access when an account or feature is restricted.
 
 \sprintstructural{1}%
+  {Sprint 1 structural models: authentication and access}%
   {Sprint 1 use-case diagram — Authentication and access control}{fig:sprint1-use-cases}%
-  {Sprint 1 domain class diagram — Authentication and access control}{fig:sprint1-class}
+  {Figure~\ref{fig:sprint1-use-cases} bounds the functional scope of Sprint~1.
+  It shows the Guest--Employee--Manager--Admin role hierarchy and the use cases
+  for authentication, password reset, profile management, department member
+  visibility, and feature-restriction enforcement, with Email~(SMTP) as the
+  external system for reset delivery. The aim is to make permission inheritance
+  and the authentication boundary explicit before the detailed sequence flows.}%
+  {Sprint 1 domain class diagram — Authentication and access control}{fig:sprint1-class}%
+  {Figure~\ref{fig:sprint1-class} focuses on the persisted entities required for
+  identity and access: user accounts, sessions or refresh families, roles,
+  feature restrictions, and profile-related attributes. It is intended to show
+  which domain objects underwrite the Sprint~1 use cases without repeating the
+  full global class model.}%
 
-\sprintsequences{1}
+\sprintsequences{1}{Sprint 1 interaction sequences: session and profile flows}
 
 \sprintflowgroup{Signing in and managing the session}
 
-\paragraph{User sign-in.}
+\paragraph{User sign-in --- sequence diagram.}
 A user enters email and password; the platform verifies the credentials, applies
 account lockout after repeated failures, and opens a secure session with a
 short-lived access token and a protected refresh cookie.
 \seqdiagram{seq-01-login}{User sign-in}{sign-in flow}{fig:seq-01}
 
-\paragraph{User sign-out.}
-Signing out ends the active session on the server and removes the refresh cookie
+\paragraph{User sign-out --- sequence diagram.}
+Signing out ends the active session on the server and clears the refresh cookie
 from the browser, so the account cannot be reused from that device without a new
 sign-in.
 \seqdiagram{seq-03-logout}{User sign-out}{sign-out flow}{fig:seq-03}
 
-\paragraph{Forgotten password recovery.}
+\paragraph{Forgotten password recovery --- sequence diagram.}
 A user who forgot their password requests a reset link by email, then sets a new
 password through a time-limited link. Existing sessions are closed once the
 password changes.
 \seqdiagram{seq-04-password-reset}{Forgotten password recovery}{password reset flow}{fig:seq-04}
 
-\paragraph{Changing password while signed in.}
+\paragraph{Changing password while signed in --- sequence diagram.}
 A signed-in user can change their password after confirming the current one.
-Successful change closes other active sessions for safety.
+A successful change closes other active sessions for safety.
 \seqdiagram{seq-05-change-password}{Changing password while signed in}{change-password flow}{fig:seq-05}
 
 \sprintflowgroup{Profile, permissions and session context}
 
-\paragraph{Updating the user profile.}
+\paragraph{Updating the user profile --- sequence diagram.}
 Users can update personal details such as display name and contact information.
 Some changes, such as email updates, require the session to be renewed for
 security.
 \seqdiagram{seq-06-profile-update}{Updating the user profile}{profile update flow}{fig:seq-06}
 
-\paragraph{Blocking access to a restricted feature.}
-Before sensitive actions run, the server checks whether the user is allowed to
-use the document library or AI-powered search. If not, the request is rejected
-with a clear permission error.
+\paragraph{Blocking access to a restricted feature --- sequence diagram.}
+Before sensitive actions run, the server checks whether the user may use the
+document library or AI-powered search. If not, the request is rejected with a
+clear permission error.
 \seqdiagram{seq-07-feature-restriction}{Blocking access to a restricted feature}{feature gate check}{fig:seq-07}
 
 \subsection{Sprint 2: Document library and ingest}\label{subsec:sprint2-design}
@@ -56,60 +68,72 @@ search, browsing and downloading content, and managing versions and metadata
 within department visibility rules.
 
 \sprintstructural{2}%
+  {Sprint 2 structural models: document library and ingest}%
   {Sprint 2 use-case diagram — Document library and ingest}{fig:sprint2-use-cases}%
-  {Sprint 2 domain class diagram — Document library and ingest}{fig:sprint2-class}
+  {Figure~\ref{fig:sprint2-use-cases} presents the Sprint~2 functional boundary
+  for the document library. Employee, Manager, and Admin actors inherit
+  capabilities for browsing, downloading, favourites, uploads, versioning,
+  metadata, archive, reprocess, and bulk delete. External Document processing
+  is linked to upload and reprocess. The diagram aims to separate consumption
+  from stewardship roles before the ingest and library sequence flows.}%
+  {Sprint 2 domain class diagram — Document library and ingest}{fig:sprint2-class}%
+  {Figure~\ref{fig:sprint2-class} isolates the document-centric domain objects:
+  documents, versions, metadata and tags, department visibility, favourites or
+  recents, and processing status. It shows how library state is modelled so that
+  asynchronous ingest can update search readiness without changing the user-facing
+  document identity.}%
 
-\sprintsequences{2}
+\sprintsequences{2}{Sprint 2 interaction sequences: upload, ingest and library flows}
 
 \sprintflowgroup{Uploading and preparing documents}
 
-\paragraph{Uploading a document.}
+\paragraph{Uploading a document --- sequence diagram.}
 A user uploads a file with basic metadata. The platform stores the file, records
 the document in the library, and queues background processing so the user does
 not have to wait for indexing to finish.
 \seqdiagram{seq-08-document-upload}{Uploading a document}{upload flow}{fig:seq-08}
 
-\paragraph{Background document processing.}
+\paragraph{Background document processing --- sequence diagram.}
 After upload, a background worker extracts text, splits it into meaningful
 passages, creates searchable embeddings, and stores them so the document can
 later appear in semantic search and AI answers.
 \seqdiagram{seq-09-document-ingest-worker}{Background document processing}{ingest pipeline}{fig:seq-09}
 
-\paragraph{Reprocessing an existing version.}
-An administrator can trigger reprocessing of a document version---for example
-after improving the indexing pipeline---without uploading the file again.
+\paragraph{Reprocessing an existing version --- sequence diagram.}
+An administrator can trigger reprocessing of a document version, for example
+after improving the indexing pipeline, without uploading the file again.
 \seqdiagram{seq-29-document-reprocess}{Reprocessing an existing version}{reprocess flow}{fig:seq-29}
 
 \sprintflowgroup{Browsing and downloading}
 
-\paragraph{Downloading a document file.}
+\paragraph{Downloading a document file --- sequence diagram.}
 An authorised user downloads the original file. The platform verifies department
 access before sending the file.
 \seqdiagram{seq-10-document-read-download}{Downloading a document file}{download flow}{fig:seq-10}
 
-\paragraph{Browsing the document library.}
+\paragraph{Browsing the document library --- sequence diagram.}
 Users browse the library with filters and pagination. Results show summary
 information suitable for the catalogue view without loading full text content.
 \seqdiagram{seq-24-documents-list}{Browsing the document library}{library list flow}{fig:seq-24}
 
-\paragraph{Opening a document detail view.}
+\paragraph{Opening a document detail view --- sequence diagram.}
 Opening a document shows its metadata, current version, tags, processing status,
 and the information needed for preview or further actions.
 \seqdiagram{seq-25-document-detail}{Opening a document detail view}{document detail flow}{fig:seq-25}
 
-\paragraph{Favourites and recently viewed documents.}
+\paragraph{Favourites and recently viewed documents --- sequence diagram.}
 Users can mark documents as favourites and revisit recently opened items from the
 library home view.
 \seqdiagram{seq-26-favorites-recents}{Favourites and recently viewed documents}{favourites and recents flow}{fig:seq-26}
 
 \sprintflowgroup{Editing metadata and versions}
 
-\paragraph{Updating document metadata.}
+\paragraph{Updating document metadata --- sequence diagram.}
 Authorised users can edit title, description, tags, and visibility. Changes are
 recorded for traceability.
 \seqdiagram{seq-27-patch-document-metadata}{Updating document metadata}{metadata update flow}{fig:seq-27}
 
-\paragraph{Publishing a new document version.}
+\paragraph{Publishing a new document version --- sequence diagram.}
 Uploading a replacement file creates a new version, starts fresh indexing, and
 keeps earlier versions available for audit and rollback.
 \seqdiagram{seq-28-document-new-version}{Publishing a new document version}{new version flow}{fig:seq-28}
@@ -121,19 +145,31 @@ workspace where users can ask questions and receive answers grounded in
 organisational content.
 
 \sprintstructural{3}%
+  {Sprint 3 structural models: search, RAG and conversations}%
   {Sprint 3 use-case diagram — Search, RAG and conversations}{fig:sprint3-use-cases}%
-  {Sprint 3 domain class diagram — Search, RAG and conversations}{fig:sprint3-class}
+  {Figure~\ref{fig:sprint3-use-cases} scopes Sprint~3 around conversations,
+  RAG questions, semantic search, answer feedback, and administrator feedback
+  analytics. Semantic search is included by the Ask flow and depends on the
+  external AI provider~(Gemini). The diagram aims to show how retrieval and
+  dialogue capabilities sit with employee users while analytics remain an
+  administrative concern.}%
+  {Sprint 3 domain class diagram — Search, RAG and conversations}{fig:sprint3-class}%
+  {Figure~\ref{fig:sprint3-class} highlights conversation threads, messages,
+  citations or retrieved chunks, and answer-feedback records linked to users and
+  documents. It is meant to clarify the data that backs search and Ask so that
+  the later sequence diagrams can refer to a stable conversation and feedback
+  model.}%
 
-\sprintsequences{3}
+\sprintsequences{3}{Sprint 3 interaction sequences: search, Ask and conversation flows}
 
 \sprintflowgroup{Search and AI-assisted answers}
 
-\paragraph{Semantic search.}
+\paragraph{Semantic search --- sequence diagram.}
 A user enters a natural-language query; the platform finds the most relevant
 document passages and returns ranked excerpts for direct exploration.
 \seqdiagram{seq-11-semantic-search}{Semantic search}{semantic search flow}{fig:seq-11}
 
-\paragraph{Asking a question with AI assistance.}
+\paragraph{Asking a question with AI assistance --- sequence diagram.}
 In the Ask workspace, the platform retrieves relevant passages, combines keyword
 and semantic matching, and streams a structured answer with source references to
 the user in real time.
@@ -141,25 +177,25 @@ the user in real time.
 
 \sprintflowgroup{Conversations and answer quality}
 
-\paragraph{Creating conversations and adding messages.}
+\paragraph{Creating conversations and adding messages --- sequence diagram.}
 Users open a new conversation, ask questions, receive answers, and can
 automatically generate a short title from the first question. Opening an existing
 thread loads its full history (see Figure~\ref{fig:seq-30}).
 \seqdiagram{seq-13-conversation-and-messages}{Creating conversations and adding messages}{conversation messaging flow}{fig:seq-13}
 
-\paragraph{Rating an answer.}
+\paragraph{Rating an answer --- sequence diagram.}
 After receiving an answer, users can submit positive or negative feedback with an
 optional comment, helping administrators monitor answer quality over time.
 \seqdiagram{seq-14-answer-feedback}{Rating an answer}{answer feedback flow}{fig:seq-14}
 
-\paragraph{Managing conversation threads.}
+\paragraph{Managing conversation threads --- sequence diagram.}
 Users list past conversations, open a thread with its message history, rename a
 thread, or delete it when it is no longer needed.
 \seqdiagram{seq-30-conversations-crud-supplement}{Managing conversation threads}{conversation management flow}{fig:seq-30}
 
-\paragraph{Administrator feedback overview.}
-Administrators consult aggregated feedback metrics---volume, satisfaction ratio,
-and recent comments---to track how well AI answers are received across the
+\paragraph{Administrator feedback overview --- sequence diagram.}
+Administrators consult aggregated feedback metrics (volume, satisfaction ratio,
+and recent comments) to track how well AI answers are received across the
 organisation.
 \seqdiagram{seq-31-admin-feedback-stats}{Administrator feedback overview}{feedback statistics flow}{fig:seq-31}
 
@@ -170,90 +206,101 @@ notifications, giving managers visibility over their teams, and providing
 administrators with tools to manage users, departments, and documents at scale.
 
 \sprintstructural{4}%
+  {Sprint 4 structural models: governance and notifications}%
   {Sprint 4 use-case diagram — Governance and notifications}{fig:sprint4-use-cases}%
-  {Sprint 4 domain class diagram — Governance and notifications}{fig:sprint4-class}
+  {Figure~\ref{fig:sprint4-use-cases} groups Sprint~4 capabilities into employee
+  notification browsing and downloads, manager send and attachment flows, and
+  administrator user, document, export, and audit views. System events trigger
+  automatic notifications outside the interactive actor set. The aim is to show
+  how operational communication and governance tools share one sprint boundary.}%
+  {Sprint 4 domain class diagram — Governance and notifications}{fig:sprint4-class}%
+  {Figure~\ref{fig:sprint4-class} covers notification messages and attachments,
+  department membership views used by managers, and the administrative entities
+  needed for users, departments, access grants, activity logs, and exports. It
+  shows which persisted structures support inbox delivery and governance
+  operations in this sprint.}%
 
-\sprintsequences{4}
+\sprintsequences{4}{Sprint 4 interaction sequences: notifications and governance flows}
 
 \sprintflowgroup{Notifications}
 
-\paragraph{Automatic notification when a document is added.}
+\paragraph{Automatic notification when a document is added --- sequence diagram.}
 When a new document is published, subscribed department members receive an inbox
 notification without delaying the upload experience.
 \seqdiagram{seq-15-notification-automatic}{Automatic notification when a document is added}{document-created notification}{fig:seq-15}
 
-\paragraph{Sending a manual announcement.}
+\paragraph{Sending a manual announcement --- sequence diagram.}
 Administrators and managers can send targeted announcements, optionally with
 attachments, to selected users or departments.
 \seqdiagram{seq-16-notification-manual-send}{Sending a manual announcement}{manual announcement flow}{fig:seq-16}
 
-\paragraph{Reading and managing notifications.}
+\paragraph{Reading and managing notifications --- sequence diagram.}
 Users open their notification inbox, see unread items, mark messages as read,
 and access any attached content.
 \seqdiagram{seq-17-notification-inbox}{Reading and managing notifications}{notification inbox flow}{fig:seq-17}
 
 \sprintflowgroup{Manager workspace}
 
-\paragraph{Manager department overview.}
+\paragraph{Manager department overview --- sequence diagram.}
 Managers view the departments they oversee and inspect each department's member
 list to understand team composition.
 \seqdiagram{seq-18-manager-dashboard}{Manager department overview}{manager department view}{fig:seq-18}
 
 \sprintflowgroup{Administrator governance}
 
-\paragraph{Creating a user account.}
+\paragraph{Creating a user account --- sequence diagram.}
 Administrators create accounts with an initial role, department access, and
 optional feature restrictions. Credentials are shared through organisational
 channels.
 \seqdiagram{seq-19-admin-user-create}{Creating a user account}{user creation flow}{fig:seq-19}
 
-\paragraph{Merging two departments.}
+\paragraph{Merging two departments --- sequence diagram.}
 Department merge moves documents, access rights, and memberships from one
 department into another while preserving data consistency.
 \seqdiagram{seq-20-admin-department-merge}{Merging two departments}{department merge flow}{fig:seq-20}
 
-\paragraph{Replacing a user's department access in bulk.}
+\paragraph{Replacing a user's department access in bulk --- sequence diagram.}
 Administrators can replace all department-access entries for one user in a single
 operation, which simplifies onboarding and access reviews.
 \seqdiagram{seq-21-admin-department-access-bulk}{Replacing a user's department access in bulk}{bulk access update flow}{fig:seq-21}
 
-\paragraph{Creating a department.}
+\paragraph{Creating a department --- sequence diagram.}
 Administrators add a new organisational unit with a unique identifier. The
 operation is logged for audit purposes.
 \seqdiagram{seq-34-admin-department-create}{Creating a department}{department creation flow}{fig:seq-34}
 
-\paragraph{Granting or revoking single department access.}
+\paragraph{Granting or revoking single department access --- sequence diagram.}
 Fine-grained actions add or remove access to one department for one user without
 rewriting the entire access matrix.
 \seqdiagram{seq-35-dept-access-single-post-delete}{Granting or revoking single department access}{single access grant or revoke}{fig:seq-35}
 
-\paragraph{Platform-wide statistics.}
+\paragraph{Platform-wide statistics --- sequence diagram.}
 Administrators view high-level indicators such as user count, document volume,
 conversation activity, and indexing backlog.
 \seqdiagram{seq-36-admin-stats}{Platform-wide statistics}{admin statistics flow}{fig:seq-36}
 
-\paragraph{Activity log and export.}
+\paragraph{Activity log and export --- sequence diagram.}
 Administrators browse recent platform activity and export filtered events to
 spreadsheet format for offline review.
 \seqdiagram{seq-37-admin-activity-export}{Activity log and export}{activity log export flow}{fig:seq-37}
 
-\paragraph{Document change audit log.}
-Administrators review and export a platform-wide log of document changes---
-metadata, visibility, and version updates---to support compliance and access
+\paragraph{Document change audit log --- sequence diagram.}
+Administrators review and export a platform-wide log of document changes
+(metadata, visibility, and version updates) to support compliance and access
 reviews.
 \seqdiagram{seq-38-admin-document-audit}{Document change audit log}{document audit log flow}{fig:seq-38}
 
-\paragraph{Exporting the document catalogue.}
-Administrators export the document inventory---titles, departments, tags, and
-processing status---for reconciliation or reporting.
+\paragraph{Exporting the document catalogue --- sequence diagram.}
+Administrators export the document inventory (titles, departments, tags, and
+processing status) for reconciliation or reporting.
 \seqdiagram{seq-39-admin-documents-csv-export}{Exporting the document catalogue}{document catalogue export}{fig:seq-39}
 
-\paragraph{Deleting multiple documents.}
+\paragraph{Deleting multiple documents --- sequence diagram.}
 Administrators remove a selected set of documents in one guarded operation,
 including stored files and related records.
 \seqdiagram{seq-40-admin-bulk-delete-documents}{Deleting multiple documents}{bulk delete flow}{fig:seq-40}
 
-\paragraph{Updating or locking a user account.}
+\paragraph{Updating or locking a user account --- sequence diagram.}
 Administrators adjust roles, restrictions, or active status. A sign-in lock
 prevents further authentication attempts for a defined period without affecting
 unrelated accounts.
@@ -266,12 +313,23 @@ packaging it for reproducible deployment, and validating behaviour through
 automated tests and AI quality checks.
 
 \sprintstructural{5}%
+  {Sprint 5 structural models: operations, testing and deployment}%
   {Sprint 5 use-case diagram — Operations, testing and deployment}{fig:sprint5-use-cases}%
-  {Sprint 5 domain class diagram — Operations, testing and deployment}{fig:sprint5-class}
+  {Figure~\ref{fig:sprint5-use-cases} frames Sprint~5 around deployment,
+  health probes, integration testing, and RAG evaluation. Administrator and
+  Developer actors share operational responsibilities, while Operations~/~CI
+  drives health checks. The diagram aims to show that delivery readiness is a
+  designed capability set, not only an implementation afterthought.}%
+  {Sprint 5 domain class diagram — Operations, testing and deployment}{fig:sprint5-class}%
+  {Figure~\ref{fig:sprint5-class} isolates the lightweight operational artefacts
+  used in this sprint---health and readiness indicators, deployment composition,
+  and evaluation or test run metadata where modelled. It is intended to connect
+  operability concerns to the same UML vocabulary used in earlier sprints,
+  even when most behaviour is exercised outside the interactive product UI.}%
 
-\sprintsequences{5}
+\sprintsequences{5}{Sprint 5 interaction sequences: health and operational flows}
 
-\paragraph{Service health check.}
+\paragraph{Service health check --- sequence diagram.}
 Monitoring tools call a public health endpoint to verify that the application is
 running and can reach its database and cache services.
 \seqdiagram{seq-22-health-check}{Service health check}{health check flow}{fig:seq-22}
@@ -280,8 +338,8 @@ running and can reach its database and cache services.
 \label{subsubsec:sprint5-operations}
 
 \paragraph{Integration test suite.}
-An automated test suite exercises the main user journeys---authentication,
-documents, search, conversations, administration, and manager views---so
+An automated test suite exercises the main user journeys (authentication,
+documents, search, conversations, administration, and manager views) so
 regressions are detected before release.
 
 \paragraph{Containerised deployment.}

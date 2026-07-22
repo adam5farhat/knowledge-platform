@@ -1,14 +1,14 @@
 \subsubsection{Implemented web interfaces}
 \label{subsubsec:impl-s1-ui}
 
-The Sprint~1 web client delivers credential-based sign-in, password recovery,
+The Sprint~1 web client covers credential-based sign-in, password recovery,
 profile management, and role-based home hubs. Error and restriction states are
 validated manually in Section~\ref{sec:manual-ux-validation}.
 
 \paragraph{Authentication pages.}
-The web client implements credential-based sign-in and password recovery as
-static Next.js routes. Figure~\ref{fig:ui-login} shows the production sign-in
-layout; Figure~\ref{fig:ui-forgot-password} shows the recovery workflow.
+Sign-in and password recovery are implemented as static Next.js routes.
+Figure~\ref{fig:ui-login} shows the production sign-in layout;
+Figure~\ref{fig:ui-forgot-password} shows the recovery workflow.
 
 \uiscreenshot{ui-login-page.png}{Knowledge Platform sign-in page with email, password, and theme toggle}{Sign-in page}{fig:ui-login}
 
@@ -24,7 +24,7 @@ and inline change-password controls.
 \paragraph{Role-based home hubs.}
 After authentication, users land on a tile-based hub whose options depend on
 platform role. Employees see Documents and Ask
-(Figure~\ref{fig:ui-hub-employee}); managers additionally see Department overview
+(Figure~\ref{fig:ui-hub-employee}); managers also see Department overview
 (Figure~\ref{fig:ui-hub-manager}); administrators see the full four-tile hub
 including Administration (Figure~\ref{fig:ui-hub-admin}).
 
@@ -35,8 +35,7 @@ including Administration (Figure~\ref{fig:ui-hub-admin}).
 \uiscreenshot{ui-hub-admin-light.png}{Administrator landing page with Administration tile}{Administrator home hub (light)}{fig:ui-hub-admin}
 
 \paragraph{Theme switching.}
-Figure~\ref{fig:ui-dark-mode} shows the same administrator hub rendered in dark
-mode, confirming that the CSS theme tokens apply consistently across navigation
-tiles.
+Figure~\ref{fig:ui-dark-mode} shows the same administrator hub in dark mode,
+confirming that the CSS theme tokens apply consistently across navigation tiles.
 
 \uiscreenshot{ui-hub-admin-dark.png}{Administrator home hub in dark mode showing consistent theme tokens}{Dark theme}{fig:ui-dark-mode}

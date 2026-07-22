@@ -1,69 +1,63 @@
 % ============================================================
 %  chapter2_requirements_methodology.tex
 % ============================================================
-\chapter[Requirements and Methodology]{Requirements Analysis, Specifications and Methodology}
+\chapter{Requirements and Methodology}
 \label{ch:requirements}
 
 % Sprint backlog tables use longtable so long backlogs break across pages
 % (avoids near-blank pages and bottom-margin overflow that [H] floats caused).
 \newcommand{\backlogstart}[2]{%
   \footnotesize
-  \setlength{\tabcolsep}{3pt}%
-  \renewcommand{\arraystretch}{1.3}%
-  \begin{longtable}{|>{\RaggedRight\arraybackslash}p{0.085\linewidth}|>{\RaggedRight\arraybackslash}p{0.235\linewidth}|>{\Centering\arraybackslash}p{0.035\linewidth}|>{\Centering\arraybackslash}p{0.06\linewidth}|>{\RaggedRight\arraybackslash}p{0.40\linewidth}|}
+  \setlength{\tabcolsep}{2.5pt}%
+  \renewcommand{\arraystretch}{1.25}%
+  \begin{longtable}{|>{\RaggedRight\arraybackslash}p{0.08\linewidth}|>{\RaggedRight\arraybackslash}p{0.11\linewidth}|>{\RaggedRight\arraybackslash}p{0.28\linewidth}|>{\Centering\arraybackslash}p{0.035\linewidth}|>{\Centering\arraybackslash}p{0.055\linewidth}|>{\RaggedRight\arraybackslash}p{0.33\linewidth}|}
   \caption{#1}\label{#2}\\
   \hline
-  \textbf{ID} & \textbf{User Story} & \textbf{SP} & \textbf{Pri.} & \textbf{Acceptance Criteria} \\
+  \textbf{ID} & \textbf{Req.} & \textbf{User Story} & \textbf{SP} & \textbf{Pri.} & \textbf{Acceptance Criteria} \\
   \hline
   \endfirsthead
-  \multicolumn{5}{r}{\footnotesize\itshape continued from previous page}\\
+  \multicolumn{6}{r}{\footnotesize\itshape continued from previous page}\\
   \hline
-  \textbf{ID} & \textbf{User Story} & \textbf{SP} & \textbf{Pri.} & \textbf{Acceptance Criteria} \\
+  \textbf{ID} & \textbf{Req.} & \textbf{User Story} & \textbf{SP} & \textbf{Pri.} & \textbf{Acceptance Criteria} \\
   \hline
   \endhead
   \hline
-  \multicolumn{5}{r}{\footnotesize\itshape continued on next page}\\
+  \multicolumn{6}{r}{\footnotesize\itshape continued on next page}\\
   \endfoot
   \hline
   \endlastfoot
 }
 \newcommand{\backlogstop}{\end{longtable}}
 
-This chapter translates the gaps identified in Chapter~\ref{ch:state-of-the-art} into
-a verifiable specification for the Knowledge Platform. It analyses the host-organisation
-context, defines functional and non-functional requirements with acceptance criteria,
-and establishes the Agile Scrum methodology and five-sprint delivery plan that
-structure the design (Chapter~\ref{ch:architecture}), implementation
+This chapter turns the gaps identified in Chapter~\ref{ch:state-of-the-art} into
+a verifiable specification for the Knowledge Platform. After analysing the host
+organisation, it defines functional and non-functional requirements with acceptance
+criteria, then sets out the Agile Scrum approach and five-sprint plan that frame
+the design (Chapter~\ref{ch:architecture}), implementation
 (Chapter~\ref{ch:implementation}), and validation (Chapter~\ref{ch:validation})
-chapters.
+work that follow.
 
 \section{Analysis of the Existing Situation and Usage Context}
 
 \subsection{Host Organisation Context}
 
 \textbf{\CompanyName} is a technology company whose teams produce and consume
-significant volumes of internal documentation: technical specifications, onboarding
+large volumes of internal documentation: technical specifications, onboarding
 guides, project reports, API references, and operational procedures. Prior to this
-project, knowledge was distributed across disconnected tools --- shared drives, email
-threads, and informal messaging channels --- with no unified governance model and no
-mechanism for intelligent retrieval.
+project, knowledge was scattered across disconnected tools such as shared drives,
+email threads, and informal messaging channels, with no unified governance model and
+no mechanism for intelligent retrieval.
 
-The key pain points identified through analysis of the existing situation were:
-
-\begin{itemize}
-  \item \textbf{Fragmented storage}: documents resided in multiple systems with no
-    single point of access, making comprehensive search impossible.
-  \item \textbf{No access governance}: there was no systematic control over which
-    teams or roles could access which documents, leading to either over-sharing or
-    information silos.
-  \item \textbf{Keyword-only search}: retrieval was limited to filename and keyword
-    matching, returning documents rather than answers.
-  \item \textbf{Onboarding friction}: new employees had no reliable way to find answers
-    to operational questions, creating repeated interruptions to experienced colleagues.
-  \item \textbf{No feedback mechanism}: when information found through search was
-    incorrect or outdated, there was no way to signal this or prevent the same error
-    from recurring.
-\end{itemize}
+Several pain points stood out when the existing situation was analysed.
+Documents lived in multiple systems with no single point of access, so a
+comprehensive search was impossible. There was no systematic control over which
+teams or roles could reach which documents, which tended to produce either
+over-sharing or information silos. Retrieval was limited to filename and keyword
+matching and returned documents rather than answers. New employees had no reliable
+way to find answers to operational questions and therefore interrupted experienced
+colleagues repeatedly. When information found through search proved incorrect or
+outdated, there was no way to signal that fact or to stop the same error from
+recurring.
 
 \subsection{System Actors}
 
@@ -103,133 +97,240 @@ executes the RAG evaluation harness. \\
 \end{tabularx}
 \end{table}
 
+\clearpage
 \subsection{Global Use-Case Model}
 \label{subsec:global-use-case}
 
-Figure~\ref{fig:use-cases} presents the global use-case model of the Knowledge
-Platform. It identifies primary actors (\textbf{Guest}, \textbf{Employee},
-\textbf{Manager}, and \textbf{Administrator}), with the three authenticated roles
-generalizing an abstract \textbf{Authenticated user} actor. Use cases are grouped
-into authentication, document management, search and AI, notifications, and
-governance domains. Secondary actors (\textbf{Email}, \textbf{Gemini}, and
-\textbf{Background worker}) model external interactions through
-\texttt{<<notify>>}, \texttt{<<invoke>>}, and \texttt{<<enqueue>>} dependencies.
+Figure~\ref{fig:use-cases} presents the global use-case diagram of the Knowledge
+Platform. It illustrates the main actors interacting with the system and the
+principal functionalities offered, providing an overall view of the platform's
+behaviour and scope.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\textwidth]{assets/figures/global-use-case-knowledge-platform.png}
+  \includegraphics[width=\textwidth,height=0.68\textheight,keepaspectratio]{assets/figures/global-use-case-knowledge-platform.png}
   \caption{Global use-case diagram of the Knowledge Platform}
   \label{fig:use-cases}
 \end{figure}
 
-The use-case packages map directly to the functional requirement domains in
-Table~\ref{tab:requirements}: authentication (FR-01, FR-02, FR-12), document
-management (FR-03 to FR-05), search and AI (FR-06 to FR-08), notifications
-(FR-09), and governance (FR-10, FR-11).
-
 \section{Functional and Non-Functional Requirements}
 
-The requirements were derived from an analysis of user workflows and the intended
-system architecture, ensuring alignment between stakeholder needs and the design
-choices developed in subsequent chapters.
+The requirements grew out of an analysis of user workflows and of the intended
+system architecture, so that stakeholder needs and the design choices in later
+chapters stay aligned.
 
 \subsection{Functional Requirements}
 
-The platform defines a set of functional requirements organised around
-\textbf{authentication} (FR-01, FR-02), \textbf{document management} (FR-03 to
-FR-05), \textbf{search and AI capabilities} (FR-06 to FR-08),
-\textbf{notifications} (FR-09), \textbf{administration} (FR-10, FR-11), and
-\textbf{system-level feature controls} (FR-12). Access to all functionalities is
-governed by a hybrid authorization model combining Role-Based Access Control
-(RBAC), Attribute-Based Access Control (ABAC), and per-user restriction flags
+Functional requirements are organised around
+\textbf{authentication and identity} (FR-01 to FR-06),
+\textbf{document management} (FR-07 to FR-16),
+\textbf{search and AI capabilities} (FR-17 to FR-21),
+\textbf{notifications} (FR-22 to FR-25), and
+\textbf{governance and administration} (FR-26 to FR-36).
+Access to every capability is governed by a hybrid authorization model that
+combines Role-Based Access Control (RBAC), Attribute-Based Access Control
+(ABAC), and per-user restriction flags
 (see Subsection~\ref{subsec:access-control-model}).
 
-\begin{xltabular}{\linewidth}{|>{\RaggedRight\arraybackslash}p{0.85cm}|>{\RaggedRight\arraybackslash}p{0.24\linewidth}|>{\RaggedRight\arraybackslash}p{0.31\linewidth}|Y|}
-\caption{Functional requirements with acceptance criteria}
+\footnotesize
+\begin{xltabular}{\linewidth}{|>{\RaggedRight\arraybackslash}p{0.9cm}|>{\RaggedRight\arraybackslash}p{0.28\linewidth}|Y|}
+\caption{Functional requirements}
 \label{tab:requirements} \\
 \hline
-\textbf{ID} & \textbf{Requirement} & \textbf{Acceptance criterion} & \textbf{Primary component} \\
+\textbf{ID} & \textbf{Requirement} & \textbf{Description} \\
 \hline
 \endfirsthead
 \hline
-\textbf{ID} & \textbf{Requirement} & \textbf{Acceptance criterion} & \textbf{Primary component} \\
+\textbf{ID} & \textbf{Requirement} & \textbf{Description} \\
 \hline
 \endhead
 \hline
 \endfoot
 
 FR-01 &
-JWT authentication with HttpOnly refresh cookie rotation &
-Successful login returns a short-lived access token; session refresh rotates
-credentials atomically; replay of a rotated token revokes the entire session family &
-Authentication service \\
+User Authentication &
+The system shall authenticate registered users before granting access to
+protected resources. \\
 \hline
 FR-02 &
-User profile management including avatar upload &
-Profile updates persist; uploaded avatars are served with cross-origin headers
-enabling display in the web client &
-Profile management service \\
+Session Management &
+The system shall maintain authenticated user sessions and allow users to
+securely log in and out of the platform. \\
 \hline
 FR-03 &
-Document upload with multi-format extraction and async ingest &
-Uploaded file is stored; processing is queued; document version reaches ready
-state when ingestion completes &
-Document ingestion pipeline \\
+Profile Management &
+Users shall be able to view and update their personal profile information. \\
 \hline
 FR-04 &
-Document visibility control (ALL / DEPARTMENT / PRIVATE) &
-Unauthorised access returns 404 (not 403) to prevent document enumeration &
-Access control layer \\
+Avatar Management &
+Users shall be able to upload, replace, and remove their profile picture. \\
 \hline
 FR-05 &
-Document metadata: tags, favourites, recents, archive &
-Tag autocomplete, favourite toggle, recent views, and archive operations are
-all persisted &
-Document library service \\
+Password Management &
+Users shall be able to change their password and recover access through a
+password reset process. \\
 \hline
 FR-06 &
-Semantic vector search over department-scoped document corpus &
-Vector similarity results ranked correctly; access-filtered; respects restrictions &
-Search service \\
+Feature Restrictions &
+The system shall enforce feature-specific restrictions according to user
+permissions and assigned privileges. \\
 \hline
 FR-07 &
-Hybrid RAG Ask with SSE streaming and source citations &
-Answer stream delivers source citations first, then tokens, then completion;
-citations reference real document passages &
-RAG completion service \\
+Document Upload &
+Authorised users shall be able to upload documents in supported formats for
+storage and processing. \\
 \hline
 FR-08 &
-Conversation history with per-message feedback &
-Threads persisted; thumbs up/down stored; feedback statistics available to
-administrators &
-Conversation service \\
+Document Access Control &
+The system shall ensure that users can access only the documents they are
+authorised to view. \\
 \hline
 FR-09 &
-Automatic and manual notification system with attachments &
-Department-scoped events emitted on document create/update/delete; manual send
-available to managers and administrators &
-Notification service \\
+Document Organisation &
+Users shall be able to organise documents using metadata such as tags,
+favourites, and archive status. \\
 \hline
 FR-10 &
-Full administrative control: user/department CRUD, bulk operations, audit &
-Last-administrator safety enforced; bulk imports sanitised; audit log exportable &
-Administration module \\
+Document Versioning &
+The system shall maintain multiple versions of uploaded documents while
+preserving their version history. \\
 \hline
 FR-11 &
-Manager dashboard scoped to manageable departments &
-Only departments within the manager's scope are returned; member lists are correct &
-Manager module \\
+Document Reprocessing &
+Authorised users shall be able to request the reprocessing of previously
+uploaded documents without re-uploading them. \\
 \hline
 FR-12 &
-Per-user feature restriction flags &
-Flags block login, document access, and AI queries; restricted users see a
-dedicated notice page &
-Authorization middleware \\
+Document Viewing and Download &
+Authorised users shall be able to view document details, preview supported
+files, and download document versions. \\
+\hline
+FR-13 &
+Document Audit Trail &
+The system shall record significant document activities to ensure
+traceability and accountability. \\
+\hline
+FR-14 &
+Document Search and Filtering &
+Users shall be able to search and filter documents using metadata and access
+permissions. \\
+\hline
+FR-15 &
+Administrative Document Management &
+Administrators shall be able to manage all documents across the platform. \\
+\hline
+FR-16 &
+Document Export &
+Administrators shall be able to export document information for reporting and
+analysis purposes. \\
+\hline
+FR-17 &
+Semantic Search &
+Users shall be able to perform semantic searches across accessible enterprise
+documents. \\
+\hline
+FR-18 &
+AI Question Answering &
+The system shall answer natural language questions using enterprise documents
+and provide relevant supporting references. \\
+\hline
+FR-19 &
+Conversation Management &
+Users shall be able to create, rename, view, and delete conversation
+histories. \\
+\hline
+FR-20 &
+AI Response Feedback &
+Users shall be able to provide positive or negative feedback on AI-generated
+responses and optionally include comments. \\
+\hline
+FR-21 &
+Feedback Analytics &
+Administrators shall be able to view aggregated statistics on AI response
+quality and user feedback. \\
+\hline
+FR-22 &
+Automatic Notifications &
+The system shall automatically notify users of relevant platform events
+according to their roles and departments. \\
+\hline
+FR-23 &
+Manual Announcements &
+Administrators and managers shall be able to publish announcements to selected
+users, roles, or departments. \\
+\hline
+FR-24 &
+Notification Attachments &
+Announcements may include file attachments that authorised recipients can
+access. \\
+\hline
+FR-25 &
+Notification Inbox &
+Users shall be able to access, read, and manage their personal
+notifications. \\
+\hline
+FR-26 &
+Manager Dashboard &
+Managers shall be able to monitor the departments under their responsibility
+and view department members. \\
+\hline
+FR-27 &
+User Management &
+Administrators shall be able to create, update, deactivate, restore, lock,
+unlock, and manage user accounts. \\
+\hline
+FR-28 &
+Department Management &
+Administrators shall be able to create, update, and delete departments within
+the platform. \\
+\hline
+FR-29 &
+Department Merge &
+Administrators shall be able to merge departments while preserving associated
+users, documents, and related information. \\
+\hline
+FR-30 &
+Department Access Management &
+Administrators shall be able to assign users to departments and manage their
+access levels and responsibilities. \\
+\hline
+FR-31 &
+Platform Statistics &
+Administrators shall be able to monitor platform statistics and key
+performance indicators. \\
+\hline
+FR-32 &
+Audit Logs &
+Administrators shall be able to view and export authentication and document
+activity logs. \\
+\hline
+FR-33 &
+System Health Monitoring &
+Administrators shall be able to monitor the operational status of platform
+services and dependencies. \\
+\hline
+FR-34 &
+Bulk User Management &
+Administrators shall be able to perform bulk administrative operations on
+multiple user accounts. \\
+\hline
+FR-35 &
+Bulk Document Management &
+Administrators shall be able to perform bulk operations on multiple
+documents. \\
+\hline
+FR-36 &
+Data Import and Export &
+Administrators shall be able to import and export platform data where
+appropriate to support administration and reporting. \\
 \hline
 \end{xltabular}
+\normalsize
 
-Chapter~\ref{ch:architecture} extends this summary with design elements and
-validation test references (Table~\ref{tab:traceability-main}).
+Story-level acceptance criteria for these requirements appear in the sprint
+backlogs (Tables~\ref{tab:s1-backlog}--\ref{tab:s5-backlog}).
+Chapter~\ref{ch:architecture} maps selected requirements to design elements and
+validation activities (Table~\ref{tab:traceability-main}).
 
 \subsection{Non-Functional Requirements}
 
@@ -273,36 +374,35 @@ quality report \\
 \label{subsec:access-control-model}
 
 Building on the RBAC concepts introduced in Chapter~\ref{ch:state-of-the-art},
-the platform enforces a \textbf{hybrid authorization model} that operates at three
-complementary layers. This subsection specifies how the theoretical foundations are
-applied to the requirements defined above.
+the platform enforces a \textbf{hybrid authorization model} at three complementary
+layers. The subsections below explain how those foundations are applied to the
+requirements already defined.
 
-\begin{itemize}
-  \item \textbf{Role-Based Access Control (RBAC)}: every user holds one platform
-    role --- \texttt{ADMIN}, \texttt{MANAGER}, or \texttt{EMPLOYEE} --- that
-    determines coarse-grained capabilities. Administrators manage users,
-    departments, and platform configuration (FR-10); managers access
-    department-scoped dashboards and announcements (FR-11); employees use the
-    document library, search, and AI assistant within their permitted scope.
-  \item \textbf{Attribute-Based Access Control (ABAC)}: permissions are further
-    constrained by attributes such as department membership and document
-    visibility (\texttt{ALL}, \texttt{DEPARTMENT}, \texttt{PRIVATE}). Retrieval
-    and RAG pipelines apply these filters before returning results, ensuring that
-    semantic search and generated answers never expose unauthorised content
-    (FR-04, FR-06, FR-07).
-  \item \textbf{Per-user feature restriction flags}: administrators can disable
-    specific capabilities for individual users --- for example, blocking document
-    library access or AI queries --- via middleware that intercepts requests
-    before business logic executes (FR-12).
-\end{itemize}
+Under \textbf{Role-Based Access Control (RBAC)}, every user holds one platform role
+(\texttt{ADMIN}, \texttt{MANAGER}, or \texttt{EMPLOYEE}) that determines
+coarse-grained capabilities. Administrators manage users, departments, and platform
+configuration (FR-27, FR-28, FR-30 to FR-32, FR-34 to FR-36); managers reach
+department-scoped dashboards and announcements (FR-26, FR-23); employees use the
+document library, search, and AI assistant within their permitted scope.
 
-This layered model ensures fine-grained control over system capabilities while
-maintaining scalability and security across authentication, document management,
-search, and AI workflows.
+\textbf{Attribute-Based Access Control (ABAC)} further constrains permissions by
+attributes such as department membership and document visibility
+(\texttt{ALL}, \texttt{DEPARTMENT}, \texttt{PRIVATE}). Retrieval and RAG pipelines
+apply these filters before returning results, so that semantic search and generated
+answers never expose unauthorised content (FR-08, FR-17, FR-18).
+
+\textbf{Per-user feature restriction flags} let administrators disable specific
+capabilities for individual users (for example, blocking document-library access or
+AI queries) via middleware that intercepts requests before business logic runs
+(FR-06).
+
+Taken together, the three layers give fine-grained control over platform
+capabilities while remaining practical to scale across authentication, document
+management, search, and AI workflows.
 
 \section{Specifications and Performance Indicators}
 
-The following Key Performance Indicators (KPIs) link requirements to the validation
+The Key Performance Indicators (KPIs) below link requirements to the validation
 chapter (Chapter~\ref{ch:validation}):
 
 \begin{table}[H]
@@ -345,57 +445,45 @@ Verified by avatars test \\
 
 \subsection{Agile Scrum Framework}
 
-The project was managed using the \textbf{Agile Scrum} methodology, chosen for its
-iterative structure, its emphasis on working deliverables at the end of each sprint,
-and its adaptability to evolving requirements --- all well-suited to a complex full-stack
-product developed by a single engineer over a bounded internship period.
+The project used the \textbf{Agile Scrum} methodology for its iterative structure,
+its focus on a working deliverable at the end of each sprint, and its ability to
+absorb changing requirements. That mix suits a complex full-stack product built by
+a single engineer over a bounded internship period.
 
 \subsubsection{Scrum Roles}
 
-\begin{itemize}
-  \item \textbf{Product Owner}: \IndustrialSupervisor{} (\CompanyName), responsible
-    for validating feature priorities and acceptance criteria.
-  \item \textbf{Scrum Master / Developer}: \StudentName, responsible for sprint
-    planning, execution, daily self-review, and retrospective.
-  \item \textbf{Academic Advisor}: \AcademicSupervisor{} (ESPRIM), providing
-    methodological and scientific guidance at sprint boundaries.
-\end{itemize}
+\textbf{\IndustrialSupervisor{}} (\CompanyName) acted as \textbf{Product Owner},
+validating feature priorities and acceptance criteria. \StudentName served as both
+\textbf{Scrum Master} and developer, owning sprint planning, execution, daily
+self-review, and retrospective. \textbf{\AcademicSupervisor{}} (ESPRIM) provided
+methodological and scientific guidance at sprint boundaries as Academic Advisor.
 
 \subsubsection{Scrum Artefacts}
 
-\begin{itemize}
-  \item \textbf{Product Backlog}: the complete list of functional and non-functional
-    requirements (FR-01 to FR-12, NFR-01 to NFR-06) prioritised by business value
-    and technical dependency.
-  \item \textbf{Sprint Backlog}: the subset of backlog items committed to in each
-    sprint, decomposed into implementation tasks.
-  \item \textbf{Increment}: a working, tested vertical slice of the platform delivered
-    at the end of each sprint.
-  \item \textbf{Definition of Done}: a requirement is considered done when (a) the
-    feature is implemented, (b) at least one integration test covers the happy path
-    and one error path, and (c) the corresponding capability is manually validated
-    against its acceptance criteria.
-\end{itemize}
+The \textbf{Product Backlog} holds the full set of functional and non-functional
+requirements (FR-01 to FR-36, NFR-01 to NFR-06), ordered by business value and
+technical dependency. Each \textbf{Sprint Backlog} is the subset of those items
+committed for a given sprint, broken into implementation tasks. An
+\textbf{Increment} is a working, tested vertical slice of the platform delivered at
+sprint end. Under the \textbf{Definition of Done}, a requirement counts as done
+only when (a)~the feature is implemented, (b)~at least one integration test covers
+the happy path and one error path, and (c)~the corresponding capability has been
+manually checked against its acceptance criteria.
 
 \subsubsection{Sprint Structure}
 
-Each sprint followed a fixed rhythm:
-
-\begin{enumerate}
-  \item \textbf{Sprint Planning}: review backlog, select items, decompose into tasks,
-    estimate effort.
-  \item \textbf{Development}: implement features, write integration tests, perform
-    code review against security and style guidelines.
-  \item \textbf{Sprint Review}: demonstrate the working increment; validate against
-    acceptance criteria.
-  \item \textbf{Sprint Retrospective}: identify what worked, what blocked, and what
-    to improve in the next sprint.
-\end{enumerate}
+Each sprint followed a fixed rhythm. \textbf{Sprint Planning} reviewed the backlog,
+selected items, decomposed them into tasks, and estimated effort.
+\textbf{Development} then implemented features, wrote integration tests, and
+revieweded code against security and style guidelines. At \textbf{Sprint Review} the
+working increment was demonstrated and checked against acceptance criteria. The
+\textbf{Sprint Retrospective} closed the cycle by recording what worked, what
+blocked progress, and what should change next time.
 
 \subsection{Sprint Plan}
 
-The project was structured across \textbf{five sprints}, each delivering a coherent
-and independently testable platform capability. Detailed interaction design for each
+Delivery was organised as \textbf{five sprints}, each producing a coherent,
+independently testable platform capability. Detailed interaction design for each
 sprint appears in Section~\ref{sec:sprint-design} of Chapter~\ref{ch:architecture}.
 
 \begin{table}[H]
@@ -413,7 +501,7 @@ sprint appears in Section~\ref{sec:sprint-design} of Chapter~\ref{ch:architectur
 Auth., users, RBAC &
 JWT login/logout/refresh (HttpOnly cookies), refresh-token family revocation,
 password policy, session cap, per-user restrictions, profile/avatar, RBAC middleware &
-FR-01, FR-02, FR-12\newline NFR-02, NFR-03 &
+FR-01 to FR-06\newline NFR-02, NFR-03 &
 \ref{subsec:sprint1-design} \\
 \hline
 \textbf{S2} &
@@ -421,7 +509,7 @@ Document library \& ingest &
 Multi-format upload (PDF, Office, HTML, XML, ZIP), BullMQ worker
 (extract$\to$chunk$\to$embed$\to$persist), versioning, tags, favourites, recents,
 archive, visibility, audit log &
-FR-03, FR-04, FR-05 &
+FR-07 to FR-14 &
 \ref{subsec:sprint2-design} \\
 \hline
 \textbf{S3} &
@@ -429,27 +517,28 @@ Hybrid RAG \& Ask &
 Query optimiser, hybrid retrieval (pgvector + BM25 + RRF), LLM reranking,
 neighbour expansion, SSE answers with citations, confidence scoring, critique,
 claim verification, follow-ups, feedback loop, conversations &
-FR-06, FR-07, FR-08\newline NFR-06 &
+FR-17 to FR-21\newline NFR-06 &
 \ref{subsec:sprint3-design} \\
 \hline
 \textbf{S4} &
 Admin, manager, notifications &
 Admin CRUD (users, departments, merge, bulk ops, CSV), dept-access management,
-KPI dashboard, activity/audit exports, manager view, auto/manual notifications &
-FR-09, FR-10, FR-11 &
+document administration and export, KPI dashboard, activity/audit exports,
+manager view, auto/manual notifications &
+FR-15, FR-16,\newline FR-22 to FR-32,\newline FR-34 to FR-36 &
 \ref{subsec:sprint4-design} \\
 \hline
 \textbf{S5} &
 Tests, eval \& deploy &
 74 Vitest/Supertest integration tests, RAG eval CLI (automated judge),
 Docker Compose prod config, migration pipeline, 54 UML diagrams, README &
-NFR-01, NFR-04, NFR-05\newline NFR-06 &
+FR-33\newline NFR-01, NFR-04,\newline NFR-05, NFR-06 &
 \ref{subsec:sprint5-design} \\
 \hline
 \end{tabular*}
 \end{table}
 
-The \textbf{Des.} column references the sprint interaction-design subsections of
+The \textbf{Des.} column points to the sprint interaction-design subsections of
 Section~\ref{sec:sprint-design} (Chapter~\ref{ch:architecture}).
 
 \subsubsection{Sprint Timeline}
@@ -463,21 +552,7 @@ and access control (S1), document corpus (S2), hybrid RAG (S3), governance
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[
-  sprint/.style={draw, fill=sectionblue!20, rounded corners, minimum width=2.8cm,
-                 minimum height=1.2cm, align=center, font=\small},
-  arrow/.style={->, thick, color=sectionblue}
-]
-\node[sprint] (s1) at (0,0)    {\textbf{Sprint 1}\\\small Auth \& RBAC};
-\node[sprint] (s2) at (3.2,0)  {\textbf{Sprint 2}\\\small Documents};
-\node[sprint] (s3) at (6.4,0)  {\textbf{Sprint 3}\\\small RAG Engine};
-\node[sprint] (s4) at (9.6,0)  {\textbf{Sprint 4}\\\small Admin};
-\node[sprint] (s5) at (12.8,0) {\textbf{Sprint 5}\\\small Testing};
-\draw[arrow] (s1) -- (s2);
-\draw[arrow] (s2) -- (s3);
-\draw[arrow] (s3) -- (s4);
-\draw[arrow] (s4) -- (s5);
-\end{tikzpicture}
+\includegraphics[width=\textwidth]{assets/figures/sprint-timeline-knowledge-platform.png}
 \caption{Scrum sprint timeline --- iterative delivery across five sprints}
 \label{fig:scrum-timeline}
 \end{figure}
@@ -485,43 +560,75 @@ and access control (S1), document corpus (S2), hybrid RAG (S3), governance
 \subsubsection{Sprint Backlogs}
 
 Tables~\ref{tab:s1-backlog}--\ref{tab:s5-backlog} detail each sprint backlog at
-user-story level. The stories refine the scope presented in Table~\ref{tab:sprints}
-and provide planning-level traceability between implementation tasks, acceptance
-criteria, and effort estimation. Interaction flows for every story are documented
-in Section~\ref{sec:sprint-design}.
+user-story level. Every story is linked to one or more requirements from
+Table~\ref{tab:requirements} (or Table~\ref{tab:nfr} for non-functional items)
+so that the expanded FR-01 to FR-36 catalogue remains traceable through planning,
+design, and validation. Interaction flows for every story are documented in
+Section~\ref{sec:sprint-design}.
+
+Each story carries two planning attributes: a story-point estimate (\textbf{SP})
+and a \textbf{priority}. Story points are a \emph{relative}, unitless measure of the
+effort, complexity, and uncertainty of a story rather than a duration in hours; they
+are estimated collaboratively (planning-poker style) on a Fibonacci-like scale
+(2, 3, 5, 8, 13), where larger values indicate greater size or technical risk. This
+relative scale makes estimates more consistent than absolute time predictions and,
+once summed per sprint, gives an indication of the team's capacity (velocity).
+Priority (\textbf{High} or \textbf{Medium} here) reflects how important and how
+urgent a story is, and is chosen from three factors: business value for end users,
+technical dependencies (stories that unblock later work are ranked higher), and
+risk. Foundational stories such as authentication and access control are therefore
+rated High, since subsequent sprints build directly upon them.
 
 \paragraph{Sprint 1 --- Authentication and access control.}
 
 \backlogstart{Sprint 1 backlog: authentication and access control}{tab:s1-backlog}
 US-S1-01 &
+FR-01 &
 As a guest, I want to sign in securely so that I can access authorised platform features. &
 5 & High &
 Valid credentials issue an access token and secure refresh cookie; invalid credentials are rejected; login rate limiting is enforced. \\
 \hline
 US-S1-02 &
+FR-02 &
 As an authenticated user, I want seamless session continuity so that refresh operations are secure and race-condition free. &
 8 & High &
 Session refresh rotates the token family atomically; replay of a rotated token revokes the family; parallel tab requests share a single refresh operation. \\
 \hline
 US-S1-03 &
+FR-02 &
 As an authenticated user, I want to sign out so that active refresh sessions are revoked. &
 2 & Med. &
 Logout revokes the current refresh session; subsequent refresh attempts fail. \\
 \hline
 US-S1-04 &
-As a user, I want to view and update my profile, including avatar, so that my account information remains accurate. &
-5 & High &
-Profile updates persist; avatar upload succeeds; avatars are served with cross-origin headers for display in the web client. \\
+FR-03 &
+As a user, I want to view and update my profile so that my account information remains accurate. &
+3 & High &
+Profile field updates persist and are returned on subsequent session loads. \\
 \hline
 US-S1-05 &
+FR-04 &
+As a user, I want to upload, replace, or remove my profile picture so that my identity is visible in the interface. &
+3 & High &
+Avatar upload succeeds; replacement and removal work; avatars are served with cross-origin headers for display in the web client. \\
+\hline
+US-S1-06 &
+FR-05 &
+As a user, I want to change my password and recover access by email so that I can regain or update credentials safely. &
+5 & High &
+Signed-in password change requires the current password and revokes other sessions; forgotten-password flow sends a time-limited reset link and closes existing sessions after success. \\
+\hline
+US-S1-07 &
+FR-06 &
 As an administrator, I want role-based and per-user access restrictions so that capabilities can be controlled precisely. &
 8 & High &
 Role boundaries enforce administrator, manager, and employee capabilities; restriction flags block protected features and redirect to a restricted notice page. \\
 \hline
-US-S1-06 &
-As a security owner, I want baseline HTTP protections so that authentication endpoints resist abuse. &
+US-S1-08 &
+NFR-02, NFR-03 &
+As a security owner, I want baseline HTTP protections and safe session refresh so that authentication endpoints resist abuse. &
 3 & Med. &
-Security headers are active globally; login and Ask endpoints are rate-limited according to configured thresholds. \\
+Security headers are active globally; login and Ask endpoints are rate-limited; parallel browser requests share a single in-flight refresh. \\
 \hline
 \backlogstop
 
@@ -529,39 +636,64 @@ Security headers are active globally; login and Ask endpoints are rate-limited a
 
 \backlogstart{Sprint 2 backlog: document library and ingest}{tab:s2-backlog}
 US-S2-01 &
-As an employee, I want to upload documents in common formats so that they enter the shared library. &
+FR-07 &
+As an employee, I want to upload documents in common formats so that they enter the shared library for processing. &
 8 & High &
 Upload validates file type and size, stores the file, creates a version record, and queues ingestion. \\
 \hline
 US-S2-02 &
+FR-07 &
 As the system, I want to ingest uploaded files asynchronously so that text is searchable and embeddable. &
 13 & High &
 Background worker extracts text, chunks content, computes embeddings, and persists passages; version reaches ready state on completion. \\
 \hline
 US-S2-03 &
+FR-08 &
 As a security owner, I want visibility rules enforced so that unauthorised users cannot discover restricted documents. &
 8 & High &
 Organisation-wide, department, and private visibility levels are enforced; unauthorised access returns 404 rather than revealing existence. \\
 \hline
 US-S2-04 &
-As an employee, I want to browse, search, and open documents so that I can find relevant files quickly. &
+FR-09 &
+As an employee, I want to organise documents with tags, favourites, and archive status so that I can manage my working set. &
 5 & High &
-Document listing supports filters and pagination; detail view returns metadata and active version; download delivers file content. \\
+Tag updates, favourite toggle, and archive/unarchive persist per document within the user's scope. \\
 \hline
 US-S2-05 &
-As an employee, I want favourites and recents so that I can return to frequently used documents. &
-3 & Med. &
-Favourite toggle and recent-view tracking persist per user; library home surfaces both lists. \\
+FR-09 &
+As an employee, I want recently viewed documents so that I can return to files I opened earlier. &
+2 & Med. &
+Recent-view tracking persists per user; library home surfaces the recent list. \\
 \hline
 US-S2-06 &
-As a document owner, I want versioning and re-ingestion so that updates and embedding upgrades are supported. &
-8 & Med. &
-New version upload creates a version record and queues ingestion; reprocess triggers re-ingestion of an existing version. \\
+FR-10 &
+As a document owner, I want document versioning so that updates preserve prior file history. &
+5 & High &
+New version upload creates a version record, queues ingestion, and keeps earlier versions available. \\
 \hline
 US-S2-07 &
-As a manager, I want to update metadata and retain an audit trail so that document governance is traceable. &
+FR-11 &
+As an authorised user, I want to reprocess an existing version so that embedding upgrades do not require re-upload. &
 5 & Med. &
-Title, tags, and visibility updates persist within scope; changes are recorded in a per-document audit log. \\
+Reprocess triggers re-ingestion of an existing version and updates processing status to ready on success. \\
+\hline
+US-S2-08 &
+FR-12 &
+As an employee, I want to open document details, preview supported files, and download versions so that I can use the content. &
+5 & High &
+Detail view returns metadata and active version; preview works for supported types; download delivers file content after access checks. \\
+\hline
+US-S2-09 &
+FR-13 &
+As a manager, I want a document audit trail so that significant changes remain traceable. &
+5 & Med. &
+Title, tags, visibility, and version changes are recorded in a per-document audit log. \\
+\hline
+US-S2-10 &
+FR-14 &
+As an employee, I want to search and filter the library by metadata so that I can find authorised documents quickly. &
+5 & High &
+Listing supports filters, pagination, and permission-aware results without loading full text content. \\
 \hline
 \backlogstop
 
@@ -569,26 +701,37 @@ Title, tags, and visibility updates persist within scope; changes are recorded i
 
 \backlogstart{Sprint 3 backlog: search, RAG and conversations}{tab:s3-backlog}
 US-S3-01 &
+FR-17 &
 As an employee, I want semantic search over the corpus so that I can find relevant passages by meaning. &
 8 & High &
 Query is embedded and ranked against department-scoped passages; results include snippet previews. \\
 \hline
 US-S3-02 &
+FR-18 &
 As an employee, I want cited answers streamed in real time so that I receive grounded responses to natural-language questions. &
 13 & High &
 Hybrid retrieval and reranking produce an answer stream with source citations delivered before answer tokens and a completion signal. \\
 \hline
 US-S3-03 &
-As an employee, I want persistent conversation threads so that I can review prior questions and answers. &
+FR-19 &
+As an employee, I want persistent conversation threads so that I can create, rename, review, and delete prior questions and answers. &
 8 & High &
-Conversations support create, list, rename, and delete; messages store sources, confidence, and citations. \\
+Conversations support create, list, rename, and delete; opening a thread loads its full message history. \\
 \hline
 US-S3-04 &
-As an employee, I want to rate assistant answers so that poor responses can be identified and improved. &
-5 & Med. &
-Thumbs up/down feedback is stored; administrator statistics aggregate sentiment and volume. \\
+FR-20 &
+As an employee, I want to rate assistant answers so that poor responses can be identified. &
+5 & High &
+Thumbs up/down feedback with optional comment is stored against the answer message. \\
 \hline
 US-S3-05 &
+FR-21 &
+As an administrator, I want feedback analytics so that I can monitor AI answer quality across the organisation. &
+5 & Med. &
+Administrator statistics aggregate feedback volume, satisfaction ratio, and recent comments. \\
+\hline
+US-S3-06 &
+NFR-06 &
 As a data scientist, I want a reproducible RAG evaluation harness so that retrieval quality can be measured over time. &
 8 & Med. &
 Quick and full evaluation modes produce structured quality reports without disrupting continuous integration. \\
@@ -599,34 +742,100 @@ Quick and full evaluation modes produce structured quality reports without disru
 
 \backlogstart{Sprint 4 backlog: governance and notifications}{tab:s4-backlog}
 US-S4-01 &
+FR-22 &
 As an employee, I want automatic notifications on document events so that I stay informed of library changes. &
 5 & High &
 Document create, update, and delete events generate department-scoped inbox entries. \\
 \hline
 US-S4-02 &
+FR-23 &
 As a manager or admin, I want to send manual announcements so that I can communicate with targeted teams. &
 5 & High &
-Manual send validates audience scope; optional attachments are downloadable by recipients. \\
+Manual send validates audience scope (users, roles, or departments) before delivery. \\
 \hline
 US-S4-03 &
-As an employee, I want a notification inbox so that I can read and dismiss messages. &
-5 & Med. &
-Inbox supports listing, unread count, mark-read, and mark-all-read; web client displays an unread badge. \\
+FR-24 &
+As a manager or admin, I want announcement attachments so that recipients can download related files. &
+3 & Med. &
+Optional attachments are stored with the announcement and downloadable by authorised recipients. \\
 \hline
 US-S4-04 &
-As a manager, I want a department dashboard so that I can oversee teams and documents I manage. &
-8 & High &
-Dashboard returns only departments within the manager's scope; member lists and department documents are correctly filtered. \\
+FR-25 &
+As an employee, I want a notification inbox so that I can read and manage my messages. &
+5 & High &
+Inbox supports listing, unread count, mark-read, and mark-all-read; web client displays an unread badge. \\
 \hline
 US-S4-05 &
-As an administrator, I want full user and department administration so that the platform reflects organisational structure. &
-13 & High &
-User and department lifecycle operations are supported; last-administrator safety is enforced; bulk import sanitises spreadsheet formulas. \\
+FR-26 &
+As a manager, I want a department dashboard so that I can oversee teams I manage. &
+8 & High &
+Dashboard returns only departments within the manager's scope; member lists are correctly filtered. \\
 \hline
 US-S4-06 &
-As an administrator, I want bulk access management and operational exports so that governance tasks scale efficiently. &
-8 & Med. &
-Bulk department-access updates, KPI statistics, activity logs, document audit trails, and exports are available to administrators. \\
+FR-27 &
+As an administrator, I want full user-account administration so that I can create, update, lock, unlock, deactivate, and restore accounts. &
+8 & High &
+User lifecycle operations are supported; last-administrator safety is enforced. \\
+\hline
+US-S4-07 &
+FR-28 &
+As an administrator, I want to create, update, and delete departments so that the platform reflects organisational structure. &
+5 & High &
+Department CRUD persists unique department identifiers and is recorded for audit. \\
+\hline
+US-S4-08 &
+FR-29 &
+As an administrator, I want to merge departments so that users and documents move safely into a target unit. &
+8 & High &
+Merge preserves associated users, documents, and access relationships without data loss. \\
+\hline
+US-S4-09 &
+FR-30 &
+As an administrator, I want to assign department access so that users receive the correct responsibilities. &
+5 & High &
+Single and bulk department-access grants and revocations update the access matrix correctly. \\
+\hline
+US-S4-10 &
+FR-31 &
+As an administrator, I want platform statistics so that I can monitor key performance indicators. &
+5 & Med. &
+KPI dashboard returns user, document, conversation, and indexing indicators. \\
+\hline
+US-S4-11 &
+FR-32 &
+As an administrator, I want authentication and document activity logs so that governance reviews are exportable. &
+5 & Med. &
+Activity and document audit views support filtering and spreadsheet export. \\
+\hline
+US-S4-12 &
+FR-15 &
+As an administrator, I want to manage all documents across the platform so that governance covers every library item. &
+5 & High &
+Administrators can list, inspect, and manage documents beyond a single department scope. \\
+\hline
+US-S4-13 &
+FR-16 &
+As an administrator, I want to export document catalogue data so that reporting and reconciliation are supported. &
+3 & Med. &
+Document inventory export includes titles, departments, tags, and processing status. \\
+\hline
+US-S4-14 &
+FR-34 &
+As an administrator, I want bulk user operations so that onboarding and access reviews scale efficiently. &
+5 & Med. &
+Bulk user updates are applied atomically where specified; spreadsheet imports sanitise formulas. \\
+\hline
+US-S4-15 &
+FR-35 &
+As an administrator, I want bulk document operations so that large clean-up tasks can be performed safely. &
+5 & Med. &
+Bulk delete and related multi-document actions require confirmation and remove related records. \\
+\hline
+US-S4-16 &
+FR-36 &
+As an administrator, I want import and export of platform data so that administration and reporting stay portable. &
+5 & Med. &
+Supported administrative import/export paths complete with validation errors reported clearly. \\
 \hline
 \backlogstop
 
@@ -634,26 +843,31 @@ Bulk department-access updates, KPI statistics, activity logs, document audit tr
 
 \backlogstart{Sprint 5 backlog: operations, testing and deployment}{tab:s5-backlog}
 US-S5-01 &
+FR-33, NFR-01 &
 As an operator, I want a health endpoint so that I can verify database and queue connectivity. &
 3 & High &
 Health check returns success when database and cache are reachable; otherwise returns service-unavailable with per-component detail. \\
 \hline
 US-S5-02 &
+NFR-05 &
 As a developer, I want automated integration tests so that regressions are caught before release. &
 13 & High &
 Integration suite runs 74 cases across ten domains on live database and cache; target is 100\% pass rate. \\
 \hline
 US-S5-03 &
+NFR-04 &
 As an operator, I want reproducible containerised deployment so that the platform can be started consistently. &
 8 & High &
 Container orchestration starts database, cache, API, and web services in a healthy state; migrations run automatically. \\
 \hline
 US-S5-04 &
+NFR-06 &
 As a data scientist, I want automated RAG judge evaluation so that answer quality can be tracked with an API key. &
 8 & Med. &
 Full evaluation produces faithfulness and relevance scores; quick mode runs without an external API key. \\
 \hline
 US-S5-05 &
+--- &
 As a maintainer, I want complete design documentation so that the system is defensible and maintainable. &
 5 & Med. &
 Fifty-four UML diagrams are exported; architecture guide is updated; sequence flows are catalogued in Chapter~\ref{ch:architecture}. \\
@@ -688,10 +902,10 @@ Zod & Runtime request validation for all API inputs \\
 
 \section{Chapter Conclusion}
 
-This chapter established a verifiable specification for the Knowledge Platform by
-defining functional and non-functional requirements, measurable acceptance criteria,
-and key performance indicators. It also formalised the delivery approach through a
-five-sprint Scrum plan with detailed sprint backlogs, linking each increment to
-design, implementation, and validation objectives in the chapters that follow.
+This chapter set out a verifiable specification for the Knowledge Platform:
+functional and non-functional requirements, measurable acceptance criteria, and
+key performance indicators. It also formalised delivery through a five-sprint
+Scrum plan with detailed backlogs, each increment tied to design, implementation,
+and validation goals in the chapters ahead.
 Chapter~\ref{ch:architecture} presents the resulting system design, including
 sprint-aligned interaction diagrams in Section~\ref{sec:sprint-design}.

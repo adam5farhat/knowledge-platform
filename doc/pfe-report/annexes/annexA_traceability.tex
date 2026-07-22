@@ -3,54 +3,11 @@
 
 \section{Requirements Traceability Matrix}
 
-\begin{xltabular}{\linewidth}{|>{\RaggedRight\arraybackslash}p{0.85cm}|>{\RaggedRight\arraybackslash}p{0.22\linewidth}|>{\RaggedRight\arraybackslash}p{0.26\linewidth}|>{\RaggedRight\arraybackslash}p{0.28\linewidth}|>{\RaggedRight\arraybackslash}p{1.35cm}|}
-\hline
-\textbf{Req.} & \textbf{Design choice} & \textbf{Implemented element} & \textbf{Validation method} & \textbf{Status} \\
-\hline
-\endfirsthead
-\hline
-\textbf{Req.} & \textbf{Design choice} & \textbf{Implemented element} & \textbf{Validation method} & \textbf{Status} \\
-\hline
-\endhead
-\hline
-\endfoot
-FR-01 & JWT with refresh rotation & Authentication service & Automated auth tests & Validated \\
-\hline
-FR-02 & Profile and avatar handling & Profile management service & Automated profile tests & Validated \\
-\hline
-FR-03 & Asynchronous document ingest & Ingestion pipeline & Automated document tests & Validated \\
-\hline
-FR-04 & Department visibility rules & Access control layer & Automated document tests & Validated \\
-\hline
-FR-05 & Library organisation features & Document library service & Automated document tests & Validated \\
-\hline
-FR-06 & Semantic search & Search service & Automated search tests & Validated \\
-\hline
-FR-07 & Hybrid cited answers & RAG completion service & Search tests and manual Ask & Validated \\
-\hline
-FR-08 & Conversation history & Conversation service & Automated conversation tests & Validated \\
-\hline
-FR-09 & Notification delivery & Notification service & Automated notification tests & Validated \\
-\hline
-FR-10 & Administrative governance & Administration module & Automated admin tests & Validated \\
-\hline
-FR-11 & Manager department view & Manager module & Automated manager tests & Validated \\
-\hline
-FR-12 & Per-user feature restrictions & Authorization middleware & Auth and search tests & Validated \\
-\hline
-NFR-01 & Service health monitoring & Health endpoint & Automated health tests & Validated \\
-\hline
-NFR-02 & HTTP security hardening & Application middleware & Integration tests and review & Validated \\
-\hline
-NFR-03 & Safe session refresh & Client refresh strategy & Automated auth tests & Validated \\
-\hline
-NFR-04 & Reproducible deployment & Container packaging & Manual deployment check & Validated \\
-\hline
-NFR-05 & Automated regression suite & Integration test suite & Local and CI execution & Validated \\
-\hline
-NFR-06 & RAG quality evaluation & Evaluation harness & Quick eval workflow & Partial \\
-\hline
-\end{xltabular}
+The complete requirements-to-validation mapping aligned with
+Table~\ref{tab:requirements} (FR-01 to FR-36) is maintained in
+Annex~\ref{annex:validation-summary} (Table~\ref{tab:annex-a-traceability}).
+The excerpt in Chapter~\ref{ch:architecture}
+(Table~\ref{tab:traceability-main}) highlights representative design decisions.
 
 \section{Concept Comparison Matrix}
 

@@ -1,54 +1,91 @@
 \chapter{Validation Summary}
 \label{annex:validation-summary}
 
-\begin{table}[H]
-\centering
+\footnotesize
+\begin{xltabular}{\linewidth}{|>{\RaggedRight\arraybackslash}p{0.85cm}|>{\RaggedRight\arraybackslash}p{0.22\linewidth}|>{\RaggedRight\arraybackslash}p{0.24\linewidth}|Y|>{\Centering\arraybackslash}p{1.35cm}|}
 \caption{Requirements Traceability Matrix}
-\label{tab:annex-a-traceability}
-\footnotesize
-\renewcommand{\arraystretch}{1.25}
-\setlength{\tabcolsep}{3pt}
-\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}|>{\RaggedRight\arraybackslash}p{0.75cm}|>{\RaggedRight\arraybackslash}p{2.85cm}|>{\RaggedRight\arraybackslash}p{3.05cm}|>{\RaggedRight\arraybackslash}p{5.7cm}|>{\Centering\arraybackslash}p{1.4cm}|}
+\label{tab:annex-a-traceability} \\
 \hline
 \textbf{Req.} & \textbf{Design choice} & \textbf{Implemented element} & \textbf{Validation method} & \textbf{Status} \\
 \hline
-FR-01 & JWT with refresh rotation & Authentication service & Automated auth tests & Validated \\
-\hline
-FR-02 & Profile and avatar handling & Profile management service & Automated profile tests & Validated \\
-\hline
-FR-03 & Asynchronous document ingest & Ingestion pipeline & Automated document tests & Validated \\
-\hline
-FR-04 & Department visibility rules & Access control layer & Automated document tests & Validated \\
-\hline
-FR-05 & Library organisation features & Document library service & Automated document tests & Validated \\
-\hline
-FR-06 & Semantic search & Search service & Automated search tests & Validated \\
-\hline
-FR-07 & Hybrid cited answers & RAG completion service & Search and manual Ask tests & Validated \\
-\hline
-FR-08 & Conversation history & Conversation service & Automated conversation tests & Validated \\
-\hline
-FR-09 & Notification delivery & Notification service & Automated notification tests & Validated \\
-\hline
-FR-10 & Administrative governance & Administration module & Automated admin tests & Validated \\
-\hline
-FR-11 & Manager department view & Manager module & Automated manager tests & Validated \\
-\hline
-FR-12 & Per-user feature restrictions & Authorization middleware & Auth and search tests & Validated \\
-\hline
-\end{tabular*}
-\end{table}
-
-\begin{table}[H]
-\centering
-\caption[]{Requirements Traceability Matrix (continued)}
-\label{tab:annex-a-traceability-cont}
-\footnotesize
-\renewcommand{\arraystretch}{1.25}
-\setlength{\tabcolsep}{3pt}
-\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}|>{\RaggedRight\arraybackslash}p{0.75cm}|>{\RaggedRight\arraybackslash}p{2.85cm}|>{\RaggedRight\arraybackslash}p{3.05cm}|>{\RaggedRight\arraybackslash}p{5.7cm}|>{\Centering\arraybackslash}p{1.4cm}|}
+\endfirsthead
 \hline
 \textbf{Req.} & \textbf{Design choice} & \textbf{Implemented element} & \textbf{Validation method} & \textbf{Status} \\
+\hline
+\endhead
+\hline
+\endfoot
+FR-01 & JWT authentication & Authentication service & Automated auth tests & Validated \\
+\hline
+FR-02 & Session refresh and logout & Authentication service & Automated auth tests & Validated \\
+\hline
+FR-03 & Profile field updates & Profile management service & Automated profile tests & Validated \\
+\hline
+FR-04 & Avatar upload and CORP delivery & Public avatar endpoint & Automated profile tests & Validated \\
+\hline
+FR-05 & Password change and reset & Authentication service & Automated auth tests & Validated \\
+\hline
+FR-06 & Per-user feature restriction flags & Authorization middleware & Auth and search tests & Validated \\
+\hline
+FR-07 & Multi-format upload and async ingest & Ingestion pipeline & Automated document tests & Validated \\
+\hline
+FR-08 & Department visibility rules & Access control layer & Automated document tests & Validated \\
+\hline
+FR-09 & Tags, favourites, archive & Document library service & Automated document tests & Validated \\
+\hline
+FR-10 & Document version history & Document library service & Automated document tests & Validated \\
+\hline
+FR-11 & Reprocess existing versions & Ingestion pipeline & Automated document tests & Validated \\
+\hline
+FR-12 & Detail view, preview, download & Document library service & Automated document tests & Validated \\
+\hline
+FR-13 & Per-document activity audit & Document audit log & Automated document tests & Validated \\
+\hline
+FR-14 & Metadata search and filtering & Document library service & Automated document tests & Validated \\
+\hline
+FR-15 & Platform-wide document administration & Administration module & Automated admin tests & Validated \\
+\hline
+FR-16 & Document catalogue export & Administration module & Automated admin tests & Validated \\
+\hline
+FR-17 & Semantic vector search & Search service & Automated search tests & Validated \\
+\hline
+FR-18 & Hybrid cited Ask answers & RAG completion service & Search and manual Ask tests & Validated \\
+\hline
+FR-19 & Conversation thread CRUD & Conversation service & Automated conversation tests & Validated \\
+\hline
+FR-20 & Thumbs up/down answer feedback & Conversation service & Automated conversation tests & Validated \\
+\hline
+FR-21 & Aggregated feedback analytics & Administration module & Automated admin tests & Validated \\
+\hline
+FR-22 & Event-driven automatic notifications & Notification service & Automated notification tests & Validated \\
+\hline
+FR-23 & Manual announcements & Notification service & Automated notification tests & Validated \\
+\hline
+FR-24 & Notification file attachments & Notification service & Automated notification tests & Validated \\
+\hline
+FR-25 & Personal notification inbox & Notification service & Automated notification tests & Validated \\
+\hline
+FR-26 & Manager department overview & Manager module & Automated manager tests & Validated \\
+\hline
+FR-27 & User account lifecycle & Administration module & Automated admin tests & Validated \\
+\hline
+FR-28 & Department CRUD & Administration module & Automated admin tests & Validated \\
+\hline
+FR-29 & Department merge & Administration module & Automated admin tests & Validated \\
+\hline
+FR-30 & Department access grants & Administration module & Automated admin tests & Validated \\
+\hline
+FR-31 & Platform KPI statistics & Administration module & Automated admin tests & Validated \\
+\hline
+FR-32 & Auth and document audit exports & Administration module & Automated admin tests & Validated \\
+\hline
+FR-33 & Service health monitoring & Health endpoint & Automated health tests & Validated \\
+\hline
+FR-34 & Bulk user operations & Administration module & Automated admin tests & Validated \\
+\hline
+FR-35 & Bulk document operations & Administration module & Automated admin tests & Validated \\
+\hline
+FR-36 & Administrative import/export & Administration module & Automated admin tests & Validated \\
 \hline
 NFR-01 & Service health monitoring & Health endpoint & Automated health tests & Validated \\
 \hline
@@ -62,8 +99,8 @@ NFR-05 & Automated regression suite & Integration test suite & Local and CI exec
 \hline
 NFR-06 & RAG quality evaluation & Evaluation harness & Quick eval workflow & Partial \\
 \hline
-\end{tabular*}
-\end{table}
+\end{xltabular}
+\normalsize
 
 \begin{table}[H]
 \centering

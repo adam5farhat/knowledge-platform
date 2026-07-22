@@ -10,6 +10,7 @@
 \usepackage{geometry}
 \usepackage{setspace}
 \usepackage{graphicx}
+\usepackage{rotating}
 \usepackage{array,booktabs,tabularx,longtable,multirow}
 \usepackage{xltabular}
 \usepackage{ragged2e}
@@ -43,6 +44,7 @@
 \usepackage{pdfpages}
 \usepackage{appendix}
 \usepackage{float}
+\usepackage{placeins}
 \usepackage{afterpage}
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric, positioning, arrows.meta}
@@ -119,6 +121,15 @@
   \begin{figure}[H]
   \centering
   \includegraphics[width=0.98\textwidth,height=0.86\textheight,keepaspectratio]{assets/figures/#1.png}
+  \caption[#2 --- sequence diagram]{#2 --- sequence diagram}
+  \label{#4}
+  \end{figure}%
+}
+% Structural diagrams (architecture / use-case / class) — no sequence suffix.
+\newcommand{\structdiagram}[4]{%
+  \begin{figure}[H]
+  \centering
+  \includegraphics[width=0.98\textwidth,height=0.86\textheight,keepaspectratio]{assets/figures/#1.png}
   \caption[#2]{#2}
   \label{#4}
   \end{figure}%
@@ -139,17 +150,22 @@
   \label{#3}
   \end{figure}%
 }
-% Sprint structural block: use-case + domain class diagrams under one subsubsection
-\newcommand{\sprintstructural}[5]{%
-  \subsubsection{Scoped structural views}%
+% Sprint structural block: use-case + domain class diagrams under one subsubsection.
+% #1 sprint num; #2 subsubsection title; #3/#4 usecase caption/label; #5 usecase prose;
+% #6/#7 class caption/label; #8 class prose.
+\newcommand{\sprintstructural}[8]{%
+  \subsubsection{#2}%
   \label{subsubsec:sprint#1-structural}%
-  \paragraph{Use-case model.}%
-  \sprintusecase{#1}{#2}{#3}%
-  \paragraph{Domain class model.}%
-  \sprintclass{#1}{#4}{#5}%
+  \paragraph{Sprint~#1 use-case diagram.}%
+  #5%
+  \sprintusecase{#1}{#3}{#4}%
+  \paragraph{Sprint~#1 domain class diagram.}%
+  #8%
+  \sprintclass{#1}{#6}{#7}%
 }
-\newcommand{\sprintsequences}[1]{%
-  \subsubsection{Interaction sequence diagrams}%
+% #1 sprint num; #2 subsubsection title (e.g. interaction sequences theme).
+\newcommand{\sprintsequences}[2]{%
+  \subsubsection{#2}%
   \label{subsubsec:sprint#1-sequences}%
 }
 \newcommand{\sprintflowgroup}[1]{%
@@ -310,15 +326,22 @@ Mechatronics-oriented project: explain system decomposition, mechanical-electron
 
 % ---------------- Bibliography ----------------
 \cleardoublepage
-\addcontentsline{toc}{chapter}{References}
+\phantomsection
+\addcontentsline{toc}{chapter}{Bibliography}
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 
 % ---------------- Appendices ----------------
 \begin{appendices}
 \renewcommand{\chaptername}{Appendix}
+% Store a full appendix mark so running headers never fall back to ``Chapter N''.
+\renewcommand{\chaptermark}[1]{%
+  \markboth{\MakeUppercase{\chaptername~\thechapter.} #1}{\MakeUppercase{\chaptername~\thechapter.} #1}%
+}
+\fancyhead[L]{\small\truncate{0.52\textwidth}{\nouppercase{\leftmark}}}
 \input{annexes/annexA_validation_summary}
 \input{annexes/annexB_integrity_reproducibility}
+\clearpage
 \end{appendices}
 
 \end{document}
